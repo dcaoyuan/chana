@@ -1,0 +1,271 @@
+[
+  {
+    "namespace": "wandou.avro.test",
+    "type": "enum",
+    "name": "LoginKind",
+    "symbols": [
+      "GAME", "WDJ"
+    ]
+  },
+  {
+    "namespace": "wandou.avro.test",
+    "type": "enum",
+    "name": "ActionKind",
+    "symbols": [
+      "DOWNLOAD", "UPGRADE", "CLICK", "QUERY", "UNINSTALL"
+    ]
+  },
+  {
+    "namespace": "wandou.avro.test",
+    "type": "record",
+    "name": "LoginRecord",
+    "fields": [
+      {
+        "name": "time",
+        "type": "long",
+        "default": 0
+      },
+      {
+        "name": "kind",
+        "type": "LoginKind"
+      }
+    ]
+  }
+  ,
+  {
+    "namespace": "wandou.avro.test",
+    "type": "record",
+    "name": "ChargeRecord",
+    "fields": [
+      {
+        "name": "time",
+        "type": "long",
+        "default": 0
+      },
+      {
+        "name": "amount",
+        "type": "double",
+        "default": 0.0
+      }
+    ]
+  }
+  ,
+  {
+    "namespace": "wandou.avro.test",
+    "type": "record",
+    "name": "AppInfo",
+    "fields": [
+      {
+        "name": "numBlackApps",
+        "type": "int",
+        "default": 0
+      },
+      {
+        "name": "numInstalledApps",
+        "type": "int",
+        "default": 0
+      },
+      {
+        "name": "numUninstalledApps",
+        "type": "int",
+        "default": 0
+      },
+      {
+        "name": "stdDevInstallingTime",
+        "type": "double",
+        "default": 0.0
+      },
+      {
+        "name": "hasAppList",
+        "type": "boolean",
+        "default": false
+      },
+      {
+        "name": "scoreAppInfo",
+        "type": "double",
+        "default": 0.0
+      }
+    ]
+  }
+  ,
+  {
+    "namespace": "wandou.avro.test",
+    "type": "record",
+    "name": "ActionRecord",
+    "fields": [
+      {
+        "name": "time",
+        "type": "long",
+        "default": 0
+      },
+      {
+        "name": "kind",
+        "type": "ActionKind"
+      }
+    ]
+  }
+  ,
+  {
+    "namespace": "wandou.avro.test",
+    "type": "record",
+    "name": "ActionInfo",
+    "fields": [
+      {
+        "name": "actionRecords",
+        "type": {
+          "type": "array",
+          "items": "ActionRecord"
+        },
+        "default": []
+      },
+      {
+        "name": "scoreDownloads",
+        "type": "double",
+        "default": 0.0
+      },
+      {
+        "name": "scoreUpgrades",
+        "type": "double",
+        "default": 0.0
+      },
+      {
+        "name": "scoreClicks",
+        "type": "double",
+        "default": 0.0
+      },
+      {
+        "name": "scoreQueries",
+        "type": "double",
+        "default": 0.0
+      },
+      {
+        "name": "scoreUninstalls",
+        "type": "double",
+        "default": 0.0
+      },
+      {
+        "name": "scoreActionInfo",
+        "type": "double",
+        "default": 0.0
+      }
+    ]
+  }
+  ,
+  {
+    "namespace": "wandou.avro.test",
+    "type": "record",
+    "name": "Account",
+    "fields": [
+      {
+        "name": "id",
+        "type": "string",
+        "default": "-1"
+      },
+      {
+        "name": "registerTime",
+        "type": "long",
+        "default": 0
+      },
+      {
+        "name": "lastLoginTime",
+        "type": "long",
+        "default": 0
+      },
+      {
+        "name": "loginRecords",
+        "type": {
+          "type": "array",
+          "items": "LoginRecord"
+        },
+        "default": []
+      },
+      {
+        "name": "chargeRecords",
+        "type": {
+          "type": "array",
+          "items": "ChargeRecord"
+        },
+        "default": []
+      },
+      {
+        "name": "activityRecords",
+        "type": {
+          "type": "array",
+          "items": "long"
+        },
+        "default": []
+      },
+      {
+        "name": "balance",
+        "type": "double",
+        "default": 0.0
+      },
+      {
+        "name": "numFriends",
+        "type": "int",
+        "default": 0
+      },
+      {
+        "name": "numContacts",
+        "type": "int",
+        "default": 0
+      },
+      {
+        "name": "numPlayedGames",
+        "type": "int",
+        "default": 0
+      },
+      {
+        "name": "score",
+        "type": "double",
+        "default": 0.0
+      },
+      {
+        "name": "scoreActives",
+        "type": "double",
+        "default": 0.0
+      },
+      {
+        "name": "scoreFaithful",
+        "type": "double",
+        "default": 0.0
+      },
+      {
+        "name": "scoreLogins",
+        "type": "double",
+        "default": 0.0
+      },
+      {
+        "name": "scorePayments",
+        "type": "double",
+        "default": 0.0
+      },
+      {
+        "name": "scoreApps",
+        "type": "double",
+        "default": 0.0
+      },
+      {
+        "name": "scoreActions",
+        "type": "double",
+        "default": 0.0
+      },
+      {
+        "name": "devApps",
+        "type": {
+          "type": "map",
+          "values": "AppInfo"
+        },
+        "default": {}
+      },
+      {
+        "name": "devActions",
+        "type": {
+          "type": "map",
+          "values": "ActionInfo"
+        },
+        "default": {}
+      }
+    ]
+  }
+]
