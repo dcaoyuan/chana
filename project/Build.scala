@@ -23,11 +23,11 @@ object Build extends sbt.Build {
     version := "0.1.1-SNAPSHOT",
     scalaVersion := "2.11.4",
     scalacOptions ++= Seq("-unchecked", "-deprecation"),
-    javacOptions ++= Seq("-source", "1.6", "-target", "1.6")) 
+    javacOptions ++= Seq("-source", "1.6", "-target", "1.6"), 
     resolvers ++= Seq(
       "Sonatype OSS Releases" at "https://oss.sonatype.org/content/repositories/releases",
       "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
-      "Typesafe repo" at "http://repo.typesafe.com/typesafe/releases/"),
+      "Typesafe repo" at "http://repo.typesafe.com/typesafe/releases/"))
 
   lazy val avroSettings = Seq(
     sbtavro.SbtAvro.stringType in sbtavro.SbtAvro.avroConfig := "String",
