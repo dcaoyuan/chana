@@ -1,4 +1,4 @@
-package wandou.avds.route
+package wandou.astore.route
 
 import akka.actor.ActorRef
 import akka.actor.ActorSystem
@@ -10,9 +10,9 @@ import scala.util.Failure
 import scala.util.Success
 import spray.http.StatusCodes
 import spray.routing.Directives
-import wandou.avds.script.DelScript
-import wandou.avds.script.PutScript
-import wandou.avds.script.ScriptBoard
+import wandou.astore.script.DelScript
+import wandou.astore.script.PutScript
+import wandou.astore.script.ScriptBoard
 import wandou.avpath
 import wandou.avpath.Evaluator.Ctx
 import wandou.avro.ToJson

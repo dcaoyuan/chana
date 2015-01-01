@@ -1,4 +1,4 @@
-package wandou.avds.schema
+package wandou.astore.schema
 
 import akka.actor.Actor
 import akka.actor.ActorLogging
@@ -9,6 +9,7 @@ import org.apache.avro.Schema
 import scala.collection.mutable
 import scala.util.Failure
 import scala.util.Success
+import wandou.astore.Entity
 
 /**
  * @param   entity name
@@ -19,30 +20,36 @@ final case class DelSchema(entityName: String)
 
 object SchemaBoard {
   private val entityToSchema = new mutable.HashMap[String, Schema]()
-  private val scriptsLock = new ReentrantReadWriteLock()
+  private val schemasLock = new ReentrantReadWriteLock()
 
-  private def putSchema(entity: String, schema: Schema): Unit =
+  private def putSchema(system: ActorSystem, entityName: String, schema: Schema): Unit =
     try {
-      scriptsLock.writeLock.lock
-      entityToSchema(entity) = schema
+      schemasLock.writeLock.lock
+      entityToSchema.get(entityName) match {
+        case Some(`schema`) => // existed, do nothing
+        case _ =>
+          entityToSchema(entityName) = schema
+          val resolver = Entity.startSharding(system, entityName, Some(Entity.props(schema)))
+
+      }
     } finally {
-      scriptsLock.writeLock.unlock
+      schemasLock.writeLock.unlock
     }
 
-  private def delSchema(entity: String): Unit =
+  private def delSchema(entityName: String): Unit =
     try {
-      scriptsLock.writeLock.lock
-      entityToSchema -= entity
+      schemasLock.writeLock.lock
+      entityToSchema -= entityName
     } finally {
-      scriptsLock.writeLock.unlock
+      schemasLock.writeLock.unlock
     }
 
-  def schemaOf(entity: String) =
+  def schemaOf(entity: String): Option[Schema] =
     try {
-      scriptsLock.readLock.lock
+      schemasLock.readLock.lock
       entityToSchema.get(entity)
     } finally {
-      scriptsLock.readLock.unlock
+      schemasLock.readLock.unlock
     }
 
   val SCHEMA_BOARD = "schemaBoard"
@@ -69,7 +76,7 @@ class SchemaBoard extends Actor with ActorLogging {
   def receive = {
     case PutSchema(entityName, schema) =>
       try {
-        SchemaBoard.putSchema(entityName, schema)
+        SchemaBoard.putSchema(context.system, entityName, schema)
         sender() ! Success(entityName)
       } catch {
         case ex: Throwable =>

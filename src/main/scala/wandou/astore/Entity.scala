@@ -1,4 +1,4 @@
-package wandou.avds
+package wandou.astore
 
 import akka.actor.Actor
 import akka.actor.ActorLogging
@@ -18,13 +18,13 @@ import org.apache.avro.generic.GenericRecordBuilder
 import scala.concurrent.Future
 import scala.util.Failure
 import scala.util.Success
-import wandou.avds.script.Scriptable
+import wandou.astore.script.Scriptable
 import wandou.avpath
 import wandou.avpath.Evaluator
 import wandou.avro
 
 object Entity {
-  val shardName: String = "Entities"
+  def props(schema: Schema) = Props(classOf[Entity], schema)
 
   lazy val idExtractor: ShardRegion.IdExtractor = {
     case cmd: avpath.Command => (cmd.id, cmd)
@@ -34,7 +34,7 @@ object Entity {
     case cmd: avpath.Command => (cmd.id.hashCode % 100).toString
   }
 
-  def startSharding(system: ActorSystem, entryProps: Option[Props]) {
+  def startSharding(system: ActorSystem, shardName: String, entryProps: Option[Props]) = {
     ClusterSharding(system).start(
       typeName = shardName,
       entryProps = entryProps,
@@ -42,8 +42,7 @@ object Entity {
       shardResolver = shardResolver)
   }
 
-  private[avds] object Internal {
-    case object Join
+  private[astore] object Internal {
     final case class Bootstrap(val record: Record)
   }
 }

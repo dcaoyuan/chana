@@ -7,7 +7,7 @@ import scoverage.ScoverageSbtPlugin._
 
 object Build extends sbt.Build {
 
-  lazy val avpath = Project("wandou-avds", file("."))
+  lazy val avpath = Project("wandou-astore", file("."))
     .settings(basicSettings: _*)
     .settings(formatSettings: _*)
     .settings(releaseSettings: _*)
@@ -56,7 +56,7 @@ object Build extends sbt.Build {
     pomIncludeRepository := { (repo: MavenRepository) => false },
     pomExtra := pomXml)
 
-  lazy val pomXml = (<url>https://github.com/wandoulabs/avds</url>
+  lazy val pomXml = (<url>https://github.com/wandoulabs/astore</url>
       <licenses>
         <license>
           <name>Apache License 2.0</name>
@@ -65,8 +65,8 @@ object Build extends sbt.Build {
         </license>
       </licenses>
       <scm>
-        <url>git@github.com:wandoulabs/avds.git</url>
-        <connection>scm:git:git@github.com:wandoulabs/avds.git</connection>
+        <url>git@github.com:wandoulabs/astore.git</url>
+        <connection>scm:git:git@github.com:wandoulabs/astore.git</connection>
       </scm>)
 
   lazy val noPublishing = Seq(

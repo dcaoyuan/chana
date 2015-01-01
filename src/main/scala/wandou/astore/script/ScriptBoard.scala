@@ -1,4 +1,4 @@
-package wandou.avds.script
+package wandou.astore.script
 
 import akka.actor.Actor
 import akka.actor.ActorLogging

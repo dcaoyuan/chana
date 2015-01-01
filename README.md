@@ -1,4 +1,4 @@
-avds
+astore
 ====
 
-Avro Data Server based on Akka
+Avro Data Store based on Akka
