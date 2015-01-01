@@ -1,0 +1,42 @@
+package wandou.astore
+
+import akka.actor.ActorSystem
+import akka.io.IO
+import akka.util.Timeout
+import scala.concurrent.duration._
+import spray.can.Http
+import spray.http.HttpHeaders.RawHeader
+import spray.routing.Directives
+import wandou.astore.route.RestRoute
+
+/**
+ *
+ * $ cd src/test/resources/avsc
+ * $ curl --data @LongList.record 'http://localhost:8080/putschema/longlist'
+ * $ curl 'http://localhost:8080/longlist/get/1'
+ * $ curl --data-binary @update.value 'http://localhost:8080/longlist/update/1'
+ * $ curl 'http://localhost:8080/longlist/get/1'
+ * $ weighttp -c100 -n100000 -k 'http://localhost:8080/longlist/get/1'
+ *
+ */
+object AStore extends scala.App {
+  implicit val system = ActorSystem("AStoreSystem")
+
+  class AStoreRoute(val system: ActorSystem) extends RestRoute with Directives {
+    val readTimeout: Timeout = 20 seconds
+    val writeTimeout: Timeout = 20 seconds
+
+    val route = restApi
+  }
+
+  val routes = {
+    Directives.respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
+      new AStoreRoute(system).route
+    }
+  }
+
+  val server = system.actorOf(HttpServer.props(routes), "astore-web")
+  val webConfig = system.settings.config.getConfig("web")
+  IO(Http) ! Http.Bind(server, webConfig.getString("hostname"), port = webConfig.getInt("port"))
+
+}

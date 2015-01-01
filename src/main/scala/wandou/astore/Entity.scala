@@ -59,7 +59,7 @@ class Entity(schema: Schema) extends Actor with Stash with ActorLogging with Scr
   }
 
   override def preStart {
-    record.put("id", id)
+    super[Actor].preStart
     log.debug("Starting: {} ", id)
     //context.setReceiveTimeout(ReceiveTimeoutSecs)
     createRecord()
@@ -79,6 +79,58 @@ class Entity(schema: Schema) extends Actor with Stash with ActorLogging with Scr
   }
 
   def ready: Receive = {
+    case avpath.GetRecord(_) =>
+      sender() ! record
+    case avpath.GetField(_, field) =>
+      sender() ! record.get(field)
+    case avpath.PutRecord(_, srcRecord) =>
+      try {
+        avro.replace(record, srcRecord)
+        sender() ! Success(id)
+      } catch {
+        case ex: Throwable =>
+          log.error(ex, ex.getMessage)
+          sender() ! Failure(ex)
+      }
+    case avpath.PutRecordJson(_, json) =>
+      try {
+        val srcRecord = avro.FromJson.fromJsonString(json, schema).asInstanceOf[Record]
+        avro.replace(record, srcRecord)
+        sender() ! Success(id)
+      } catch {
+        case ex: Throwable =>
+          log.error(ex, ex.getMessage)
+          sender() ! Failure(ex)
+      }
+    case avpath.PutField(_, fieldName, value) =>
+      try {
+        val field = schema.getField(fieldName)
+        if (field != null) {
+          record.put(fieldName, value)
+          sender() ! Success(id)
+        } else {
+          sender() ! Failure(new RuntimeException("Field does not exist: " + fieldName))
+        }
+      } catch {
+        case ex: Throwable =>
+          sender() ! Failure(ex)
+      }
+
+    case avpath.PutFieldJson(_, fieldName, json) =>
+      try {
+        val field = schema.getField(fieldName)
+        if (field != null) {
+          val value = avro.FromJson.fromJsonString(json, field.schema)
+          record.put(fieldName, value)
+          sender() ! Success(id)
+        } else {
+          sender() ! Failure(new RuntimeException("Field does not exist: " + fieldName))
+        }
+      } catch {
+        case ex: Throwable =>
+          sender() ! Failure(ex)
+      }
+
     case avpath.Select(_, path) =>
       val ast = avpathParser.parse(path)
       val res = Evaluator.select(record, ast)

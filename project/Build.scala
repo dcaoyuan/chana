@@ -100,7 +100,8 @@ object Dependencies {
   val akka = Seq(
     "com.typesafe.akka" %% "akka-actor" % AKKA_VERSION,
     "com.typesafe.akka" %% "akka-contrib" % AKKA_VERSION,
-    "com.typesafe.akka" %% "akka-persistence-experimental" % AKKA_VERSION
+    "com.typesafe.akka" %% "akka-persistence-experimental" % AKKA_VERSION,
+    "com.typesafe.akka" %% "akka-slf4j" % AKKA_VERSION
   )
 
   val avro = Seq(

@@ -1,0 +1,8 @@
+{
+  "type": "record", 
+  "name": "LongList",
+  "fields" : [
+    {"name": "value", "type": "long", "default": 0},             
+    {"name": "next", "type": ["null", "LongList"], "default": null}
+  ]
+}
