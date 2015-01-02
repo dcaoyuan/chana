@@ -14,19 +14,21 @@ import wandou.astore.Entity
 /**
  * @param   entity name
  * @param   schema of entity
+ * @param   the full name (with namespace) of this entity, in case of there are
+ *          embbed complex types which have to be defined in union in one schema file
  */
-final case class PutSchema(entityName: String, schema: Schema)
+final case class PutSchema(entityName: String, schema: Schema, entityFullName: Option[String] = None)
 final case class DelSchema(entityName: String)
 
 object SchemaBoard {
   private val entityToSchema = new mutable.HashMap[String, Schema]()
   private val schemasLock = new ReentrantReadWriteLock()
 
-  private def putSchema(system: ActorSystem, entityName: String, schema: Schema): Unit =
+  private def putSchema(system: ActorSystem, entityName: String, schema: Schema, entityFullName: Option[String] = None): Unit =
     try {
       schemasLock.writeLock.lock
       entityToSchema.get(entityName) match {
-        case Some(`schema`) => // existed, do nothing
+        case Some(`schema`) => // existed, do nothing, or upgrade to new schema ? TODO
         case _ =>
           Entity.startSharding(system, entityName, Some(Entity.props(schema)))
           entityToSchema(entityName) = schema
@@ -39,6 +41,7 @@ object SchemaBoard {
     try {
       schemasLock.writeLock.lock
       entityToSchema -= entityName
+      // TODO remove all actor instances of thie entity
     } finally {
       schemasLock.writeLock.unlock
     }
@@ -73,9 +76,9 @@ object SchemaBoard {
 
 class SchemaBoard extends Actor with ActorLogging {
   def receive = {
-    case PutSchema(entityName, schema) =>
+    case PutSchema(entityName, schema, entityFullName) =>
       try {
-        SchemaBoard.putSchema(context.system, entityName, schema)
+        SchemaBoard.putSchema(context.system, entityName, schema, entityFullName)
         sender() ! Success(entityName)
       } catch {
         case ex: Throwable =>

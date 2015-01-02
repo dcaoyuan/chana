@@ -61,7 +61,7 @@ case class DelScript(entity: String, id: String)
 
 ### 4. Schema
 ```scala
-case class PutSchema(entityName: String, schema: Schema)
+case class PutSchema(entityName: String, schema: Schema, entityFullName: Option[String] = None)
 case class DelSchema(entityName: String)
 ```
 
