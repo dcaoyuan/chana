@@ -2,6 +2,7 @@ package wandou.astore.schema
 
 import akka.actor.Actor
 import akka.actor.ActorLogging
+import akka.actor.ActorRef
 import akka.actor.ActorSystem
 import akka.actor.Props
 import java.util.concurrent.locks.ReentrantReadWriteLock
@@ -28,9 +29,8 @@ object SchemaBoard {
       entityToSchema.get(entityName) match {
         case Some(`schema`) => // existed, do nothing
         case _ =>
+          Entity.startSharding(system, entityName, Some(Entity.props(schema)))
           entityToSchema(entityName) = schema
-          val resolver = Entity.startSharding(system, entityName, Some(Entity.props(schema)))
-
       }
     } finally {
       schemasLock.writeLock.unlock

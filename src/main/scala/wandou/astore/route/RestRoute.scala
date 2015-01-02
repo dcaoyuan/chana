@@ -34,9 +34,9 @@ trait RestRoute { _: spray.routing.Directives =>
   val schemaBoard = SchemaBoard(system).schemaBoard
   val schemaParser = new Schema.Parser()
 
-  def resolver(entityName: String) = ClusterSharding(system).shardRegion(entityName)
+  final def resolver(entityName: String) = ClusterSharding(system).shardRegion(entityName)
 
-  def restApi = {
+  final def restApi = {
     path("putschema" / Rest) { entityName =>
       entity(as[String]) { schemaStr =>
         try {
