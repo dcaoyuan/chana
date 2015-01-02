@@ -2,7 +2,6 @@ package wandou.astore.schema
 
 import akka.actor.Actor
 import akka.actor.ActorLogging
-import akka.actor.ActorRef
 import akka.actor.ActorSystem
 import akka.actor.Props
 import java.util.concurrent.locks.ReentrantReadWriteLock
