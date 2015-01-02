@@ -72,6 +72,25 @@ ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~:/?#[]@!$&'()*
 
 ## URL format
 
+### Put schema 
+```
+POST /putschema/$entityName/ 
+
+Host: status.wandoujia.com  
+Content-Type: application/octet-stream 
+Content-Length: NNN
+
+BODY:
+<SCHEMA_STRING>
+```
+
+### Del schame 
+```
+GET /delschema/$entityName/ 
+
+Host: status.wandoujia.com  
+```
+
 ### Get record
 ```
 GET /$record/get/$id/ 
