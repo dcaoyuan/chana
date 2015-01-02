@@ -1,6 +1,8 @@
 OPGET=http://localhost:8080/longlist/get/
 OPPUT=http://localhost:8080/longlist/update/
 
+curl --data @LongList.record 'http://localhost:8080/putschema/longlist'
+
 for((i=1;i<=1000;i++));
 do 
     curl --data-binary @update.value ${OPPUT}${i};

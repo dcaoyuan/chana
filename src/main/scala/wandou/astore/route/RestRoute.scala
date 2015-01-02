@@ -27,7 +27,6 @@ trait RestRoute { _: spray.routing.Directives =>
   def readTimeout: Timeout
   def writeTimeout: Timeout
 
-  // use the enclosing ActorContext's or ActorSystem's dispatcher for our Futures and Scheduler
   implicit def executionContext: ExecutionContext = system.dispatcher
 
   val scriptBoard = ScriptBoard(system).scriptBoard
@@ -107,11 +106,11 @@ trait RestRoute { _: spray.routing.Directives =>
                   complete {
                     resolver(entityName).ask(avpath.GetField(id, fieldName))(readTimeout).collect {
                       case value =>
-                        avro.avroEncode(value, field.schema) match {
-                          case Success(bytes) => bytes
-                          case _              => Array[Byte]()
-                        }
-                      //ToJson.toJsonString(x.value, x.schema)
+                        ToJson.toAvroJsonString(value, field.schema)
+                      //avro.avroEncode(value, field.schema) match {
+                      //  case Success(bytes) => bytes
+                      //  case _              => Array[Byte]()
+                      //}
                     }
                   }
                 } else {
@@ -126,11 +125,11 @@ trait RestRoute { _: spray.routing.Directives =>
                 complete {
                   resolver(entityName).ask(avpath.GetRecord(id))(readTimeout).collect {
                     case value =>
-                      avro.avroEncode(value, schema) match {
-                        case Success(bytes) => bytes
-                        case _              => Array[Byte]()
-                      }
-                    //ToJson.toJsonString(x.value, x.schema)
+                      ToJson.toAvroJsonString(value, schema)
+                    //avro.avroEncode(value, schema) match {
+                    //  case Success(bytes) => bytes
+                    //  case _              => Array[Byte]()
+                    //}
                   }
                 }
               case None =>
@@ -169,9 +168,8 @@ trait RestRoute { _: spray.routing.Directives =>
                   resolver(entityName).ask(avpath.Select(id, pathExp))(readTimeout).collect {
                     case xs: List[_] =>
                       xs.map {
-                        case x: Ctx => ToJson.toJsonString(x.value, x.schema)
-                        case x      => x.toString
-                      }.mkString("\n")
+                        case Ctx(value, schema, _, _) => ToJson.toAvroJsonString(value, schema)
+                      } mkString ("[", ",", "]")
                   }
                 }
               case _ =>
