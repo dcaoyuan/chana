@@ -1,36 +1,37 @@
 package wandou.astore.route
 
+import akka.actor.ActorSelection
 import akka.actor.ActorSystem
 import akka.contrib.pattern.ClusterSharding
 import akka.pattern.ask
 import akka.util.Timeout
 import org.apache.avro.Schema
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.util.Failure
 import scala.util.Success
 import spray.http.StatusCodes
 import spray.routing.Directives
 import wandou.astore.schema.DelSchema
+import wandou.astore.schema.NodeSchemaBoard
 import wandou.astore.schema.PutSchema
-import wandou.astore.schema.SchemaBoard
 import wandou.astore.script.DelScript
+import wandou.astore.script.NodeScriptBoard
 import wandou.astore.script.PutScript
-import wandou.astore.script.ScriptBoard
 import wandou.avpath
 import wandou.avpath.Evaluator.Ctx
 import wandou.avro
 import wandou.avro.ToJson
 
 trait RestRoute { _: spray.routing.Directives =>
-  def system: ActorSystem
+  val system: ActorSystem
+  def clusterSchemaBoardProxy: ActorSelection
   def readTimeout: Timeout
   def writeTimeout: Timeout
 
-  implicit def executionContext: ExecutionContext = system.dispatcher
+  import system.dispatcher
 
-  val scriptBoard = ScriptBoard(system).scriptBoard
-  val schemaBoard = SchemaBoard(system).schemaBoard
+  val scriptBoard = NodeScriptBoard(system).scriptBoard
+  //val schemaBoard = SchemaBoard(system).schemaBoard
   val schemaParser = new Schema.Parser()
 
   final def resolver(entityName: String) = ClusterSharding(system).shardRegion(entityName)
@@ -48,7 +49,7 @@ trait RestRoute { _: spray.routing.Directives =>
                 val entitySchema = schema.getTypes.get(schema.getIndexNamed(fname))
                 if (entitySchema != null) {
                   complete {
-                    schemaBoard.ask(PutSchema(entityName, entitySchema))(writeTimeout).collect {
+                    clusterSchemaBoardProxy.ask(PutSchema(entityName, entitySchema))(writeTimeout).collect {
                       case Success(_)  => StatusCodes.OK
                       case Failure(ex) => StatusCodes.InternalServerError
                     }
@@ -70,7 +71,7 @@ trait RestRoute { _: spray.routing.Directives =>
           try {
             val schema = schemaParser.parse(schemaStr)
             complete {
-              schemaBoard.ask(PutSchema(entityName, schema))(writeTimeout).collect {
+              clusterSchemaBoardProxy.ask(PutSchema(entityName, schema))(writeTimeout).collect {
                 case Success(_)  => StatusCodes.OK
                 case Failure(ex) => StatusCodes.InternalServerError
               }
@@ -85,7 +86,7 @@ trait RestRoute { _: spray.routing.Directives =>
     } ~ path("delschema" / Rest) { entityName =>
       get {
         complete {
-          schemaBoard.ask(DelSchema(entityName))(writeTimeout).collect {
+          clusterSchemaBoardProxy.ask(DelSchema(entityName))(writeTimeout).collect {
             case Success(_)  => StatusCodes.OK
             case Failure(ex) => StatusCodes.InternalServerError
           }

@@ -4,6 +4,8 @@ import akka.actor.Actor
 import akka.actor.ActorLogging
 import akka.actor.ActorSystem
 import akka.actor.Props
+import akka.contrib.pattern.DistributedPubSubExtension
+import akka.contrib.pattern.DistributedPubSubMediator
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import javax.script.Compilable
 import javax.script.CompiledScript
@@ -20,7 +22,7 @@ import scala.util.Success
 final case class PutScript(entity: String, id: String, script: String)
 final case class DelScript(entity: String, id: String)
 
-object ScriptBoard {
+object NodeScriptBoard {
   /**
    * There is a sbt issue related to classloader, anyway, use new ScriptEngineManager(null),
    * by adding 'null' classloader solves this issue:
@@ -62,7 +64,7 @@ object ScriptBoard {
   private val singletonsMutex = new AnyRef()
 
   final class NodeSingletons(system: ActorSystem) {
-    lazy val scriptBoard = system.actorOf(Props(new ScriptBoard), SCRIPT_BOARD)
+    val scriptBoard = system.actorOf(Props(classOf[NodeScriptBoard]), SCRIPT_BOARD)
   }
 
   def apply(system: ActorSystem): NodeSingletons = {
@@ -78,21 +80,28 @@ object ScriptBoard {
 
 }
 
-class ScriptBoard extends Actor with ActorLogging {
+class NodeScriptBoard extends Actor with ActorLogging {
+  log.info("{} started.", self.path)
+
+  val mediator = DistributedPubSubExtension(context.system).mediator
+  mediator ! DistributedPubSubMediator.Put(self)
+
   def receive = {
-    case PutScript(entity, id, script) =>
+    case x @ PutScript(entity, id, script) =>
+      log.info("Got: {}", x)
       try {
-        val compiledScript = ScriptBoard.engine.asInstanceOf[Compilable].compile(script)
-        ScriptBoard.putScript(entity, id, compiledScript)
+        val compiledScript = NodeScriptBoard.engine.asInstanceOf[Compilable].compile(script)
+        NodeScriptBoard.putScript(entity, id, compiledScript)
         sender() ! Success(id)
       } catch {
         case ex: Throwable =>
           log.error(ex, ex.getMessage)
           sender() ! Failure(ex)
       }
-    case DelScript(entity, id) =>
+    case x @ DelScript(entity, id) =>
+      log.info("Got: {}", x)
       try {
-        ScriptBoard.delScript(entity, id)
+        NodeScriptBoard.delScript(entity, id)
         sender() ! Success(id)
       } catch {
         case ex: Throwable =>

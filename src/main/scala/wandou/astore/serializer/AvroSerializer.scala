@@ -6,7 +6,7 @@ import akka.util.{ ByteString }
 import java.nio.ByteOrder
 import org.apache.avro.generic.GenericRecord
 import scala.util.Failure
-import wandou.astore.schema.SchemaBoard
+import wandou.astore.schema.NodeSchemaBoard
 import wandou.avro
 
 class AvroSerializer(val system: ExtendedActorSystem) extends Serializer {
@@ -37,7 +37,7 @@ class AvroSerializer(val system: ExtendedActorSystem) extends Serializer {
     val data = ByteString(bytes).iterator
     val name = StringSerializer.fromByteIterator(data)
 
-    val schema = SchemaBoard.schemaOf(name).get
+    val schema = NodeSchemaBoard.schemaOf(name).get
     val payload = Array.ofDim[Byte](data.len)
     data.getBytes(payload)
     val r = avro.avroDecode[GenericRecord](payload, schema)

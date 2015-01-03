@@ -4,6 +4,8 @@ import akka.actor.Actor
 import akka.actor.ActorLogging
 import akka.actor.ActorSystem
 import akka.actor.Props
+import akka.contrib.pattern.DistributedPubSubExtension
+import akka.contrib.pattern.DistributedPubSubMediator
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import org.apache.avro.Schema
 import scala.collection.mutable
@@ -20,7 +22,7 @@ import wandou.astore.Entity
 final case class PutSchema(entityName: String, schema: Schema, entityFullName: Option[String] = None)
 final case class DelSchema(entityName: String)
 
-object SchemaBoard {
+object NodeSchemaBoard {
   private val entityToSchema = new mutable.HashMap[String, Schema]()
   private val schemasLock = new ReentrantReadWriteLock()
 
@@ -59,7 +61,7 @@ object SchemaBoard {
   private val singletonsMutex = new AnyRef()
 
   final class NodeSingletons(system: ActorSystem) {
-    lazy val schemaBoard = system.actorOf(Props(new SchemaBoard), SCHEMA_BOARD)
+    val schemaBoard = system.actorOf(Props(classOf[NodeSchemaBoard]), SCHEMA_BOARD)
   }
 
   def apply(system: ActorSystem): NodeSingletons = {
@@ -74,20 +76,27 @@ object SchemaBoard {
   }
 }
 
-class SchemaBoard extends Actor with ActorLogging {
+class NodeSchemaBoard extends Actor with ActorLogging {
+  log.info("{} started.", self.path)
+
+  val mediator = DistributedPubSubExtension(context.system).mediator
+  mediator ! DistributedPubSubMediator.Put(self)
+
   def receive = {
-    case PutSchema(entityName, schema, entityFullName) =>
+    case x @ PutSchema(entityName, schema, entityFullName) =>
+      log.info("Got: {}", x)
       try {
-        SchemaBoard.putSchema(context.system, entityName, schema, entityFullName)
+        NodeSchemaBoard.putSchema(context.system, entityName, schema, entityFullName)
         sender() ! Success(entityName)
       } catch {
         case ex: Throwable =>
           log.error(ex, ex.getMessage)
           sender() ! Failure(ex)
       }
-    case DelSchema(entityName) =>
+    case x @ DelSchema(entityName) =>
+      log.info("Got: {}", x)
       try {
-        SchemaBoard.delSchema(entityName)
+        NodeSchemaBoard.delSchema(entityName)
         sender() ! Success(entityName)
       } catch {
         case ex: Throwable =>

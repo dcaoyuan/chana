@@ -24,7 +24,7 @@ trait Scriptable { _: Actor =>
 
   def scriptableBehavior: Receive = {
     case Scriptable.ScriptingTick =>
-      ScriptBoard.scriptsOf(entityName) foreach {
+      NodeScriptBoard.scriptsOf(entityName) foreach {
         case (id, script) =>
           try {
             script.eval(prepareBindings)
