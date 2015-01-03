@@ -12,10 +12,8 @@ import scala.util.Success
 import spray.http.StatusCodes
 import spray.routing.Directives
 import wandou.astore.schema.DelSchema
-import wandou.astore.schema.NodeSchemaBoard
 import wandou.astore.schema.PutSchema
 import wandou.astore.script.DelScript
-import wandou.astore.script.NodeScriptBoard
 import wandou.astore.script.PutScript
 import wandou.avpath
 import wandou.avpath.Evaluator.Ctx
@@ -25,13 +23,12 @@ import wandou.avro.ToJson
 trait RestRoute { _: spray.routing.Directives =>
   val system: ActorSystem
   def clusterSchemaBoardProxy: ActorSelection
+  def clusterScriptBoardProxy: ActorSelection
   def readTimeout: Timeout
   def writeTimeout: Timeout
 
   import system.dispatcher
 
-  val scriptBoard = NodeScriptBoard(system).scriptBoard
-  //val schemaBoard = SchemaBoard(system).schemaBoard
   val schemaParser = new Schema.Parser()
 
   final def resolver(entityName: String) = ClusterSharding(system).shardRegion(entityName)
@@ -249,7 +246,7 @@ trait RestRoute { _: spray.routing.Directives =>
         post {
           entity(as[String]) { script =>
             complete {
-              scriptBoard.ask(PutScript("Account", scriptId, script))(writeTimeout).collect {
+              clusterScriptBoardProxy.ask(PutScript("Account", scriptId, script))(writeTimeout).collect {
                 case Success(_)  => StatusCodes.OK
                 case Failure(ex) => StatusCodes.InternalServerError
               }
@@ -260,7 +257,7 @@ trait RestRoute { _: spray.routing.Directives =>
         post {
           entity(as[String]) { script =>
             complete {
-              scriptBoard.ask(DelScript("Account", scriptId))(writeTimeout).collect {
+              clusterScriptBoardProxy.ask(DelScript("Account", scriptId))(writeTimeout).collect {
                 case Success(_)  => StatusCodes.OK
                 case Failure(ex) => StatusCodes.InternalServerError
               }
