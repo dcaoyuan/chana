@@ -21,6 +21,7 @@ import scala.util.Success
 import wandou.astore.script.Scriptable
 import wandou.avpath
 import wandou.avpath.Evaluator
+import wandou.avpath.Evaluator.Ctx
 import wandou.avro
 
 object Entity {
@@ -57,6 +58,7 @@ class Entity(schema: Schema) extends Actor with Stash with ActorLogging with Scr
   private def createRecord() {
     record = new GenericRecordBuilder(schema).build
   }
+  private var limitedSize = 30
 
   override def preStart {
     super[Actor].preStart
@@ -80,34 +82,33 @@ class Entity(schema: Schema) extends Actor with Stash with ActorLogging with Scr
 
   def ready: Receive = {
     case avpath.GetRecord(_) =>
-      sender() ! record
-    case avpath.GetField(_, field) =>
-      sender() ! record.get(field)
-    case avpath.PutRecord(_, srcRecord) =>
-      try {
-        avro.replace(record, srcRecord)
-        sender() ! Success(id)
-      } catch {
-        case ex: Throwable =>
-          log.error(ex, ex.getMessage)
-          sender() ! Failure(ex)
+      sender() ! Ctx(record, schema, null)
+
+    case avpath.GetField(_, fieldName) =>
+      val field = schema.getField(fieldName)
+      if (field != null) {
+        sender() ! Ctx(record.get(fieldName), field.schema, field)
+      } else {
+        // send what ? TODO
       }
+    case avpath.PutRecord(_, rec) =>
+      commitRecord(rec, sender(), doLimitSize = true)
+
     case avpath.PutRecordJson(_, json) =>
       try {
-        val srcRecord = avro.FromJson.fromJsonString(json, schema).asInstanceOf[Record]
-        avro.replace(record, srcRecord)
-        sender() ! Success(id)
+        val rec = avro.FromJson.fromJsonString(json, schema).asInstanceOf[Record]
+        commitRecord(rec, sender(), doLimitSize = true)
       } catch {
         case ex: Throwable =>
           log.error(ex, ex.getMessage)
           sender() ! Failure(ex)
       }
+
     case avpath.PutField(_, fieldName, value) =>
       try {
         val field = schema.getField(fieldName)
         if (field != null) {
-          record.put(fieldName, value)
-          sender() ! Success(id)
+          commitField(value, field, sender(), doLimitSize = true)
         } else {
           sender() ! Failure(new RuntimeException("Field does not exist: " + fieldName))
         }
@@ -121,8 +122,7 @@ class Entity(schema: Schema) extends Actor with Stash with ActorLogging with Scr
         val field = schema.getField(fieldName)
         if (field != null) {
           val value = avro.FromJson.fromJsonString(json, field.schema)
-          record.put(fieldName, value)
-          sender() ! Success(id)
+          commitField(value, field, sender(), doLimitSize = true)
         } else {
           sender() ! Failure(new RuntimeException("Field does not exist: " + fieldName))
         }
@@ -140,49 +140,49 @@ class Entity(schema: Schema) extends Actor with Stash with ActorLogging with Scr
       val rec = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
       val ctxs = Evaluator.update(rec, ast, value)
-      commit(rec, ctxs, self, sender())
+      commit(rec, ctxs, sender())
 
     case avpath.UpdateJson(_, path, value) =>
       val rec = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
       val ctxs = Evaluator.updateJson(rec, ast, value)
-      commit(rec, ctxs, self, sender())
+      commit(rec, ctxs, sender())
 
     case avpath.Insert(_, path, value) =>
       val rec = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
       val ctxs = Evaluator.insert(rec, ast, value)
-      commit(rec, ctxs, self, sender())
+      commit(rec, ctxs, sender())
 
     case avpath.InsertJson(_, path, value) =>
       val rec = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
       val ctxs = Evaluator.insertJson(rec, ast, value)
-      commit(rec, ctxs, self, sender())
+      commit(rec, ctxs, sender())
 
     case avpath.InsertAll(_, path, xs) =>
       val rec = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
       val ctxs = Evaluator.insertAll(rec, ast, xs)
-      commit(rec, ctxs, self, sender())
+      commit(rec, ctxs, sender())
 
     case avpath.InsertAllJson(_, path, xs) =>
       val rec = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
       val ctxs = Evaluator.insertAllJson(rec, ast, xs)
-      commit(rec, ctxs, self, sender())
+      commit(rec, ctxs, sender())
 
     case avpath.Delete(_, path) =>
       val rec = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
       val ctxs = Evaluator.delete(rec, ast)
-      commit(rec, ctxs, self, sender(), false)
+      commit(rec, ctxs, sender(), false)
 
     case avpath.Clear(_, path) =>
       val rec = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
       val ctxs = Evaluator.clear(rec, ast)
-      commit(rec, ctxs, self, sender(), false)
+      commit(rec, ctxs, sender(), false)
 
     case ReceiveTimeout =>
       log.info("Account got ReceiveTimeout")
@@ -205,33 +205,54 @@ class Entity(schema: Schema) extends Actor with Stash with ActorLogging with Scr
       stash()
   }
 
-  private def commit(rec: Record, ctxs: List[Evaluator.Ctx], me: ActorRef, commander: ActorRef, doLimitSize: Boolean = true) {
+  private def commitRecord(rec: Record, commander: ActorRef, doLimitSize: Boolean) {
+    val fields = schema.getFields.iterator
+    var modifiedFields = List[(Schema.Field, Any)]()
+    while (fields.hasNext) {
+      val field = fields.next
+      if (doLimitSize) avro.limitToSize(rec, field, limitedSize)
+      modifiedFields ::= (field, rec.get(field.name))
+    }
+    commit2(id, modifiedFields, commander)
+  }
+
+  private def commitField(value: Any, field: Schema.Field, commander: ActorRef, doLimitSize: Boolean) {
+    val fields = schema.getFields.iterator
+    //TODO if (doLimitSize) avro.limitToSize(rec, field, limitedSize)
+    var modifiedFields = List((field, value))
+    commit2(id, modifiedFields, commander)
+  }
+
+  private def commit(rec: Record, ctxs: List[Evaluator.Ctx], commander: ActorRef, doLimitSize: Boolean = true) {
     val time = System.currentTimeMillis
-    val schema = rec.getSchema
     // TODO: when avpath is ".", topLevelField will be null, it's better to return all topLevelFields
     val modifiedFields =
       for (Evaluator.Ctx(value, schema, topLevelField, target) <- ctxs if topLevelField != null) yield {
-        if (doLimitSize) avro.limitToSize(rec, topLevelField, 30)
+        if (doLimitSize) avro.limitToSize(rec, topLevelField, limitedSize)
         (topLevelField, rec.get(topLevelField.name))
       }
 
+    if (modifiedFields.isEmpty) {
+      commitRecord(rec, commander, doLimitSize = false)
+    } else {
+      commit2(id, modifiedFields, commander)
+    }
+  }
+
+  private def commit2(id: String, modifiedFields: List[(Schema.Field, Any)], commander: ActorRef) {
     //context.become(persisting)
     persist(id, modifiedFields).onComplete {
       case Success(_) =>
-        if (modifiedFields.nonEmpty) {
-          for ((field, value) <- modifiedFields) {
-            record.put(field.name, value)
-          }
-        } else {
-          avro.replace(record, rec)
+        for ((field, value) <- modifiedFields) {
+          record.put(field.name, value)
         }
 
         commander ! Success(id)
-        me ! Success(id)
+        self ! Success(id)
 
       case Failure(ex) =>
         commander ! Failure(ex)
-        me ! PersistenceFailure(null, 0, ex) // todo
+        self ! PersistenceFailure(null, 0, ex) // todo
     }
   }
 

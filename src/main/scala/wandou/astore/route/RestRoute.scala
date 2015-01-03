@@ -99,41 +99,28 @@ trait RestRoute { _: spray.routing.Directives =>
       path("get" / Rest) { id =>
         get {
           parameters('field.as[String]) { fieldName =>
-            SchemaBoard.schemaOf(entityName) match {
-              case Some(schema) =>
-                val field = schema.getField(fieldName)
-                if (field != null) {
-                  complete {
-                    resolver(entityName).ask(avpath.GetField(id, fieldName))(readTimeout).collect {
-                      case value =>
-                        ToJson.toAvroJsonString(value, field.schema)
-                      //avro.avroEncode(value, field.schema) match {
-                      //  case Success(bytes) => bytes
-                      //  case _              => Array[Byte]()
-                      //}
-                    }
-                  }
-                } else {
-                  complete(StatusCodes.BadRequest)
-                }
-              case None =>
-                complete(StatusCodes.BadRequest)
+            complete {
+              resolver(entityName).ask(avpath.GetField(id, fieldName))(readTimeout).collect {
+                case Ctx(value, schema, _, _) =>
+                  ToJson.toAvroJsonString(value, schema)
+                //avro.avroEncode(value, field.schema) match {
+                //  case Success(bytes) => bytes
+                //  case _              => Array[Byte]()
+                //}
+                case _ => ""
+              }
             }
           } ~ {
-            SchemaBoard.schemaOf(entityName) match {
-              case Some(schema) =>
-                complete {
-                  resolver(entityName).ask(avpath.GetRecord(id))(readTimeout).collect {
-                    case value =>
-                      ToJson.toAvroJsonString(value, schema)
-                    //avro.avroEncode(value, schema) match {
-                    //  case Success(bytes) => bytes
-                    //  case _              => Array[Byte]()
-                    //}
-                  }
-                }
-              case None =>
-                complete(StatusCodes.BadRequest)
+            complete {
+              resolver(entityName).ask(avpath.GetRecord(id))(readTimeout).collect {
+                case Ctx(value, schema, _, _) =>
+                  ToJson.toAvroJsonString(value, schema)
+                //avro.avroEncode(value, schema) match {
+                //  case Success(bytes) => bytes
+                //  case _              => Array[Byte]()
+                //}
+                case _ => ""
+              }
             }
           }
         }
