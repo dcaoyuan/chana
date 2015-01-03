@@ -55,18 +55,18 @@ object SchemaBoard {
     }
 
   val SCHEMA_BOARD = "schemaBoard"
-  private var singletons: SystemSingletons = _
+  private var singletons: NodeSingletons = _
   private val singletonsMutex = new AnyRef()
 
-  final class SystemSingletons(system: ActorSystem) {
+  final class NodeSingletons(system: ActorSystem) {
     lazy val schemaBoard = system.actorOf(Props(new SchemaBoard), SCHEMA_BOARD)
   }
 
-  def apply(system: ActorSystem): SystemSingletons = {
+  def apply(system: ActorSystem): NodeSingletons = {
     if (singletons eq null) {
       singletonsMutex synchronized {
         if (singletons eq null) {
-          singletons = new SystemSingletons(system)
+          singletons = new NodeSingletons(system)
         }
       }
     }

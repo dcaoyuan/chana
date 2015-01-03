@@ -58,18 +58,18 @@ object ScriptBoard {
     }
 
   val SCRIPT_BOARD = "scriptBoard"
-  private var singletons: SystemSingletons = _
+  private var singletons: NodeSingletons = _
   private val singletonsMutex = new AnyRef()
 
-  final class SystemSingletons(system: ActorSystem) {
+  final class NodeSingletons(system: ActorSystem) {
     lazy val scriptBoard = system.actorOf(Props(new ScriptBoard), SCRIPT_BOARD)
   }
 
-  def apply(system: ActorSystem): SystemSingletons = {
+  def apply(system: ActorSystem): NodeSingletons = {
     if (singletons eq null) {
       singletonsMutex synchronized {
         if (singletons eq null) {
-          singletons = new SystemSingletons(system)
+          singletons = new NodeSingletons(system)
         }
       }
     }
