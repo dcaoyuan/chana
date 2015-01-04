@@ -207,35 +207,35 @@ class Entity(schema: Schema) extends Actor with Stash with ActorLogging with Scr
 
   private def commitRecord(rec: Record, commander: ActorRef, doLimitSize: Boolean) {
     val fields = schema.getFields.iterator
-    var modifiedFields = List[(Schema.Field, Any)]()
+    var updatedFields = List[(Schema.Field, Any)]()
     while (fields.hasNext) {
       val field = fields.next
       if (doLimitSize) avro.limitToSize(rec, field, limitedSize)
-      modifiedFields ::= (field, rec.get(field.name))
+      updatedFields ::= (field, rec.get(field.name))
     }
-    commit2(id, modifiedFields, commander)
+    commit2(id, updatedFields, commander)
   }
 
   private def commitField(value: Any, field: Schema.Field, commander: ActorRef, doLimitSize: Boolean) {
     val fields = schema.getFields.iterator
     //TODO if (doLimitSize) avro.limitToSize(rec, field, limitedSize)
-    var modifiedFields = List((field, value))
-    commit2(id, modifiedFields, commander)
+    var updatedFields = List((field, value))
+    commit2(id, updatedFields, commander)
   }
 
   private def commit(rec: Record, ctxs: List[Evaluator.Ctx], commander: ActorRef, doLimitSize: Boolean = true) {
     val time = System.currentTimeMillis
-    // TODO: when avpath is ".", topLevelField will be null, it's better to return all topLevelFields
-    val modifiedFields =
-      for (Evaluator.Ctx(value, schema, topLevelField, target) <- ctxs if topLevelField != null) yield {
+    // TODO when avpath is ".", topLevelField will be null, it's better to return all topLevelFields
+    val updatedFields =
+      for (Evaluator.Ctx(value, schema, topLevelField, _) <- ctxs if topLevelField != null) yield {
         if (doLimitSize) avro.limitToSize(rec, topLevelField, limitedSize)
         (topLevelField, rec.get(topLevelField.name))
       }
 
-    if (modifiedFields.isEmpty) {
+    if (updatedFields.isEmpty) {
       commitRecord(rec, commander, doLimitSize = false)
     } else {
-      commit2(id, modifiedFields, commander)
+      commit2(id, updatedFields, commander)
     }
   }
 
@@ -246,13 +246,12 @@ class Entity(schema: Schema) extends Actor with Stash with ActorLogging with Scr
         for ((field, value) <- modifiedFields) {
           record.put(field.name, value)
         }
-
         commander ! Success(id)
         self ! Success(id)
 
       case Failure(ex) =>
         commander ! Failure(ex)
-        self ! PersistenceFailure(null, 0, ex) // todo
+        self ! PersistenceFailure(null, 0, ex) // TODO
     }
   }
 

@@ -21,14 +21,14 @@ import scala.util.Success
 object ClusterSchemaBoard {
   def props() = Props(classOf[ClusterSchemaBoard])
 
-  val singletonManageName = "astoreSingletonManager"
   val schemaBoardName = "clusterSchemaBoard"
-  val schemaBoardPath = "/user/" + singletonManageName + "/" + schemaBoardName
+  val schemaBoardManagerName = schemaBoardName + "Manager"
+  val schemaBoardPath = "/user/" + schemaBoardManagerName + "/" + schemaBoardName
   val schemaBoardProxyName = schemaBoardName + "Proxy"
   val schemaBoardProxyPath = "/user/" + schemaBoardProxyName
 
   def startClusterSchemaBoard(system: ActorSystem, role: Option[String]) = {
-    val managerName = singletonManageName
+    val managerName = schemaBoardManagerName
     system.actorOf(
       ClusterSingletonManager.props(
         singletonProps = props(),

@@ -21,9 +21,9 @@ import scala.util.Success
 object ClusterScriptBoard {
   def props() = Props(classOf[ClusterScriptBoard])
 
-  val singletonManageName = "astoreSingletonManager"
   val scriptBoardName = "clusterScriptBoard"
-  val scriptBoardPath = "/user/" + singletonManageName + "/" + scriptBoardName
+  val scriptBoardManagerName = scriptBoardName + "Manager"
+  val scriptBoardPath = "/user/" + scriptBoardManagerName + "/" + scriptBoardName
   val scriptBoardProxyName = scriptBoardName + "Proxy"
   val scriptBoardProxyPath = "/user/" + scriptBoardProxyName
 
@@ -31,7 +31,7 @@ object ClusterScriptBoard {
    *  The path of singleton will be "/user/managerName/singletonName"
    */
   def startClusterScriptBoard(system: ActorSystem, role: Option[String]) = {
-    val managerName = singletonManageName
+    val managerName = scriptBoardManagerName
     system.actorOf(
       ClusterSingletonManager.props(
         singletonProps = props(),

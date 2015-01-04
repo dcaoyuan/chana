@@ -13,23 +13,25 @@ $ sbt run
 Example schema: LongList.record
 ```json
 {
-  "type": "record", 
-  "name": "LongList",
-  "fields" : [
-    {"name": "value", "type": "long", "default": 0},             
-    {"name": "next", "type": ["null", "LongList"], "default": null}
-  ]
+ "type": "record",
+ "namespace": "avro",
+ "name": "PersonInfo",
+ "fields": [
+   { "name": "first", "type": "string", "default": "" },
+   { "name": "last", "type": "string" , "default": ""},
+   { "name": "age", "type": "int", "default": 0 }
+ ]
 }
 ```
 
 Testing:
 ```shell
 cd src/test/resources/avsc
-curl --data @LongList.record 'http://localhost:8080/putschema/longlist'
-curl 'http://localhost:8080/longlist/get/1'
-curl --data-binary @update.value 'http://localhost:8080/longlist/update/1'
-curl 'http://localhost:8080/longlist/get/1'
-weighttp -c100 -n100000 -k 'http://localhost:8080/longlist/get/1'
+curl --data @PersonInfo.avsc 'http://localhost:8080/putschema/personinfo'
+curl 'http://localhost:8080/personinfo/get/1'
+curl --data-binary @PersonInfo.update 'http://localhost:8080/personinfo/update/1'
+curl 'http://localhost:8080/personinfo/get/1'
+weighttp -c100 -n100000 -k 'http://localhost:8080/personinfo/get/1'
 ```
 
 

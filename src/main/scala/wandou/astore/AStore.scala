@@ -14,14 +14,7 @@ import wandou.astore.script.ClusterScriptBoard
 import wandou.astore.script.NodeScriptBoard
 
 /**
- *
- * $ cd src/test/resources/avsc
- * $ curl --data @LongList.record 'http://localhost:8080/putschema/longlist'
- * $ curl 'http://localhost:8080/longlist/get/1'
- * $ curl --data-binary @update.value 'http://localhost:8080/longlist/update/1'
- * $ curl 'http://localhost:8080/longlist/get/1'
- * $ weighttp -c100 -n100000 -k 'http://localhost:8080/longlist/get/1'
- *
+ * Start REST astore service
  */
 object AStore extends scala.App {
   implicit val system = ActorSystem("AStoreSystem")

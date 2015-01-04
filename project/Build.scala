@@ -14,7 +14,7 @@ object Build extends sbt.Build {
     .settings(sbtrelease.ReleasePlugin.releaseSettings: _*)
     .settings(libraryDependencies ++= Dependencies.basic)
     .settings(XitrumPackage.skip: _*)
-    .settings(sbtavro.SbtAvro.avroSettings ++ avroSettingsTest: _*)
+    //.settings(sbtavro.SbtAvro.avroSettings ++ avroSettingsTest: _*)
     .settings(instrumentSettings: _*)
     .settings(net.virtualvoid.sbt.graph.Plugin.graphSettings: _*)
 
@@ -105,7 +105,7 @@ object Dependencies {
   )
 
   val avro = Seq(
-    "org.apache.avro" % "avro" % "1.7.6"
+    "org.apache.avro" % "avro" % "1.7.7"
   )
  
   val avpath = Seq(
