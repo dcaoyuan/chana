@@ -32,7 +32,7 @@ object Build extends sbt.Build {
   lazy val avroSettings = Seq(
     sbtavro.SbtAvro.stringType in sbtavro.SbtAvro.avroConfig := "String",
     sourceDirectory in sbtavro.SbtAvro.avroConfig <<= (resourceDirectory in Compile)(_ / "avsc"),
-    version in sbtavro.SbtAvro.avroConfig := "1.7.5"
+    version in sbtavro.SbtAvro.avroConfig := "1.7.7"
   )
 
   // Todo rewrite sbt-avro to compile in Test phase.
@@ -40,7 +40,7 @@ object Build extends sbt.Build {
     sbtavro.SbtAvro.stringType in sbtavro.SbtAvro.avroConfig := "String",
     sourceDirectory in sbtavro.SbtAvro.avroConfig <<= (resourceDirectory in Test)(_ / "avsc"),
     javaSource in sbtavro.SbtAvro.avroConfig <<= (sourceManaged in Test)(_ / "java" / "compiled_avro"),
-    version in sbtavro.SbtAvro.avroConfig := "1.7.5"
+    version in sbtavro.SbtAvro.avroConfig := "1.7.7"
   )
 
   lazy val releaseSettings = Seq(

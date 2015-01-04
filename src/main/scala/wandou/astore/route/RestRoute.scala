@@ -36,35 +36,37 @@ trait RestRoute { _: spray.routing.Directives =>
   final def restApi = schemaApi ~ accessApi
 
   final def schemaApi = {
-    path("putschema" / Rest) { entityName =>
+    path("putschema" / Segment / Segment) { (entityName, fname) =>
       post {
-        parameters('fname.as[String]) { fname =>
-          entity(as[String]) { schemaStr =>
-            try {
-              val schema = schemaParser.parse(schemaStr)
-              if (schema.getType == Schema.Type.UNION) {
-                val entitySchema = schema.getTypes.get(schema.getIndexNamed(fname))
-                if (entitySchema != null) {
-                  complete {
-                    clusterSchemaBoardProxy.ask(PutSchema(entityName, entitySchema))(writeTimeout).collect {
-                      case Success(_)  => StatusCodes.OK
-                      case Failure(ex) => StatusCodes.InternalServerError
-                    }
+        entity(as[String]) { schemaStr =>
+          try {
+            val schema = schemaParser.parse(schemaStr)
+            if (schema.getType == Schema.Type.UNION) {
+              val entitySchema = schema.getTypes.get(schema.getIndexNamed(fname))
+              if (entitySchema != null) {
+                complete {
+                  clusterSchemaBoardProxy.ask(PutSchema(entityName, entitySchema))(writeTimeout).collect {
+                    case Success(_)  => StatusCodes.OK
+                    case Failure(ex) => StatusCodes.InternalServerError
                   }
-                } else {
-                  complete(StatusCodes.BadRequest)
                 }
               } else {
                 complete(StatusCodes.BadRequest)
               }
-
-            } catch {
-              case ex: Throwable =>
-                println(ex) // todo
-                complete(StatusCodes.BadRequest)
+            } else {
+              complete(StatusCodes.BadRequest)
             }
+
+          } catch {
+            case ex: Throwable =>
+              println(ex) // todo
+              complete(StatusCodes.BadRequest)
           }
-        } ~ entity(as[String]) { schemaStr =>
+        }
+      }
+    } ~ path("putschema" / Segment) { entityName =>
+      post {
+        entity(as[String]) { schemaStr =>
           try {
             val schema = schemaParser.parse(schemaStr)
             complete {

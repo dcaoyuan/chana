@@ -111,12 +111,12 @@ weighttp -c100 -n100000 -k 'http://localhost:8080/hatinv/get/1'
 
 # Preface
 
-astore 以 Avro record 为存贮单元，有两组 APIs，分别为：
+astore stores Avro record, with two groups of APIs:
 
 * Primitive API (Scala/Java)
 * RESTful API
 
-# Primitive API (Scala / Java)
+## Primitive API (Scala / Java)
 
 use AvPath expression to locate，see「[AvPath](https://github.com/wandoulabs/wandou-avpath)」
 
@@ -154,7 +154,7 @@ case class PutSchema(entityName: String, schema: Schema, entityFullName: Option[
 case class DelSchema(entityName: String)
 ```
 
-# RESTful API
+## RESTful API
 
 * Note: URL valid charaters (see [http://tools.ietf.org/html/rfc3986#section-2](http://tools.ietf.org/html/rfc3986#section-2))
 ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~:/?#[]@!$&'()*+,;=
@@ -173,6 +173,19 @@ BODY:
 <SCHEMA_STRING>
 ```
 
+### Put schema that contains multiple referenced complex types in union 
+```
+POST /putschema/$entityName/$entryEntityFullName 
+
+Host: status.wandoujia.com  
+Content-Type: application/octet-stream 
+Content-Length: NNN
+
+BODY:
+<SCHEMA_STRING>
+```
+
+
 ### Del schame 
 ```
 GET /delschema/$entityName/ 
@@ -182,21 +195,21 @@ Host: status.wandoujia.com
 
 ### Get record
 ```
-GET /$record/get/$id/ 
+GET /$entity/get/$id/ 
 
 Host: status.wandoujia.com  
 ```
 
 ### Get record field
 ```
-GET /$record/get/$id/$field
+GET /$entity/get/$id/$field
 
 Host: status.wandoujia.com  
 ```
 
 ### Put record
 ```
-POST /$record/put/$id/ 
+POST /$entity/put/$id/ 
 
 Host: status.wandoujia.com  
 Content-Type: application/octet-stream 
@@ -208,7 +221,7 @@ BODY:
 
 ### Put record field
 ```
-POST /$record/put/$id/$field 
+POST /$entity/put/$id/$field 
 
 Host: status.wandoujia.com  
 Content-Type: application/octet-stream 
@@ -220,7 +233,7 @@ BODY:
 
 ### Select
 ```
-POST /$record/select/$id/ 
+POST /$entity/select/$id/ 
 
 Host: status.wandoujia.com  
 Content-Type: application/octet-stream 
@@ -233,7 +246,7 @@ $avpath
 
 ### Update
 ```
-POST /$record/update/$id/$avpath
+POST /$entity/update/$id/$avpath
 
 Host: status.wandoujia.com 
 Content-Type: application/octet-stream 
@@ -259,7 +272,7 @@ BODY:
 
 ### Insert (applicable for Array / Map only)
 ```
-POST /$record/insert/$id/$avpath
+POST /$entity/insert/$id/$avpath
 
 Host: status.wandoujia.com 
 Content-Type: application/octet-stream 
@@ -285,7 +298,7 @@ BODY:
 
 ### InsertAll (applicable for Array / Map only)
 ```
-POST /$record/insertall/$id/$avpath
+POST /$entity/insertall/$id/$avpath
 
 Host: status.wandoujia.com 
 Content-Type: application/octet-stream 
@@ -312,7 +325,7 @@ BODY:
 
 ### Delete (applicable for Array / Map only)
 ```
-POST /$record/delete/$id/
+POST /$entity/delete/$id/
 
 Host: status.wandoujia.com 
 Content-Type: application/octet-stream 
@@ -325,7 +338,7 @@ $avpath
 
 ### Clear (applicable for Array / Map only)
 ```
-POST /$record/clear/$id/
+POST /$entity/clear/$id/
 
 Host: status.wandoujia.com 
 Content-Type: application/octet-stream 
@@ -338,7 +351,7 @@ $avpath
 
 ### Put Script (apply on all instances of this entity)
 ```
-POST /$record/putscript/$scriptid/
+POST /$entity/putscript/$scriptid/
 
 Host: status.wandoujia.com 
 Content-Type: application/octet-stream 
@@ -355,11 +368,11 @@ BODY:
 
     * **record**: the avro record itself
 
-* 在 JavaScript 脚本中，一律通过 function 来操作。在 function 中可以定义局部变量，但如果要在多个 functions 中共享这些变量，则必须在 functions 之间作为参数互相传递，而不能定义全局变量。
+* The JavaScript code should do what ever operation via function only. You can define local variables in function, and transfer these local vars between functions to share them instead of defining global vars. 
 
 ### Del Script (apply on all instances of this entity)
 ```
-POST /$record/delscript/$scriptid/
+POST /$entity/delscript/$scriptid/
 
 Host: status.wandoujia.com 
 Content-Type: application/octet-stream 
@@ -371,7 +384,7 @@ BODY:
 
 Note:
 
-* Replace `$record` with the object/table/entity name
+* Replace `$entity` with the object/table/entity name
 
 * Replace `$id` with object id
 
