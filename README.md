@@ -108,6 +108,13 @@ curl 'http://localhost:8080/hatinv/get/1'
 curl 'http://localhost:8080/hatinv/get/1/description'
 weighttp -c100 -n100000 -k 'http://localhost:8080/hatinv/get/1'
 ```
+##### Simple benchmark test (too simple too naive)
+
+```shell
+sbt run
+cd src/test/resources/avsc
+./bench.sh
+```
 
 # Preface
 
