@@ -10,18 +10,33 @@ $ sbt run
 
 #### Access astore
 
-Example schema: LongList.record
+##### Example 1: Simple Record
+
+Schema: PersonInfo.avsc
 ```json
 {
- "type": "record",
- "namespace": "avro",
- "name": "PersonInfo",
- "fields": [
-   { "name": "first", "type": "string", "default": "" },
-   { "name": "last", "type": "string" , "default": ""},
-   { "name": "age", "type": "int", "default": 0 }
- ]
+  "type": "record",
+  "namespace": "avro",
+  "name": "PersonInfo",
+  "fields": [
+    {
+      "name": "first",
+      "type": "string",
+      "default": ""
+    },
+    {
+      "name": "last",
+      "type": "string",
+      "default": ""
+    },
+    {
+      "name": "age",
+      "type": "int",
+      "default": 0
+    }
+  ]
 }
+
 ```
 
 Testing:
@@ -31,9 +46,68 @@ curl --data @PersonInfo.avsc 'http://localhost:8080/putschema/personinfo'
 curl 'http://localhost:8080/personinfo/get/1'
 curl --data-binary @PersonInfo.update 'http://localhost:8080/personinfo/update/1'
 curl 'http://localhost:8080/personinfo/get/1'
+curl 'http://localhost:8080/personinfo/get/1/first'
 weighttp -c100 -n100000 -k 'http://localhost:8080/personinfo/get/1'
 ```
 
+##### Example 2: Using Embedded Records
+
+Schema: hatInventory.avsc
+```json
+{
+  "type": "record",
+  "name": "hatInventory",
+  "namespace": "avro",
+  "fields": [
+    {
+      "name": "sku",
+      "type": "string",
+      "default": ""
+    },
+    {
+      "name": "description",
+      "type": {
+        "type": "record",
+        "name": "hatInfo",
+        "fields": [
+          {
+            "name": "style",
+            "type": "string",
+            "default": ""
+          },
+          {
+            "name": "size",
+            "type": "string",
+            "default": ""
+          },
+          {
+            "name": "color",
+            "type": "string",
+            "default": ""
+          },
+          {
+            "name": "material",
+            "type": "string",
+            "default": ""
+          }
+        ]
+      },
+      "default": {}
+    }
+  ]
+}
+```
+
+Testing:
+```shell
+cd src/test/resources/avsc
+curl --data @hatInventory.avsc 'http://localhost:8080/putschema/hatinv'
+curl 'http://localhost:8080/hatinv/get/1'
+curl --data '{"style": "classic", "size": "Large", "color": "Red"}' 'http://localhost:8080/hatinv/put/1/description'
+curl 'http://localhost:8080/hatinv/get/1'
+curl 'http://localhost:8080/hatinv/get/1/description'
+weighttp -c100 -n100000 -k 'http://localhost:8080/hatinv/get/1'
+```
 
 # Preface
 
@@ -115,7 +189,7 @@ Host: status.wandoujia.com
 
 ### Get record field
 ```
-GET /$record/get/$id?field=$field
+GET /$record/get/$id/$field
 
 Host: status.wandoujia.com  
 ```
@@ -134,7 +208,7 @@ BODY:
 
 ### Put record field
 ```
-POST /$record/put/$id?field=$field 
+POST /$record/put/$id/$field 
 
 Host: status.wandoujia.com  
 Content-Type: application/octet-stream 

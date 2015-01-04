@@ -94,52 +94,52 @@ trait RestRoute { _: spray.routing.Directives =>
 
   final def accessApi = {
     pathPrefix(Segment) { entityName =>
-      path("get" / Rest) { id =>
+      path("get" / Segment / Segment) { (id, fieldName) =>
         get {
-          parameters('field.as[String]) { fieldName =>
-            complete {
-              resolver(entityName).ask(avpath.GetField(id, fieldName))(readTimeout).collect {
-                case Ctx(value, schema, _, _) =>
-                  ToJson.toAvroJsonString(value, schema)
-                //avro.avroEncode(value, field.schema) match {
-                //  case Success(bytes) => bytes
-                //  case _              => Array[Byte]()
-                //}
-                case _ => ""
-              }
+          complete {
+            resolver(entityName).ask(avpath.GetField(id, fieldName))(readTimeout).collect {
+              case Ctx(value, schema, _, _) =>
+                ToJson.toAvroJsonString(value, schema)
+              //avro.avroEncode(value, field.schema) match {
+              //  case Success(bytes) => bytes
+              //  case _              => Array[Byte]()
+              //}
+              case _ => ""
             }
-          } ~ {
+          }
+        }
+      } ~ path("get" / Segment) { id =>
+        get {
+          complete {
+            resolver(entityName).ask(avpath.GetRecord(id))(readTimeout).collect {
+              case Ctx(value, schema, _, _) =>
+                ToJson.toAvroJsonString(value, schema)
+              //avro.avroEncode(value, schema) match {
+              //  case Success(bytes) => bytes
+              //  case _              => Array[Byte]()
+              //}
+              case _ => ""
+            }
+          }
+        }
+      } ~ path("put" / Segment / Segment) { (id, fieldName) =>
+        post {
+          entity(as[String]) { json =>
             complete {
-              resolver(entityName).ask(avpath.GetRecord(id))(readTimeout).collect {
-                case Ctx(value, schema, _, _) =>
-                  ToJson.toAvroJsonString(value, schema)
-                //avro.avroEncode(value, schema) match {
-                //  case Success(bytes) => bytes
-                //  case _              => Array[Byte]()
-                //}
-                case _ => ""
+              resolver(entityName).ask(avpath.PutFieldJson(id, fieldName, json))(writeTimeout).collect {
+                case Success(_)  => StatusCodes.OK
+                case Failure(ex) => StatusCodes.InternalServerError
               }
             }
           }
         }
-      } ~ path("put" / Rest) { id =>
+      } ~ path("put" / Segment) { id =>
         post {
-          parameter('field.as[String]) { fieldName =>
-            entity(as[String]) { json =>
-              complete {
-                resolver(entityName).ask(avpath.PutFieldJson(id, fieldName, json))(writeTimeout).collect {
-                  case Success(_)  => StatusCodes.OK
-                  case Failure(ex) => StatusCodes.InternalServerError
-                }
-              }
-            }
-          } ~ {
-            entity(as[String]) { json =>
-              complete {
-                resolver(entityName).ask(avpath.PutRecordJson(id, json))(writeTimeout).collect {
-                  case Success(_)  => StatusCodes.OK
-                  case Failure(ex) => StatusCodes.InternalServerError
-                }
+          entity(as[String]) { json =>
+            complete {
+              resolver(entityName).ask(avpath.PutRecordJson(id, json))(writeTimeout).collect {
+                case Success(_)  => StatusCodes.OK
+                case Failure(ex) => StatusCodes.InternalServerError
               }
             }
           }

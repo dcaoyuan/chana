@@ -1,10 +1,22 @@
 {
- "type": "record",
- "namespace": "avro",
- "name": "PersonInfo",
- "fields": [
-   { "name": "first", "type": "string", "default": "" },
-   { "name": "last", "type": "string" , "default": ""},
-   { "name": "age", "type": "int", "default": 0 }
- ]
+  "type": "record",
+  "namespace": "avro",
+  "name": "PersonInfo",
+  "fields": [
+    {
+      "name": "first",
+      "type": "string",
+      "default": ""
+    },
+    {
+      "name": "last",
+      "type": "string",
+      "default": ""
+    },
+    {
+      "name": "age",
+      "type": "int",
+      "default": 0
+    }
+  ]
 }
