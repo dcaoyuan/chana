@@ -108,7 +108,7 @@ curl 'http://localhost:8080/hatinv/get/1'
 curl 'http://localhost:8080/hatinv/get/1/description'
 weighttp -c100 -n100000 -k 'http://localhost:8080/hatinv/get/1'
 ```
-##### Simple benchmark test (too simple too naive)
+##### Simple benchmark for REST API (too simple too naive)
 Simple bench.sh content:
 ```shell
 OPGET=http://localhost:8080/personinfo/get/
