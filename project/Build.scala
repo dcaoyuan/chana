@@ -25,6 +25,7 @@ object Build extends sbt.Build {
     scalacOptions ++= Seq("-unchecked", "-deprecation"),
     javacOptions ++= Seq("-source", "1.6", "-target", "1.6"), 
     resolvers ++= Seq(
+      "Spray repo" at "http://repo.spray.io",
       "Sonatype OSS Releases" at "https://oss.sonatype.org/content/repositories/releases",
       "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
       "Typesafe repo" at "http://repo.typesafe.com/typesafe/releases/"))
