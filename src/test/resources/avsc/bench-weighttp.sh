@@ -11,5 +11,5 @@ done
 
 for((i=1;i<=10;i++));
 do
-    ab -c100 -n100000 -k 'http://localhost:8080/personinfo/get/1'
+    weighttp -c100 -n100000 -k 'http://localhost:8080/personinfo/get/1'
 done
