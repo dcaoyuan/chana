@@ -36,7 +36,7 @@ trait RestRoute { _: spray.routing.Directives =>
   final def restApi = schemaApi ~ accessApi
 
   final def schemaApi = {
-    path("putschema" / Segment / Segment) { (entityName, fname) =>
+    path("putschema" / Segment / Segment ~ Slash.?) { (entityName, fname) =>
       post {
         entity(as[String]) { schemaStr =>
           try {
@@ -64,7 +64,7 @@ trait RestRoute { _: spray.routing.Directives =>
           }
         }
       }
-    } ~ path("putschema" / Segment) { entityName =>
+    } ~ path("putschema" / Segment ~ Slash.?) { entityName =>
       post {
         entity(as[String]) { schemaStr =>
           try {
@@ -82,7 +82,7 @@ trait RestRoute { _: spray.routing.Directives =>
           }
         }
       }
-    } ~ path("delschema" / Rest) { entityName =>
+    } ~ path("delschema" / Segment ~ Slash.?) { entityName =>
       get {
         complete {
           clusterSchemaBoardProxy.ask(DelSchema(entityName))(writeTimeout).collect {
@@ -96,7 +96,7 @@ trait RestRoute { _: spray.routing.Directives =>
 
   final def accessApi = {
     pathPrefix(Segment) { entityName =>
-      path("get" / Segment / Segment) { (id, fieldName) =>
+      path("get" / Segment / Segment ~ Slash.?) { (id, fieldName) =>
         get {
           complete {
             resolver(entityName).ask(avpath.GetField(id, fieldName))(readTimeout).collect {
@@ -110,7 +110,7 @@ trait RestRoute { _: spray.routing.Directives =>
             }
           }
         }
-      } ~ path("get" / Segment) { id =>
+      } ~ path("get" / Segment ~ Slash.?) { id =>
         get {
           complete {
             resolver(entityName).ask(avpath.GetRecord(id))(readTimeout).collect {
@@ -124,7 +124,7 @@ trait RestRoute { _: spray.routing.Directives =>
             }
           }
         }
-      } ~ path("put" / Segment / Segment) { (id, fieldName) =>
+      } ~ path("put" / Segment / Segment ~ Slash.?) { (id, fieldName) =>
         post {
           entity(as[String]) { json =>
             complete {
@@ -135,7 +135,7 @@ trait RestRoute { _: spray.routing.Directives =>
             }
           }
         }
-      } ~ path("put" / Segment) { id =>
+      } ~ path("put" / Segment ~ Slash.?) { id =>
         post {
           entity(as[String]) { json =>
             complete {
@@ -146,7 +146,7 @@ trait RestRoute { _: spray.routing.Directives =>
             }
           }
         }
-      } ~ path("select" / Rest) { id =>
+      } ~ path("select" / Segment ~ Slash.?) { id =>
         post {
           entity(as[String]) { body =>
             splitPathAndValue(body) match {
@@ -164,7 +164,7 @@ trait RestRoute { _: spray.routing.Directives =>
             }
           }
         }
-      } ~ path("update" / Rest) { id =>
+      } ~ path("update" / Segment ~ Slash.?) { id =>
         post {
           entity(as[String]) { body =>
             splitPathAndValue(body) match {
@@ -180,7 +180,7 @@ trait RestRoute { _: spray.routing.Directives =>
             }
           }
         }
-      } ~ path("insert" / Rest) { id =>
+      } ~ path("insert" / Segment ~ Slash.?) { id =>
         post {
           entity(as[String]) { body =>
             splitPathAndValue(body) match {
@@ -196,7 +196,7 @@ trait RestRoute { _: spray.routing.Directives =>
             }
           }
         }
-      } ~ path("insertall" / Rest) { id =>
+      } ~ path("insertall" / Segment ~ Slash.?) { id =>
         post {
           entity(as[String]) { body =>
             splitPathAndValue(body) match {
@@ -212,7 +212,7 @@ trait RestRoute { _: spray.routing.Directives =>
             }
           }
         }
-      } ~ path("delete" / Rest) { id =>
+      } ~ path("delete" / Segment ~ Slash.?) { id =>
         post {
           entity(as[String]) { body =>
             splitPathAndValue(body) match {
@@ -228,7 +228,7 @@ trait RestRoute { _: spray.routing.Directives =>
             }
           }
         }
-      } ~ path("clear" / Rest) { id =>
+      } ~ path("clear" / Segment ~ Slash.?) { id =>
         post {
           entity(as[String]) { body =>
             splitPathAndValue(body) match {
@@ -244,7 +244,7 @@ trait RestRoute { _: spray.routing.Directives =>
             }
           }
         }
-      } ~ path("putscript" / Rest) { scriptId =>
+      } ~ path("putscript" / Segment ~ Slash.?) { scriptId =>
         post {
           entity(as[String]) { script =>
             complete {
@@ -255,7 +255,7 @@ trait RestRoute { _: spray.routing.Directives =>
             }
           }
         }
-      } ~ path("delscript" / Rest) { scriptId =>
+      } ~ path("delscript" / Segment ~ Slash.?) { scriptId =>
         post {
           entity(as[String]) { script =>
             complete {
