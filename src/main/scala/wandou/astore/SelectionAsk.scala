@@ -14,6 +14,13 @@ import scala.concurrent.duration.FiniteDuration
 case class AskSelection(path: String, msg: Any, askTimeout: FiniteDuration)
 
 /**
+ * Factory to create the selection asker
+ */
+object SelectionAsker {
+  def apply(fact: ActorRefFactory) = fact.actorOf(Props[SelectionAsker])
+}
+
+/**
  * Actor that handles the request to aggregate responses from a selection
  */
 class SelectionAsker extends Actor {
@@ -26,7 +33,7 @@ class SelectionAsker extends Actor {
     case request @ AskSelection(path, msg, askTO) =>
       system.actorSelection(path) ! msg
       setReceiveTimeout(askTO)
-      become(waitingForResponses(sender, askTO.fromNow))
+      become(waitingForResponses(sender(), askTO.fromNow))
   }
 
   def waitingForResponses(originator: ActorRef, deadline: Deadline): Receive = {
@@ -37,9 +44,4 @@ class SelectionAsker extends Actor {
       responses = any :: responses
       setReceiveTimeout(deadline.timeLeft)
   }
-}
-
-//Factory to create the selection asker
-object SelectionAsker {
-  def apply(fact: ActorRefFactory) = fact.actorOf(Props[SelectionAsker])
 }

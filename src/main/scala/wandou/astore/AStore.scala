@@ -40,8 +40,8 @@ object AStore extends scala.App {
 class AStoreRoute(val system: ActorSystem) extends RestRoute with Directives {
   def clusterSchemaBoardProxy = ClusterSchemaBoard.clusterSchemaBoardProxy(system)
   def clusterScriptBoardProxy = ClusterScriptBoard.clusterScriptBoardProxy(system)
-  val readTimeout: Timeout = 20.seconds
-  val writeTimeout: Timeout = 20.seconds
+  val readTimeout: Timeout = 5.seconds
+  val writeTimeout: Timeout = 5.seconds
 
   val route = restApi
 }
