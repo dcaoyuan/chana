@@ -1,7 +1,7 @@
 astore
 ====
 
-Avro Data Store based on Akka
+Avro Data Store based on Akka (TODO persistence)
 
 #### Run astore
 ```
