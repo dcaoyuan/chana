@@ -56,7 +56,7 @@ class Entity(schema: Schema) extends Actor with Stash with ActorLogging with Scr
 
   private var record: Record = _
   private def createRecord() {
-    record = new GenericRecordBuilder(schema).build
+    record = new GenericRecordBuilder(schema).build()
   }
   private var limitedSize = 30
 
@@ -87,7 +87,7 @@ class Entity(schema: Schema) extends Actor with Stash with ActorLogging with Scr
     case avpath.GetField(_, fieldName) =>
       val field = schema.getField(fieldName)
       if (field != null) {
-        sender() ! Ctx(record.get(fieldName), field.schema, field)
+        sender() ! Ctx(record.get(field.pos), field.schema, field)
       } else {
         // send what ? TODO
       }
@@ -211,7 +211,7 @@ class Entity(schema: Schema) extends Actor with Stash with ActorLogging with Scr
     while (fields.hasNext) {
       val field = fields.next
       if (doLimitSize) avro.limitToSize(rec, field, limitedSize)
-      updatedFields ::= (field, rec.get(field.name))
+      updatedFields ::= (field, rec.get(field.pos))
     }
     commit2(id, updatedFields, commander)
   }
@@ -229,7 +229,7 @@ class Entity(schema: Schema) extends Actor with Stash with ActorLogging with Scr
     val updatedFields =
       for (Evaluator.Ctx(value, schema, topLevelField, _) <- ctxs if topLevelField != null) yield {
         if (doLimitSize) avro.limitToSize(rec, topLevelField, limitedSize)
-        (topLevelField, rec.get(topLevelField.name))
+        (topLevelField, rec.get(topLevelField.pos))
       }
 
     if (updatedFields.isEmpty) {
@@ -244,7 +244,7 @@ class Entity(schema: Schema) extends Actor with Stash with ActorLogging with Scr
     persist(id, modifiedFields).onComplete {
       case Success(_) =>
         for ((field, value) <- modifiedFields) {
-          record.put(field.name, value)
+          record.put(field.pos, value)
         }
         commander ! Success(id)
         self ! Success(id)
