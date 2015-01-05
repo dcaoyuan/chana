@@ -14,7 +14,6 @@ import javax.script.SimpleBindings
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData
 import org.apache.avro.generic.GenericData.Record
-import org.apache.avro.generic.GenericRecordBuilder
 import scala.concurrent.Future
 import scala.util.Failure
 import scala.util.Success
@@ -23,6 +22,7 @@ import wandou.avpath
 import wandou.avpath.Evaluator
 import wandou.avpath.Evaluator.Ctx
 import wandou.avro
+import wandou.avro.RecordBuilder
 
 object Entity {
   def props(schema: Schema) = Props(classOf[Entity], schema)
@@ -56,7 +56,7 @@ class Entity(schema: Schema) extends Actor with Stash with ActorLogging with Scr
 
   private var record: Record = _
   private def createRecord() {
-    record = new GenericRecordBuilder(schema).build()
+    record = RecordBuilder(schema).build()
   }
   private var limitedSize = 30
 
