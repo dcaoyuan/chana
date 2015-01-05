@@ -110,7 +110,7 @@ object Dependencies {
   )
  
   val avpath = Seq(
-    "com.wandoulabs.avro" %% "wandou-avpath" % "0.1.1-SNAPSHOT"
+    "com.wandoulabs.avro" %% "wandou-avpath" % "0.1.2-SNAPSHOT"
   )
 
   val spray = Seq(
