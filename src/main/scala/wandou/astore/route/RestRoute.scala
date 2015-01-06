@@ -33,6 +33,10 @@ trait RestRoute { _: spray.routing.Directives =>
 
   final def restApi = schemaApi ~ accessApi
 
+  final def ping = path("ping") {
+    complete("pong")
+  }
+
   final def schemaApi = {
     path("putschema" / Segment / Segment ~ Slash.?) { (entityName, fname) =>
       post {

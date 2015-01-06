@@ -189,7 +189,7 @@ astore stores Avro record, with two groups of APIs:
 
 ## Primitive API (Scala / Java)
 
-use AvPath expression to locate，see「[AvPath](https://github.com/wandoulabs/wandou-avpath)」
+use AvPath expression to locate. see [AvPath](https://github.com/wandoulabs/avpath)
 
 ### 1. Basic operations
 ```scala
@@ -466,5 +466,5 @@ Note:
 
 # Reference
 
-* [AvPath](https://github.com/wandoulabs/wandou-avpath)
+* [AvPath](https://github.com/wandoulabs/avpath)
 

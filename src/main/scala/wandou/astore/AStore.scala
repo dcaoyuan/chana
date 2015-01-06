@@ -43,5 +43,5 @@ class AStoreRoute(val system: ActorSystem) extends RestRoute with Directives {
   val readTimeout: Timeout = 5.seconds
   val writeTimeout: Timeout = 5.seconds
 
-  val route = restApi
+  val route = ping ~ restApi
 }
