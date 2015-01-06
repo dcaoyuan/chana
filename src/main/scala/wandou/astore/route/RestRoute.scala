@@ -29,8 +29,6 @@ trait RestRoute { _: spray.routing.Directives =>
 
   import system.dispatcher
 
-  val schemaParser = new Schema.Parser()
-
   final def resolver(entityName: String) = ClusterSharding(system).shardRegion(entityName)
 
   final def restApi = schemaApi ~ accessApi
@@ -40,6 +38,7 @@ trait RestRoute { _: spray.routing.Directives =>
       post {
         entity(as[String]) { schemaStr =>
           try {
+            val schemaParser = new Schema.Parser()
             val schema = schemaParser.parse(schemaStr)
             if (schema.getType == Schema.Type.UNION) {
               val entitySchema = schema.getTypes.get(schema.getIndexNamed(fname))
@@ -68,6 +67,7 @@ trait RestRoute { _: spray.routing.Directives =>
       post {
         entity(as[String]) { schemaStr =>
           try {
+            val schemaParser = new Schema.Parser()
             val schema = schemaParser.parse(schemaStr)
             complete {
               clusterSchemaBoardProxy.ask(PutSchema(entityName, schema))(writeTimeout).collect {

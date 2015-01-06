@@ -1,43 +1,44 @@
 {
-  "type": "record",
-  "name": "hatInventory",
-  "namespace": "avro",
-  "fields": [
-    {
-      "name": "sku",
-      "type": "string",
-      "default": ""
-    },
-    {
-      "name": "description",
-      "type": {
-        "type": "record",
-        "name": "hatInfo",
-        "fields": [
-          {
-            "name": "style",
-            "type": "string",
-            "default": ""
-          },
-          {
-            "name": "size",
-            "type": "string",
-            "default": ""
-          },
-          {
-            "name": "color",
-            "type": "string",
-            "default": ""
-          },
-          {
-            "name": "material",
-            "type": "string",
-            "default": ""
-          }
-        ]
+   "type":"record",
+   "name":"hatInventory",
+   "namespace":"astore",
+   "fields":[
+      {
+         "name":"sku",
+         "type":"string",
+         "default":""
       },
-      "default": {}
-    }
-  ]
-}
+      {
+         "name":"description",
+         "type":{
+            "type":"record",
+            "name":"hatInfo",
+            "fields":[
+               {
+                  "name":"style",
+                  "type":"string",
+                  "default":""
+               },
+               {
+                  "name":"size",
+                  "type":"string",
+                  "default":""
+               },
+               {
+                  "name":"color",
+                  "type":"string",
+                  "default":""
+               },
+               {
+                  "name":"material",
+                  "type":"string",
+                  "default":""
+               }
+            ]
+         },
+         "default":{
 
+         }
+      }
+   ]
+}

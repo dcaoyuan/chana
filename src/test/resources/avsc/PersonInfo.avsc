@@ -1,22 +1,35 @@
 {
-  "type": "record",
-  "namespace": "avro",
-  "name": "PersonInfo",
-  "fields": [
-    {
-      "name": "first",
-      "type": "string",
-      "default": ""
-    },
-    {
-      "name": "last",
-      "type": "string",
-      "default": ""
-    },
-    {
-      "name": "age",
-      "type": "int",
-      "default": 0
-    }
-  ]
+   "type":"record",
+   "name":"PersonInfo",
+   "namespace":"astore",
+   "fields":[
+      {
+         "name":"name",
+         "type":"string"
+      },
+      {
+         "name":"age",
+         "type":"int"
+      },
+      {
+         "name":"gender",
+         "type":{
+            "type":"enum",
+            "name":"GenderType",
+            "symbols":[
+               "Female",
+               "Male",
+               "Unknown"
+            ]
+         },
+         "default":"Unknown"
+      },
+      {
+         "name":"emails",
+         "type":{
+            "type":"array",
+            "items":"string"
+         }
+      }
+   ]
 }

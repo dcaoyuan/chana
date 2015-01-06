@@ -15,26 +15,39 @@ $ sbt run
 Schema: PersonInfo.avsc
 ```json
 {
-  "type": "record",
-  "namespace": "avro",
-  "name": "PersonInfo",
-  "fields": [
-    {
-      "name": "first",
-      "type": "string",
-      "default": ""
-    },
-    {
-      "name": "last",
-      "type": "string",
-      "default": ""
-    },
-    {
-      "name": "age",
-      "type": "int",
-      "default": 0
-    }
-  ]
+   "type":"record",
+   "name":"PersonInfo",
+   "namespace":"astore",
+   "fields":[
+      {
+         "name":"name",
+         "type":"string"
+      },
+      {
+         "name":"age",
+         "type":"int"
+      },
+      {
+         "name":"gender",
+         "type":{
+            "type":"enum",
+            "name":"GenderType",
+            "symbols":[
+               "Female",
+               "Male",
+               "Unknown"
+            ]
+         },
+         "default":"Unknown"
+      },
+      {
+         "name":"emails",
+         "type":{
+            "type":"array",
+            "items":"string"
+         }
+      }
+   ]
 }
 
 ```
@@ -55,46 +68,48 @@ weighttp -c100 -n100000 -k 'http://localhost:8080/personinfo/get/1'
 Schema: hatInventory.avsc
 ```json
 {
-  "type": "record",
-  "name": "hatInventory",
-  "namespace": "avro",
-  "fields": [
-    {
-      "name": "sku",
-      "type": "string",
-      "default": ""
-    },
-    {
-      "name": "description",
-      "type": {
-        "type": "record",
-        "name": "hatInfo",
-        "fields": [
-          {
-            "name": "style",
-            "type": "string",
-            "default": ""
-          },
-          {
-            "name": "size",
-            "type": "string",
-            "default": ""
-          },
-          {
-            "name": "color",
-            "type": "string",
-            "default": ""
-          },
-          {
-            "name": "material",
-            "type": "string",
-            "default": ""
-          }
-        ]
+   "type":"record",
+   "name":"hatInventory",
+   "namespace":"astore",
+   "fields":[
+      {
+         "name":"sku",
+         "type":"string",
+         "default":""
       },
-      "default": {}
-    }
-  ]
+      {
+         "name":"description",
+         "type":{
+            "type":"record",
+            "name":"hatInfo",
+            "fields":[
+               {
+                  "name":"style",
+                  "type":"string",
+                  "default":""
+               },
+               {
+                  "name":"size",
+                  "type":"string",
+                  "default":""
+               },
+               {
+                  "name":"color",
+                  "type":"string",
+                  "default":""
+               },
+               {
+                  "name":"material",
+                  "type":"string",
+                  "default":""
+               }
+            ]
+         },
+         "default":{
+
+         }
+      }
+   ]
 }
 ```
 
