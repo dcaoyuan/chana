@@ -63,7 +63,7 @@ curl 'http://localhost:8080/personinfo/get/1/first'
 weighttp -c100 -n100000 -k 'http://localhost:8080/personinfo/get/1'
 ```
 
-##### Example 2: Using Embedded Records
+##### Example 2: With Embedded Type
 
 Schema: hatInventory.avsc
 ```json
@@ -123,62 +123,29 @@ curl 'http://localhost:8080/hatinv/get/1'
 curl 'http://localhost:8080/hatinv/get/1/description'
 weighttp -c100 -n100000 -k 'http://localhost:8080/hatinv/get/1'
 ```
-##### Simple benchmark for REST API (too simple too naive)
-Simple bench.sh content:
-```shell
-OPGET=http://localhost:8080/personinfo/get/
-OPPUT=http://localhost:8080/personinfo/update/
-
-curl --data @PersonInfo.avsc 'http://localhost:8080/putschema/personinfo'
-
-for((i=1;i<=1000;i++));
-do 
-    curl --data-binary @PersonInfo.update ${OPPUT}${i};
-done
-
-for((i=1;i<=10;i++));
-do
-    ab -c100 -n100000 -k 'http://localhost:8080/personinfo/get/1'
-done
+##### Simple benchmark for REST-JSON API (too simple too naive)
+###### Environment: 
+```
+HOST: Dell Inc. PowerEdge R420/0VD50G
+CPU: 2 x Intel(R) Xeon(R) CPU E5-2420 v2 @ 2.20GHz
+OS: CentOS Linux release 7.0.1406 (Core)
 ```
 
-To run:
+###### Simple GET/SET REST-JSON Result:
+```
+Simple GET: 46221 [req#/sec] (mean)
+Simple SET: 38616 [req#/sec] (mean)
+```
+Detailed result:
+[Benchmark](https://github.com/wandoulabs/astore/wiki)
+
+###### To run:
 ```shell
 sbt run
 cd src/test/resources/avsc
 ./bench.sh
+./bench-set.sh
 ```
-
-Some results:
- * Dell Inc. PowerEdge R420/0VD50G, 2 x Intel(R) Xeon(R) CPU E5-2420 v2 @ 2.20GHz
-```
-Server Software:        spray-can/1.3.2-20140909
-Server Hostname:        localhost
-Server Port:            8080
-
-Document Path:          /personinfo/get/1
-Document Length:        30 bytes
-
-Concurrency Level:      100
-Time taken for tests:   1.968 seconds
-Complete requests:      100000
-Failed requests:        0
-Write errors:           0
-Keep-Alive requests:    100000
-Total transferred:      23700000 bytes
-HTML transferred:       3000000 bytes
-Requests per second:    50804.77 [#/sec] (mean)
-Time per request:       1.968 [ms] (mean)
-Time per request:       0.020 [ms] (mean, across all concurrent requests)
-Transfer rate:          11758.53 [Kbytes/sec] received
-
-Connection Times (ms)
-              min  mean[+/-sd] median   max
-Connect:        0    0   0.1      0       3
-Processing:     1    2   1.2      2      19
-Waiting:        1    2   1.2      2      19
-Total:          1    2   1.3      2      20
-``` 
 
 # Preface
 
