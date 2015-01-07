@@ -12,6 +12,7 @@ import scala.collection.mutable
 import scala.util.Failure
 import scala.util.Success
 import wandou.astore.Entity
+import wandou.avro.RecordBuilder
 
 /**
  * @param   entity name
@@ -24,6 +25,7 @@ final case class DelSchema(entityName: String)
 
 object NodeSchemaBoard {
   private val entityToSchema = new mutable.HashMap[String, Schema]()
+  private val entityToBuilder = new mutable.HashMap[String, RecordBuilder]()
   private val schemasLock = new ReentrantReadWriteLock()
 
   private def putSchema(system: ActorSystem, entityName: String, schema: Schema, entityFullName: Option[String] = None): Unit =
@@ -32,8 +34,9 @@ object NodeSchemaBoard {
       entityToSchema.get(entityName) match {
         case Some(`schema`) => // existed, do nothing, or upgrade to new schema ? TODO
         case _ =>
-          Entity.startSharding(system, entityName, Some(Entity.props(schema)))
           entityToSchema(entityName) = schema
+          entityToBuilder(entityName) = RecordBuilder(schema)
+          Entity.startSharding(system, entityName, Some(Entity.props(entityName, schema)))
       }
     } finally {
       schemasLock.writeLock.unlock
@@ -48,10 +51,18 @@ object NodeSchemaBoard {
       schemasLock.writeLock.unlock
     }
 
-  def schemaOf(entity: String): Option[Schema] =
+  def schemaOf(entityName: String): Option[Schema] =
     try {
       schemasLock.readLock.lock
-      entityToSchema.get(entity)
+      entityToSchema.get(entityName)
+    } finally {
+      schemasLock.readLock.unlock
+    }
+
+  def builderOf(entityName: String): Option[RecordBuilder] =
+    try {
+      schemasLock.readLock.lock
+      entityToBuilder.get(entityName)
     } finally {
       schemasLock.readLock.unlock
     }
