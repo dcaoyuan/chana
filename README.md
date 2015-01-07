@@ -15,39 +15,39 @@ $ sbt run
 Schema: PersonInfo.avsc
 ```json
 {
-   "type":"record",
-   "name":"PersonInfo",
-   "namespace":"astore",
-   "fields":[
-      {
-         "name":"name",
-         "type":"string"
+  "type": "record",
+  "name": "PersonInfo",
+  "namespace": "astore",
+  "fields": [
+    {
+      "name": "name",
+      "type": "string"
+    },
+    {
+      "name": "age",
+      "type": "int"
+    },
+    {
+      "name": "gender",
+      "type": {
+        "type": "enum",
+        "name": "GenderType",
+        "symbols": [
+          "Female",
+          "Male",
+          "Unknown"
+        ]
       },
-      {
-         "name":"age",
-         "type":"int"
-      },
-      {
-         "name":"gender",
-         "type":{
-            "type":"enum",
-            "name":"GenderType",
-            "symbols":[
-               "Female",
-               "Male",
-               "Unknown"
-            ]
-         },
-         "default":"Unknown"
-      },
-      {
-         "name":"emails",
-         "type":{
-            "type":"array",
-            "items":"string"
-         }
+      "default": "Unknown"
+    },
+    {
+      "name": "emails",
+      "type": {
+        "type": "array",
+        "items": "string"
       }
-   ]
+    }
+  ]
 }
 
 ```
@@ -68,48 +68,46 @@ weighttp -c100 -n100000 -k 'http://localhost:8080/personinfo/get/1'
 Schema: hatInventory.avsc
 ```json
 {
-   "type":"record",
-   "name":"hatInventory",
-   "namespace":"astore",
-   "fields":[
-      {
-         "name":"sku",
-         "type":"string",
-         "default":""
+  "type": "record",
+  "name": "hatInventory",
+  "namespace": "astore",
+  "fields": [
+    {
+      "name": "sku",
+      "type": "string",
+      "default": ""
+    },
+    {
+      "name": "description",
+      "type": {
+        "type": "record",
+        "name": "hatInfo",
+        "fields": [
+          {
+            "name": "style",
+            "type": "string",
+            "default": ""
+          },
+          {
+            "name": "size",
+            "type": "string",
+            "default": ""
+          },
+          {
+            "name": "color",
+            "type": "string",
+            "default": ""
+          },
+          {
+            "name": "material",
+            "type": "string",
+            "default": ""
+          }
+        ]
       },
-      {
-         "name":"description",
-         "type":{
-            "type":"record",
-            "name":"hatInfo",
-            "fields":[
-               {
-                  "name":"style",
-                  "type":"string",
-                  "default":""
-               },
-               {
-                  "name":"size",
-                  "type":"string",
-                  "default":""
-               },
-               {
-                  "name":"color",
-                  "type":"string",
-                  "default":""
-               },
-               {
-                  "name":"material",
-                  "type":"string",
-                  "default":""
-               }
-            ]
-         },
-         "default":{
-
-         }
-      }
-   ]
+      "default": {}
+    }
+  ]
 }
 ```
 
@@ -158,7 +156,13 @@ astore stores Avro record, with two groups of APIs:
 
 use AvPath expression to locate. see [AvPath](https://github.com/wandoulabs/avpath)
 
-### 1. Basic operations
+### 1. Schema
+```scala
+case class PutSchema(entityName: String, schema: Schema, entityFullName: Option[String] = None)
+case class DelSchema(entityName: String)
+```
+
+### 2. Basic operations
 ```scala
 case class GetRecord(id: String)
 case class PutRecord(id: String, record: Record)
@@ -171,7 +175,7 @@ case class Select(id: String, path: String)
 case class Update(id: String, path: String, value: Any)
 case class UpdateJson(id: String, path: String, value: String)
 ```
-### 2. Operations applicable on Array / Map
+### 3. Operations applicable on Array / Map
 ```scala
 case class Insert(id: String, path: String, value: Any)
 case class InsertJson(id: String, path: String, value: String)
@@ -180,24 +184,13 @@ case class InsertAllJson(id: String, path: String, values: String)
 case class Delete(id: String, path: String)
 case class Clear(id: String, path: String)
 ```
-### 3. Script
+### 4. Script
 ```scala
 case class PutScript(entity: String, id: String, script: String)
 case class DelScript(entity: String, id: String)
 ```
 
-### 4. Schema
-```scala
-case class PutSchema(entityName: String, schema: Schema, entityFullName: Option[String] = None)
-case class DelSchema(entityName: String)
-```
-
 ## RESTful API
-
-* Note: URL valid charaters (see [http://tools.ietf.org/html/rfc3986#section-2](http://tools.ietf.org/html/rfc3986#section-2))
-ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~:/?#[]@!$&'()*+,;=
-
-## URL format
 
 ### Put schema 
 ```
@@ -222,7 +215,6 @@ Content-Length: NNN
 BODY:
 <SCHEMA_STRING>
 ```
-
 
 ### Del schame 
 ```
@@ -428,7 +420,7 @@ Note:
 
 * Replace `$avpath` with actual avpath expression
 
-* Put the `$avpath` and **<JSON_STRING>** format value(s) for **update / insert / insertall** in **POST** body, separate `$avpath` and **<JSON_STRING>** with **"\n"**, and make sure it’s encoded as binary, and set **Content-Type: application/octet-stream**
+* Put the `$avpath` and **<JSON_STRING>** format value(s) for **update / insert / insertall** in **POST** body, separate `$avpath` and **<JSON_STRING>** with **"\n"**, and make sure it’s encoded as binary, set **Content-Type: application/octet-stream**
 
 
 # Reference

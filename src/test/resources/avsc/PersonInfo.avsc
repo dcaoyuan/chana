@@ -1,35 +1,35 @@
 {
-   "type":"record",
-   "name":"PersonInfo",
-   "namespace":"astore",
-   "fields":[
-      {
-         "name":"name",
-         "type":"string"
+  "type": "record",
+  "name": "PersonInfo",
+  "namespace": "astore",
+  "fields": [
+    {
+      "name": "name",
+      "type": "string"
+    },
+    {
+      "name": "age",
+      "type": "int"
+    },
+    {
+      "name": "gender",
+      "type": {
+        "type": "enum",
+        "name": "GenderType",
+        "symbols": [
+          "Female",
+          "Male",
+          "Unknown"
+        ]
       },
-      {
-         "name":"age",
-         "type":"int"
-      },
-      {
-         "name":"gender",
-         "type":{
-            "type":"enum",
-            "name":"GenderType",
-            "symbols":[
-               "Female",
-               "Male",
-               "Unknown"
-            ]
-         },
-         "default":"Unknown"
-      },
-      {
-         "name":"emails",
-         "type":{
-            "type":"array",
-            "items":"string"
-         }
+      "default": "Unknown"
+    },
+    {
+      "name": "emails",
+      "type": {
+        "type": "array",
+        "items": "string"
       }
-   ]
+    }
+  ]
 }
