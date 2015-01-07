@@ -25,7 +25,6 @@ final case class DelSchema(entityName: String)
 
 object NodeSchemaBoard {
   private val entityToSchema = new mutable.HashMap[String, Schema]()
-  private val entityToBuilder = new mutable.HashMap[String, RecordBuilder]()
   private val schemasLock = new ReentrantReadWriteLock()
 
   private def putSchema(system: ActorSystem, entityName: String, schema: Schema, entityFullName: Option[String] = None): Unit =
@@ -35,8 +34,7 @@ object NodeSchemaBoard {
         case Some(`schema`) => // existed, do nothing, or upgrade to new schema ? TODO
         case _ =>
           entityToSchema(entityName) = schema
-          entityToBuilder(entityName) = RecordBuilder(schema)
-          Entity.startSharding(system, entityName, Some(Entity.props(entityName, schema)))
+          Entity.startSharding(system, entityName, Some(Entity.props(schema, RecordBuilder(schema))))
       }
     } finally {
       schemasLock.writeLock.unlock
@@ -55,14 +53,6 @@ object NodeSchemaBoard {
     try {
       schemasLock.readLock.lock
       entityToSchema.get(entityName)
-    } finally {
-      schemasLock.readLock.unlock
-    }
-
-  def builderOf(entityName: String): Option[RecordBuilder] =
-    try {
-      schemasLock.readLock.lock
-      entityToBuilder.get(entityName)
     } finally {
       schemasLock.readLock.unlock
     }

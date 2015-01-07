@@ -17,15 +17,15 @@ import org.apache.avro.generic.GenericData.Record
 import scala.concurrent.Future
 import scala.util.Failure
 import scala.util.Success
-import wandou.astore.schema.NodeSchemaBoard
 import wandou.astore.script.Scriptable
 import wandou.avpath
 import wandou.avpath.Evaluator
 import wandou.avpath.Evaluator.Ctx
 import wandou.avro
+import wandou.avro.RecordBuilder
 
 object Entity {
-  def props(entityName: String, schema: Schema) = Props(classOf[Entity], entityName, schema)
+  def props(schema: Schema, builder: RecordBuilder) = Props(classOf[Entity], schema, builder)
 
   lazy val idExtractor: ShardRegion.IdExtractor = {
     case cmd: avpath.Command => (cmd.id, cmd)
@@ -48,7 +48,7 @@ object Entity {
   }
 }
 
-class Entity(entityName: String, schema: Schema) extends Actor with Stash with ActorLogging with Scriptable {
+class Entity(schema: Schema, builder: RecordBuilder) extends Actor with Stash with ActorLogging with Scriptable {
   import context.dispatcher
 
   private val id = self.path.name
@@ -57,10 +57,7 @@ class Entity(entityName: String, schema: Schema) extends Actor with Stash with A
 
   private var record: Record = _
   private def createRecord() {
-    NodeSchemaBoard.builderOf(entityName) match {
-      case Some(builder) => record = builder.build()
-      case None          => log.error("There is no RecordBuilder for this kind of {}" + entityName)
-    }
+    record = builder.build()
   }
 
   override def preStart {
