@@ -44,22 +44,20 @@ object DistributedSchemaBoard extends ExtensionId[DistributedSchemaBoardExtensio
   /**
    * Scala API: Factory method for `DistributedSchemaBoard` [[akka.actor.Props]].
    */
-  def props[T](
-    role:              Option[String],
-    gossipInterval:    FiniteDuration = 1.second,
+  def props(
+    role: Option[String],
+    gossipInterval: FiniteDuration = 1.second,
     removedTimeToLive: FiniteDuration = 2.minutes,
-    maxDeltaElements:  Int            = 3000
-  ): Props = Props(classOf[DistributedSchemaBoard], role, gossipInterval, removedTimeToLive, maxDeltaElements)
+    maxDeltaElements: Int = 3000): Props = Props(classOf[DistributedSchemaBoard], role, gossipInterval, removedTimeToLive, maxDeltaElements)
 
   /**
    * Java API: Factory method for `DistributedSchemaBoard` [[akka.actor.Props]].
    */
   def props(
-    role:              String,
-    gossipInterval:    FiniteDuration,
+    role: String,
+    gossipInterval: FiniteDuration,
     removedTimeToLive: FiniteDuration,
-    maxDeltaElements:  Int
-  ): Props = props(roleOption(role), gossipInterval, removedTimeToLive, maxDeltaElements)
+    maxDeltaElements: Int): Props = props(roleOption(role), gossipInterval, removedTimeToLive, maxDeltaElements)
 
   /**
    * Java API: Factory method for `DistributedSchemaBoard` [[akka.actor.Props]]
@@ -111,11 +109,10 @@ object DistributedSchemaBoard extends ExtensionId[DistributedSchemaBoardExtensio
 }
 
 class DistributedSchemaBoard(
-    val role:              Option[String],
-    val gossipInterval:    FiniteDuration,
+    val role: Option[String],
+    val gossipInterval: FiniteDuration,
     val removedTimeToLive: FiniteDuration,
-    val maxDeltaElements:  Int
-) extends DistributedStatusBoard[String] {
+    val maxDeltaElements: Int) extends DistributedStatusBoard[String] {
 
   import context.dispatcher
 
@@ -143,10 +140,9 @@ class DistributedSchemaBoard(
       (entityName, valueHolder) <- bucket.content if keys.contains(entityName)
       schemaStr <- valueHolder.value
     } {
+      log.info("put schema [{}]: {} ", entityName, schemaStr)
       try {
-        log.info("put schema [{}]: {} ", entityName, schemaStr)
-        val schemaParser = new Schema.Parser()
-        val schema = schemaParser.parse(schemaStr)
+        val schema = new Schema.Parser().parse(schemaStr)
         DistributedSchemaBoard.putSchema(context.system, entityName, schema)
       } catch {
         case ex: Throwable => log.error(ex, ex.getMessage)
@@ -188,8 +184,7 @@ class DistributedSchemaBoardExtension(system: ExtendedActorSystem) extends Exten
       val name = config.getString("name")
       system.actorOf(
         DistributedSchemaBoard.props(role, gossipInterval, removedTimeToLive, maxDeltaElements),
-        name
-      )
+        name)
     }
   }
 }

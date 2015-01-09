@@ -54,13 +54,24 @@ Schema: PersonInfo.avsc
 
 Testing:
 ```shell
-cd src/test/resources/avsc
-curl --data @PersonInfo.avsc 'http://localhost:8080/putschema/personinfo'
-curl 'http://localhost:8080/personinfo/get/1'
-curl --data-binary @PersonInfo.update 'http://localhost:8080/personinfo/update/1'
-curl 'http://localhost:8080/personinfo/get/1'
-curl 'http://localhost:8080/personinfo/get/1/first'
-weighttp -c100 -n100000 -k 'http://localhost:8080/personinfo/get/1'
+$ cd src/test/resources/avsc
+
+$ curl --data @PersonInfo.avsc 'http://localhost:8080/putschema/personinfo'
+OK
+
+$ curl 'http://localhost:8080/personinfo/get/1'
+{"name":"","age":0,"gender":"Unknown","emails":[]}
+
+$ curl --data-binary @PersonInfo.update 'http://localhost:8080/personinfo/update/1'
+OK
+
+$ curl 'http://localhost:8080/personinfo/get/1'
+{"name":"Martin Odersky","age":50,"gender":"Unknown","emails":[]}
+
+$ curl 'http://localhost:8080/personinfo/get/1/name'
+"Martin Odersky"
+
+$ ab -c100 -n100000 -k 'http://localhost:8080/personinfo/get/1'
 ```
 
 ##### Example 2: With Embedded Type
@@ -113,13 +124,24 @@ Schema: hatInventory.avsc
 
 Testing:
 ```shell
-cd src/test/resources/avsc
-curl --data @hatInventory.avsc 'http://localhost:8080/putschema/hatinv'
-curl 'http://localhost:8080/hatinv/get/1'
-curl --data '{"style": "classic", "size": "Large", "color": "Red"}' 'http://localhost:8080/hatinv/put/1/description'
-curl 'http://localhost:8080/hatinv/get/1'
-curl 'http://localhost:8080/hatinv/get/1/description'
-weighttp -c100 -n100000 -k 'http://localhost:8080/hatinv/get/1'
+$ cd src/test/resources/avsc
+
+$ curl --data @hatInventory.avsc 'http://localhost:8080/putschema/hatinv'
+OK
+
+$ curl 'http://localhost:8080/hatinv/get/1'
+{"sku":"","description":{"style":"","size":"","color":"","material":""}}
+
+$ curl --data '{"style": "classic", "size": "Large", "color": "Red"}' 'http://localhost:8080/hatinv/put/1/description'
+OK
+
+$ curl 'http://localhost:8080/hatinv/get/1'
+{"sku":"","description":{"style":"classic","size":"Large","color":"Red","material":""}}
+
+$ curl 'http://localhost:8080/hatinv/get/1/description'
+{"style":"classic","size":"Large","color":"Red","material":""}
+
+$ ab -c100 -n100000 -k 'http://localhost:8080/hatinv/get/1'
 ```
 ##### Simple benchmark for REST-JSON API (too simple too naive)
 ###### Environment: 

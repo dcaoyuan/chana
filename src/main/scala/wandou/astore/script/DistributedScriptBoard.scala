@@ -45,22 +45,20 @@ object DistributedScriptBoard extends ExtensionId[DistributedScriptBoardExtensio
   /**
    * Scala API: Factory method for `DistributedStatusBoard` [[akka.actor.Props]].
    */
-  def props[T](
-    role:              Option[String],
-    gossipInterval:    FiniteDuration = 1.second,
+  def props(
+    role: Option[String],
+    gossipInterval: FiniteDuration = 1.second,
     removedTimeToLive: FiniteDuration = 2.minutes,
-    maxDeltaElements:  Int            = 3000
-  ): Props = Props(classOf[DistributedScriptBoard], role, gossipInterval, removedTimeToLive, maxDeltaElements)
+    maxDeltaElements: Int = 3000): Props = Props(classOf[DistributedScriptBoard], role, gossipInterval, removedTimeToLive, maxDeltaElements)
 
   /**
    * Java API: Factory method for `DistributedScriptBoard` [[akka.actor.Props]].
    */
   def props(
-    role:              String,
-    gossipInterval:    FiniteDuration,
+    role: String,
+    gossipInterval: FiniteDuration,
     removedTimeToLive: FiniteDuration,
-    maxDeltaElements:  Int
-  ): Props = props(roleOption(role), gossipInterval, removedTimeToLive, maxDeltaElements)
+    maxDeltaElements: Int): Props = props(roleOption(role), gossipInterval, removedTimeToLive, maxDeltaElements)
 
   /**
    * Java API: Factory method for `DistributedScriptBoard` [[akka.actor.Props]]
@@ -113,11 +111,10 @@ object DistributedScriptBoard extends ExtensionId[DistributedScriptBoardExtensio
 }
 
 class DistributedScriptBoard(
-    val role:              Option[String],
-    val gossipInterval:    FiniteDuration,
+    val role: Option[String],
+    val gossipInterval: FiniteDuration,
     val removedTimeToLive: FiniteDuration,
-    val maxDeltaElements:  Int
-) extends DistributedStatusBoard[String] {
+    val maxDeltaElements: Int) extends DistributedStatusBoard[String] {
 
   import context.dispatcher
 
@@ -145,8 +142,8 @@ class DistributedScriptBoard(
       (key, valueHolder) <- bucket.content if keys.contains(key)
       script <- valueHolder.value
     } {
+      log.info("put script [{}]: {} ", key, script)
       try {
-        log.info("put script [{}]: {} ", key, script)
         val compiledScript = DistributedScriptBoard.engine.asInstanceOf[Compilable].compile(script)
         DistributedScriptBoard.putScript(key, compiledScript)
       } catch {
@@ -189,8 +186,7 @@ class DistributedScriptBoardExtension(system: ExtendedActorSystem) extends Exten
       val name = config.getString("name")
       system.actorOf(
         DistributedScriptBoard.props(role, gossipInterval, removedTimeToLive, maxDeltaElements),
-        name
-      )
+        name)
     }
   }
 }
