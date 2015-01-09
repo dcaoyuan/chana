@@ -8,24 +8,12 @@ import spray.can.Http
 import spray.http.HttpHeaders.RawHeader
 import spray.routing.Directives
 import wandou.astore.route.RestRoute
-import wandou.astore.schema.ClusterSchemaBoard
-import wandou.astore.schema.NodeSchemaBoard
-import wandou.astore.script.ClusterScriptBoard
-import wandou.astore.script.NodeScriptBoard
 
 /**
  * Start REST astore service
  */
 object AStore extends scala.App {
   implicit val system = ActorSystem("AStoreSystem")
-
-  ClusterSchemaBoard.startClusterSchemaBoard(system, None)
-  ClusterSchemaBoard.startClusterSchemaBoardProxy(system, None)
-  NodeSchemaBoard(system).schemaBoard // start NodeSchemaBoard's local schemaBoard 
-
-  ClusterScriptBoard.startClusterScriptBoard(system, None)
-  ClusterScriptBoard.startClusterScriptBoardProxy(system, None)
-  NodeScriptBoard(system).scriptBoard // start NodeScriptBoard's local schemaBoard 
 
   val routes = Directives.respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
     new AStoreRoute(system).route
@@ -38,8 +26,6 @@ object AStore extends scala.App {
 }
 
 class AStoreRoute(val system: ActorSystem) extends RestRoute with Directives {
-  def clusterSchemaBoardProxy = ClusterSchemaBoard.clusterSchemaBoardProxy(system)
-  def clusterScriptBoardProxy = ClusterScriptBoard.clusterScriptBoardProxy(system)
   val readTimeout: Timeout = 5.seconds
   val writeTimeout: Timeout = 5.seconds
 

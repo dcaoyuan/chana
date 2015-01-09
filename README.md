@@ -158,8 +158,8 @@ use AvPath expression to locate. see [AvPath](https://github.com/wandoulabs/avpa
 
 ### 1. Schema
 ```scala
-case class PutSchema(entityName: String, schema: Schema, entityFullName: Option[String] = None)
-case class DelSchema(entityName: String)
+case class PutSchema(entityName: String, schema: Schema)
+case class RemoveSchema(entityName: String)
 ```
 
 ### 2. Basic operations
@@ -187,7 +187,7 @@ case class Clear(id: String, path: String)
 ### 4. Script
 ```scala
 case class PutScript(entity: String, id: String, script: String)
-case class DelScript(entity: String, id: String)
+case class RemoveScript(entity: String, id: String)
 ```
 
 ## RESTful API
