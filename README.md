@@ -66,10 +66,10 @@ $ curl --data-binary @PersonInfo.update 'http://localhost:8080/personinfo/update
 OK
 
 $ curl 'http://localhost:8080/personinfo/get/1'
-{"name":"Martin Odersky","age":50,"gender":"Unknown","emails":[]}
+{"name":"James Bond","age":60,"gender":"Unknown","emails":[]}
 
 $ curl 'http://localhost:8080/personinfo/get/1/name'
-"Martin Odersky"
+"James Bond"
 
 $ ab -c100 -n100000 -k 'http://localhost:8080/personinfo/get/1'
 ```

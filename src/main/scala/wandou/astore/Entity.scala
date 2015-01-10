@@ -49,6 +49,8 @@ object Entity {
 }
 
 class Entity(schema: Schema, builder: RecordBuilder) extends Actor with Stash with ActorLogging with Scriptable {
+  import Entity.Internal._
+
   import context.dispatcher
 
   private val id = self.path.name
@@ -66,13 +68,13 @@ class Entity(schema: Schema, builder: RecordBuilder) extends Actor with Stash wi
     //context.setReceiveTimeout(ReceiveTimeoutSecs)
     createRecord()
     // TODO load persistented data
-    self ! Entity.Internal.Bootstrap(record)
+    self ! Bootstrap(record)
   }
 
   override def receive: Receive = initial
 
   def initial: Receive = {
-    case Entity.Internal.Bootstrap(r) =>
+    case Bootstrap(r) =>
       record = r
       context.become(ready orElse scriptableBehavior)
       unstashAll()

@@ -140,7 +140,7 @@ class DistributedSchemaBoard(
       (entityName, valueHolder) <- bucket.content if keys.contains(entityName)
       schemaStr <- valueHolder.value
     } {
-      log.info("put schema [{}]: {} ", entityName, schemaStr)
+      log.info("put schema [{}]:\n{} ", entityName, schemaStr)
       try {
         val schema = new Schema.Parser().parse(schemaStr)
         DistributedSchemaBoard.putSchema(context.system, entityName, schema)

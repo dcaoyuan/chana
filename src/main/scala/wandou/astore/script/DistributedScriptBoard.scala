@@ -77,7 +77,7 @@ object DistributedScriptBoard extends ExtensionId[DistributedScriptBoardExtensio
    * https://github.com/playframework/playframework/issues/2532
    */
   lazy val engineManager = new ScriptEngineManager(null)
-  lazy val engine = engineManager.getEngineByName("nashorn")
+  lazy val engine = engineManager.getEngineByName("nashorn").asInstanceOf[Compilable]
 
   private val entityToScripts = new mutable.HashMap[String, CompiledScript]()
   private val scriptsLock = new ReentrantReadWriteLock()
@@ -142,9 +142,9 @@ class DistributedScriptBoard(
       (key, valueHolder) <- bucket.content if keys.contains(key)
       script <- valueHolder.value
     } {
-      log.info("put script [{}]: {} ", key, script)
+      log.info("put script [{}]:\n{} ", key, script)
       try {
-        val compiledScript = DistributedScriptBoard.engine.asInstanceOf[Compilable].compile(script)
+        val compiledScript = DistributedScriptBoard.engine.compile(script)
         DistributedScriptBoard.putScript(key, compiledScript)
       } catch {
         case ex: Throwable => log.error(ex, ex.getMessage)

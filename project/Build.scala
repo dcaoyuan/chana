@@ -1,5 +1,7 @@
 import sbt._
 import sbt.Keys._
+import com.typesafe.sbt.SbtMultiJvm
+import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
 import com.typesafe.sbt.SbtScalariform
 import com.typesafe.sbt.SbtScalariform.ScalariformKeys
 import sbtfilter.Plugin.FilterKeys._
@@ -14,9 +16,11 @@ object Build extends sbt.Build {
     .settings(sbtrelease.ReleasePlugin.releaseSettings: _*)
     .settings(libraryDependencies ++= Dependencies.basic)
     .settings(XitrumPackage.skip: _*)
-    //.settings(sbtavro.SbtAvro.avroSettings ++ avroSettingsTest: _*)
     .settings(instrumentSettings: _*)
     .settings(net.virtualvoid.sbt.graph.Plugin.graphSettings: _*)
+    .settings(SbtMultiJvm.multiJvmSettings ++ multiJvmSettings: _*)
+    .settings(unmanagedSourceDirectories in Test += baseDirectory.value / "multi-jvm/scala")
+    .configs(MultiJvm)
 
   lazy val basicSettings = Seq(
     organization := "com.wandoulabs.avro",
@@ -70,6 +74,25 @@ object Build extends sbt.Build {
         <connection>scm:git:git@github.com:wandoulabs/astore.git</connection>
       </scm>)
 
+  def multiJvmSettings = Seq(
+    // make sure that MultiJvm test are compiled by the default test compilation
+    compile in MultiJvm <<= (compile in MultiJvm) triggeredBy (compile in Test),
+    // disable parallel tests
+    parallelExecution in Test := false,
+    // make sure that MultiJvm tests are executed by the default test target,
+    // and combine the results from ordinary test and multi-jvm tests
+    executeTests in Test <<= (executeTests in Test, executeTests in MultiJvm) map {
+      case (testResults, multiNodeResults) =>
+        val overall =
+          if (testResults.overall.id < multiNodeResults.overall.id)
+            multiNodeResults.overall
+          else
+            testResults.overall
+        Tests.Output(overall,
+          testResults.events ++ multiNodeResults.events,
+          testResults.summaries ++ multiNodeResults.summaries)
+    })
+
   lazy val noPublishing = Seq(
     publish :=(),
     publishLocal :=(),
@@ -102,7 +125,9 @@ object Dependencies {
     "com.typesafe.akka" %% "akka-actor" % AKKA_VERSION,
     "com.typesafe.akka" %% "akka-contrib" % AKKA_VERSION,
     "com.typesafe.akka" %% "akka-persistence-experimental" % AKKA_VERSION,
-    "com.typesafe.akka" %% "akka-slf4j" % AKKA_VERSION
+    "com.typesafe.akka" %% "akka-slf4j" % AKKA_VERSION,
+    "com.typesafe.akka" %% "akka-testkit" % AKKA_VERSION % "test",
+    "com.typesafe.akka" %% "akka-multi-node-testkit" % AKKA_VERSION % "test"
   )
 
   val avro = Seq(
