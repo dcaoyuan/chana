@@ -1,0 +1,17 @@
+language: scala
+scala:
+- 2.11.4
+jdk:
+- openjdk7
+script:
+- sbt ++$TRAVIS_SCALA_VERSION compile test:compile
+- sbt ++$TRAVIS_SCALA_VERSION test
+branches:
+  only:
+  - master
+env:
+  global:
+notifications:
+  email:
+  - dcaoyuan@wandoujia.com
+  - chenxingrun@wandoujia.com
