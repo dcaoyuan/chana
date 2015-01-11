@@ -202,7 +202,7 @@ class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMu
 
       // with roles: entity
       runOn(entity1, entity2) { 
-        // start extendtions
+        // start extentions
         DistributedSchemaBoard(system) 
         DistributedScriptBoard(system) 
 

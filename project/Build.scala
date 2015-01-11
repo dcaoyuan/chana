@@ -15,7 +15,7 @@ object Build extends sbt.Build {
     .settings(releaseSettings: _*)
     .settings(sbtrelease.ReleasePlugin.releaseSettings: _*)
     .settings(libraryDependencies ++= Dependencies.basic)
-    .settings(XitrumPackage.skip: _*)
+    .settings(Packaging.packagingSettings: _*)
     .settings(instrumentSettings: _*)
     .settings(net.virtualvoid.sbt.graph.Plugin.graphSettings: _*)
     .settings(SbtMultiJvm.multiJvmSettings ++ multiJvmSettings: _*)
@@ -33,20 +33,6 @@ object Build extends sbt.Build {
       "Sonatype OSS Releases" at "https://oss.sonatype.org/content/repositories/releases",
       "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
       "Typesafe repo" at "http://repo.typesafe.com/typesafe/releases/"))
-
-  lazy val avroSettings = Seq(
-    sbtavro.SbtAvro.stringType in sbtavro.SbtAvro.avroConfig := "String",
-    sourceDirectory in sbtavro.SbtAvro.avroConfig <<= (resourceDirectory in Compile)(_ / "avsc"),
-    version in sbtavro.SbtAvro.avroConfig := "1.7.7"
-  )
-
-  // Todo rewrite sbt-avro to compile in Test phase.
-  lazy val avroSettingsTest = Seq(
-    sbtavro.SbtAvro.stringType in sbtavro.SbtAvro.avroConfig := "String",
-    sourceDirectory in sbtavro.SbtAvro.avroConfig <<= (resourceDirectory in Test)(_ / "avsc"),
-    javaSource in sbtavro.SbtAvro.avroConfig <<= (sourceManaged in Test)(_ / "java" / "compiled_avro"),
-    version in sbtavro.SbtAvro.avroConfig := "1.7.7"
-  )
 
   lazy val releaseSettings = Seq(
     publishTo := {
@@ -75,12 +61,8 @@ object Build extends sbt.Build {
       </scm>)
 
   def multiJvmSettings = Seq(
-    // make sure that MultiJvm test are compiled by the default test compilation
     compile in MultiJvm <<= (compile in MultiJvm) triggeredBy (compile in Test),
-    // disable parallel tests
     parallelExecution in Test := false,
-    // make sure that MultiJvm tests are executed by the default test target,
-    // and combine the results from ordinary test and multi-jvm tests
     executeTests in Test <<= (executeTests in Test, executeTests in MultiJvm) map {
       case (testResults, multiNodeResults) =>
         val overall =
@@ -162,3 +144,12 @@ object Dependencies {
   val all = basic
 }
 
+object Packaging {
+  import com.typesafe.sbt.SbtNativePackager._
+  import com.typesafe.sbt.packager.archetypes._
+  import NativePackagerKeys._ 
+  val packagingSettings = Seq(
+    //name := BuildSettings.buildName,
+    NativePackagerKeys.packageName := "astore"
+  ) ++ Seq(packageArchetype.java_application:_*) ++ buildSettings
+}

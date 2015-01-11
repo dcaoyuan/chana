@@ -4,8 +4,19 @@ astore
 Avro Data Store based on Akka (TODO persistence)
 
 #### Run astore
-```
+```shell
 $ sbt run
+```
+Or
+```shell
+$ sbt clean compile dist
+$ ls target/universal/
+tmp  wandou-astore-0.1.1-SNAPSHOT.zip 
+```
+Then, copy wandou-astore-0.1.1.-SNAPSHOT.zip to somewhere and unzip it
+```shell
+$ cd wandou-astore-0.1.1-SNAPSHOT/bin
+$ ./wandou-astore
 ```
 
 #### Access astore
