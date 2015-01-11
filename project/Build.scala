@@ -2,8 +2,6 @@ import sbt._
 import sbt.Keys._
 import com.typesafe.sbt.SbtMultiJvm
 import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
-import com.typesafe.sbt.SbtScalariform
-import com.typesafe.sbt.SbtScalariform.ScalariformKeys
 import sbtfilter.Plugin.FilterKeys._
 import scoverage.ScoverageSbtPlugin._
 
@@ -11,11 +9,11 @@ object Build extends sbt.Build {
 
   lazy val avpath = Project("wandou-astore", file("."))
     .settings(basicSettings: _*)
-    .settings(formatSettings: _*)
+    .settings(Formatting.settings: _*)
     .settings(releaseSettings: _*)
     .settings(sbtrelease.ReleasePlugin.releaseSettings: _*)
     .settings(libraryDependencies ++= Dependencies.basic)
-    .settings(Packaging.packagingSettings: _*)
+    .settings(Packaging.settings: _*)
     .settings(instrumentSettings: _*)
     .settings(net.virtualvoid.sbt.graph.Plugin.graphSettings: _*)
     .settings(SbtMultiJvm.multiJvmSettings ++ multiJvmSettings: _*)
@@ -83,19 +81,6 @@ object Build extends sbt.Build {
     publishTo := None
   )
 
-  lazy val formatSettings = SbtScalariform.scalariformSettings ++ Seq(
-    ScalariformKeys.preferences in Compile := formattingPreferences,
-    ScalariformKeys.preferences in Test := formattingPreferences)
-
-  lazy val formattingPreferences = {
-    import scalariform.formatter.preferences._
-    FormattingPreferences()
-      .setPreference(RewriteArrowSymbols, false)
-      .setPreference(AlignParameters, true)
-      .setPreference(AlignSingleLineCaseStatements, true)
-      .setPreference(DoubleIndentClassDeclaration, true)
-      .setPreference(IndentSpaces, 2)
-  }
 }
 
 object Dependencies {
@@ -144,12 +129,34 @@ object Dependencies {
   val all = basic
 }
 
+object Formatting {
+  import com.typesafe.sbt.SbtScalariform
+  import com.typesafe.sbt.SbtScalariform.ScalariformKeys
+
+  val settings = SbtScalariform.scalariformSettings ++ Seq(
+    ScalariformKeys.preferences in Compile := formattingPreferences,
+    ScalariformKeys.preferences in Test := formattingPreferences)
+
+  val formattingPreferences = {
+    import scalariform.formatter.preferences._
+    FormattingPreferences()
+      .setPreference(RewriteArrowSymbols, false)
+      .setPreference(AlignParameters, true)
+      .setPreference(AlignSingleLineCaseStatements, true)
+      .setPreference(DoubleIndentClassDeclaration, true)
+      .setPreference(IndentSpaces, 2)
+  }
+}
+
 object Packaging {
   import com.typesafe.sbt.SbtNativePackager._
+  import com.typesafe.sbt.packager.Keys._
   import com.typesafe.sbt.packager.archetypes._
-  import NativePackagerKeys._ 
-  val packagingSettings = Seq(
-    //name := BuildSettings.buildName,
-    NativePackagerKeys.packageName := "astore"
-  ) ++ Seq(packageArchetype.java_application:_*) ++ buildSettings
+
+  val settings = packagerSettings ++ deploymentSettings ++ 
+    packageArchetype.java_application ++ Seq(
+      name := "astore",
+      NativePackagerKeys.packageName := "astore",
+      bashScriptConfigLocation := Some("${app_home}/../conf/jvmopts"),
+      bashScriptExtraDefines += """addJava "-Dconfig.file=${app_home}/../conf/application.conf"""") 
 }

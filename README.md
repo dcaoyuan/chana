@@ -11,12 +11,12 @@ Or
 ```shell
 $ sbt clean compile dist
 $ ls target/universal/
-tmp  wandou-astore-0.1.1-SNAPSHOT.zip 
+tmp  astore-0.1.1-SNAPSHOT.zip 
 ```
-Then, copy wandou-astore-0.1.1.-SNAPSHOT.zip to somewhere and unzip it
+Then, copy astore-0.1.1.-SNAPSHOT.zip to somewhere and unzip it
 ```shell
-$ cd wandou-astore-0.1.1-SNAPSHOT/bin
-$ ./wandou-astore
+$ cd astore-0.1.1-SNAPSHOT/bin
+$ ./astore
 ```
 
 #### Access astore

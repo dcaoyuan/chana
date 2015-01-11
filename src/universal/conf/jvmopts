@@ -1,0 +1,19 @@
+# HEAP
+-Xms1024M 
+-Xmx1024M 
+-Xss1M 
+
+# FLAGS
+-server 
+-XX:+UseNUMA 
+-XX:+UseCondCardMark 
+-XX:-UseBiasedLocking 
+
+# GC
+-XX:+UseParallelGC
+
+# Add additional jvm parameters
+-Dfile.encoding=UTF8
+
+# Referencing a custom config file
+#-Dconfig.file=${app_home}/../conf/application.conf
