@@ -3,6 +3,8 @@ astore
 
 Avro Data Store based on Akka (TODO persistence)
 
+<a href="https://travis-ci.org/wandoulabs/astore"><img src="https://travis-ci.org/wandoulabs/astore.png" alt="astore build status"></a>
+
 #### Run astore
 ```shell
 $ sbt run

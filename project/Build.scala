@@ -10,6 +10,7 @@ object Build extends sbt.Build {
   lazy val avpath = Project("wandou-astore", file("."))
     .settings(basicSettings: _*)
     .settings(Formatting.settings: _*)
+    .settings(Formatting.buildFileSettings: _*)
     .settings(releaseSettings: _*)
     .settings(sbtrelease.ReleasePlugin.releaseSettings: _*)
     .settings(libraryDependencies ++= Dependencies.basic)
@@ -25,7 +26,7 @@ object Build extends sbt.Build {
     version := "0.1.1-SNAPSHOT",
     scalaVersion := "2.11.4",
     scalacOptions ++= Seq("-unchecked", "-deprecation"),
-    javacOptions ++= Seq("-source", "1.6", "-target", "1.6"), 
+    javacOptions ++= Seq("-source", "1.6", "-target", "1.6"),
     resolvers ++= Seq(
       "Spray repo" at "http://repo.spray.io",
       "Sonatype OSS Releases" at "https://oss.sonatype.org/content/repositories/releases",
@@ -45,18 +46,19 @@ object Build extends sbt.Build {
     pomIncludeRepository := { (repo: MavenRepository) => false },
     pomExtra := pomXml)
 
-  lazy val pomXml = (<url>https://github.com/wandoulabs/astore</url>
-      <licenses>
-        <license>
-          <name>Apache License 2.0</name>
-          <url>http://www.apache.org/licenses/</url>
-          <distribution>repo</distribution>
-        </license>
-      </licenses>
-      <scm>
-        <url>git@github.com:wandoulabs/astore.git</url>
-        <connection>scm:git:git@github.com:wandoulabs/astore.git</connection>
-      </scm>)
+  lazy val pomXml =
+    (<url>https://github.com/wandoulabs/astore</url>
+     <licenses>
+       <license>
+         <name>Apache License 2.0</name>
+         <url>http://www.apache.org/licenses/</url>
+         <distribution>repo</distribution>
+       </license>
+     </licenses>
+     <scm>
+       <url>git@github.com:wandoulabs/astore.git</url>
+       <connection>scm:git:git@github.com:wandoulabs/astore.git</connection>
+     </scm>)
 
   def multiJvmSettings = Seq(
     compile in MultiJvm <<= (compile in MultiJvm) triggeredBy (compile in Test),
@@ -74,8 +76,8 @@ object Build extends sbt.Build {
     })
 
   lazy val noPublishing = Seq(
-    publish :=(),
-    publishLocal :=(),
+    publish := (),
+    publishLocal := (),
     // required until these tickets are closed https://github.com/sbt/sbt-pgp/issues/42,
     // https://github.com/sbt/sbt-pgp/issues/36
     publishTo := None
@@ -100,7 +102,7 @@ object Dependencies {
   val avro = Seq(
     "org.apache.avro" % "avro" % "1.7.7"
   )
- 
+
   val avpath = Seq(
     "com.wandoulabs.avro" %% "wandou-avpath" % "0.1.2-SNAPSHOT"
   )
@@ -123,7 +125,6 @@ object Dependencies {
     "org.scalatest" %% "scalatest" % "2.1.3" % "test"
   )
 
-
   val basic: Seq[sbt.ModuleID] = akka ++ avro ++ avpath ++ spray ++ log ++ test
 
   val all = basic
@@ -132,10 +133,29 @@ object Dependencies {
 object Formatting {
   import com.typesafe.sbt.SbtScalariform
   import com.typesafe.sbt.SbtScalariform.ScalariformKeys
+  import ScalariformKeys._
+
+  val BuildConfig = config("build") extend Compile
+  val BuildSbtConfig = config("buildsbt") extend Compile
+
+  // invoke: build:scalariformFormat
+  val buildFileSettings: Seq[Setting[_]] = SbtScalariform.noConfigScalariformSettings ++
+    inConfig(BuildConfig)(SbtScalariform.configScalariformSettings) ++
+    inConfig(BuildSbtConfig)(SbtScalariform.configScalariformSettings) ++ Seq(
+      scalaSource in BuildConfig := baseDirectory.value / "project",
+      scalaSource in BuildSbtConfig := baseDirectory.value,
+      includeFilter in (BuildConfig, format) := ("*.scala": FileFilter),
+      includeFilter in (BuildSbtConfig, format) := ("*.sbt": FileFilter),
+      format in BuildConfig := {
+        val x = (format in BuildSbtConfig).value
+        (format in BuildConfig).value
+      }
+    )
 
   val settings = SbtScalariform.scalariformSettings ++ Seq(
     ScalariformKeys.preferences in Compile := formattingPreferences,
-    ScalariformKeys.preferences in Test := formattingPreferences)
+    ScalariformKeys.preferences in Test := formattingPreferences
+  )
 
   val formattingPreferences = {
     import scalariform.formatter.preferences._
@@ -153,10 +173,10 @@ object Packaging {
   import com.typesafe.sbt.packager.Keys._
   import com.typesafe.sbt.packager.archetypes._
 
-  val settings = packagerSettings ++ deploymentSettings ++ 
+  val settings = packagerSettings ++ deploymentSettings ++
     packageArchetype.java_application ++ Seq(
       name := "astore",
       NativePackagerKeys.packageName := "astore",
       bashScriptConfigLocation := Some("${app_home}/../conf/jvmopts"),
-      bashScriptExtraDefines += """addJava "-Dconfig.file=${app_home}/../conf/application.conf"""") 
+      bashScriptExtraDefines += """addJava "-Dconfig.file=${app_home}/../conf/application.conf"""")
 }
