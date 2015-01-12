@@ -28,8 +28,8 @@ import wandou.astore.DistributedStatusBoard.RemoveAck
  * @param   script id
  * @param   JavaScript code in string
  */
-final case class PutScript(entity: String, id: String, script: String)
-final case class RemoveScript(entity: String, id: String)
+final case class PutScript(entity: String, field: String, id: String, script: String)
+final case class RemoveScript(entity: String, field: String, id: String)
 
 /**
  * Extension that starts a [[DistributedScriptBoard]] actor
@@ -79,31 +79,47 @@ object DistributedScriptBoard extends ExtensionId[DistributedScriptBoardExtensio
   lazy val engineManager = new ScriptEngineManager(null)
   lazy val engine = engineManager.getEngineByName("nashorn").asInstanceOf[Compilable]
 
-  private val entityToScripts = new mutable.HashMap[String, CompiledScript]()
+  private val keyToScript = new mutable.HashMap[String, CompiledScript]()
+  private val entityFieldToScripts = new mutable.HashMap[String, List[(String, CompiledScript)]].withDefaultValue(Nil)
   private val scriptsLock = new ReentrantReadWriteLock()
+  private def keyOf(entity: String, field: String, id: String) = entity + "/" + "field" + "/" + id
 
-  private def putScript(entity: String, id: String, compiledScript: CompiledScript): Unit = putScript(entity + "/" + id, compiledScript)
-  private def putScript(key: String, compiledScript: CompiledScript): Unit =
+  private def putScript(key: String, compiledScript: CompiledScript): Unit = key.split('/') match {
+    case Array(entity, field, id) => putScript(entity, field, id, compiledScript)
+    case _                        =>
+  }
+  private def putScript(entity: String, field: String, id: String, compiledScript: CompiledScript): Unit = {
+    val entityField = entity + "/" + field
+    val key = entityField + "/" + id
     try {
       scriptsLock.writeLock.lock
-      entityToScripts(key) = compiledScript
+      keyToScript(key) = compiledScript
+      entityFieldToScripts(entityField) = (id, compiledScript) :: entityFieldToScripts(entityField)
     } finally {
       scriptsLock.writeLock.unlock
     }
+  }
 
-  private def removeScript(entity: String, id: String): Unit = removeScript(entity + "/" + id)
-  private def removeScript(key: String): Unit =
+  private def removeScript(key: String): Unit = key.split('/') match {
+    case Array(entity, field, id) => removeScript(entity, field, id)
+    case _                        =>
+  }
+  private def removeScript(entity: String, field: String, id: String): Unit = {
+    val entityField = entity + "/" + field
+    val key = entityField + "/" + id
     try {
       scriptsLock.writeLock.lock
-      entityToScripts -= key
+      keyToScript -= key
+      entityFieldToScripts(entityField) = entityFieldToScripts(entityField).filterNot(_._1 == id)
     } finally {
       scriptsLock.writeLock.unlock
     }
+  }
 
-  def scriptsOf(entity: String) =
+  def scriptsOf(entity: String, field: String): List[(String, CompiledScript)] =
     try {
       scriptsLock.readLock.lock
-      entityToScripts.filter(_._1.startsWith(entity + "/"))
+      entityFieldToScripts.getOrElse(entity + "/" + field, Nil)
     } finally {
       scriptsLock.readLock.unlock
     }
@@ -121,16 +137,16 @@ class DistributedScriptBoard(
   def receive = businessReceive orElse generalReceive
 
   def businessReceive: Receive = {
-    case PutScript(entity, id, script) =>
+    case PutScript(entity, field, id, script) =>
       val commander = sender()
-      self.ask(Put(id, script))(5.seconds).mapTo[PutAck].onComplete {
+      self.ask(Put(entity + "/" + field + "/" + id, script))(5.seconds).mapTo[PutAck].onComplete {
         case Success(ack)  => commander ! Success(id)
         case x: Failure[_] => commander ! x
       }
 
-    case RemoveScript(entity, id) =>
+    case RemoveScript(entity, field, id) =>
       val commander = sender()
-      self.ask(Remove(id))(5.seconds).mapTo[RemoveAck].onComplete {
+      self.ask(Remove(entity + "/" + field + "/" + id))(5.seconds).mapTo[RemoveAck].onComplete {
         case Success(ack)  => commander ! Success(id)
         case x: Failure[_] => commander ! x
       }

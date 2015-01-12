@@ -83,7 +83,7 @@ object DistributedSchemaBoard extends ExtensionId[DistributedSchemaBoardExtensio
         case Some(`schema`) => // existed, do nothing, or upgrade to new schema ? TODO
         case _ =>
           entityToSchema(entityName) = schema
-          Entity.startSharding(system, entityName, Some(Entity.props(schema, RecordBuilder(schema))))
+          Entity.startSharding(system, entityName, Some(Entity.props(entityName, schema, RecordBuilder(schema))))
       }
     } finally {
       schemasLock.writeLock.unlock

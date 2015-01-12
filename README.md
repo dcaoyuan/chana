@@ -221,8 +221,8 @@ case class Clear(id: String, path: String)
 ```
 ### 4. Script
 ```scala
-case class PutScript(entity: String, id: String, script: String)
-case class RemoveScript(entity: String, id: String)
+case class PutScript(entity: String, field: String, id: String, script: String)
+case class RemoveScript(entity: String, field: String, id: String)
 ```
 
 ## RESTful API
@@ -416,7 +416,7 @@ $avpath
 
 ### Put Script (apply on all instances of this entity)
 ```
-POST /$entity/putscript/$scriptid/
+POST /$entity/putscript/$field/$scriptid/
 
 Host: status.wandoujia.com 
 Content-Type: application/octet-stream 
@@ -437,7 +437,7 @@ BODY:
 
 ### Del Script (apply on all instances of this entity)
 ```
-POST /$entity/delscript/$scriptid/
+POST /$entity/delscript/$field/$scriptid/
 
 Host: status.wandoujia.com 
 Content-Type: application/octet-stream 

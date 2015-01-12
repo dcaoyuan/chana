@@ -61,6 +61,18 @@ object AStoreClusterSpecConfig extends MultiNodeConfig {
     """
       akka.loglevel = INFO
       akka.log-config-on-start = off
+      akka.actor {
+        serializers {
+          avro = "wandou.astore.serializer.AvroSerializer"
+          avroschema = "wandou.astore.serializer.AvroSchemaSerializer"
+        }
+        serialization-bindings {
+          "org.apache.avro.generic.GenericData$Record" = avro
+          "org.apache.avro.generic.GenericRecord" = avro
+          "org.apache.avro.Schema$RecordSchema" = avroschema
+          "org.apache.avro.Schema$IntSchema" = avroschema
+        }
+      }
       akka.actor.provider = "akka.cluster.ClusterActorRefProvider"
       akka.extensions = ["akka.contrib.pattern.ClusterReceptionistExtension"]
       akka.persistence.journal.plugin = "akka.persistence.journal.leveldb-shared"
@@ -235,12 +247,12 @@ class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMu
 
     }
 
+    val baseUrl1 = "http://localhost:8081"
+    val baseUrl2 = "http://localhost:8082"
+
     "do rest calling" in within(30.seconds) {
       runOn(client1) {
         import spray.httpx.RequestBuilding._ 
-
-        val baseUrl1 = "http://localhost:8081"
-        val baseUrl2 = "http://localhost:8082"
 
         IO(Http) ! Get(baseUrl1 + "/ping")
         expectStr("pong")
@@ -280,8 +292,57 @@ class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMu
 
       }
 
-      enterBarrier("done")
+      enterBarrier("rest-called")
     }
+
+    "do script on updated" in within(30.seconds) {
+      runOn(client1) {
+        import spray.httpx.RequestBuilding._ 
+
+        val script = 
+  """
+    function calc() {
+      var a = record.get("age");
+      notify(a);
+      notify(http_get);
+      http_get.apply("http://localhost:8081/ping");
+      http_post.apply("http://localhost:8081/personinfo/put/2/age", "888");
+      for (i = 0; i < fields.length; i++) {
+        var field = fields[i];
+        notify(field._1);
+        notify(field._2);
+      }
+    }
+
+    function notify(value) {
+      print(id + ":" + value);
+    }
+
+    calc();
+  """
+
+        IO(Http) ! Post(baseUrl1 + "/personinfo/putscript/name/SCRIPT_NO_1", script)
+        expectStr("OK")
+
+        IO(Http) ! Post(baseUrl1 + "/personinfo/update/1", ".\n{'name':'James Bond1','age':60}")
+        expectStr("OK")
+
+        // wait for script's http_post.apply("http://localhost:8081/personinfo/put/2/age", "888");
+        expectNoMsg(1.seconds)
+        IO(Http) ! Get(baseUrl1 + "/personinfo/get/2/age")
+        expectStr("888")
+
+        // TODO finished Schema's serializer.
+        //IO(Http) ! Post(baseUrl2 + "/personinfo/put/1/age", "100")
+        IO(Http) ! Post(baseUrl1 + "/personinfo/put/1/age", "100")
+        expectStr("OK")
+
+        expectNoMsg(2.seconds)
+      }
+
+      enterBarrier("script-done")
+    }
+
 
   }
 }

@@ -36,6 +36,7 @@ trait RestRoute { _: spray.routing.Directives =>
   final def restApi = schemaApi ~ accessApi
 
   final def ping = path("ping") {
+    println("PONG")
     complete("pong")
   }
 
@@ -250,22 +251,22 @@ trait RestRoute { _: spray.routing.Directives =>
             }
           }
         }
-      } ~ path("putscript" / Segment ~ Slash.?) { scriptId =>
+      } ~ path("putscript" / Segment / Segment ~ Slash.?) { (field, scriptId) =>
         post {
           entity(as[String]) { script =>
             complete {
-              scriptBoard.ask(PutScript("Account", scriptId, script))(writeTimeout).collect {
+              scriptBoard.ask(PutScript(entityName, field, scriptId, script))(writeTimeout).collect {
                 case Success(_)  => StatusCodes.OK
                 case Failure(ex) => StatusCodes.InternalServerError
               }
             }
           }
         }
-      } ~ path("delscript" / Segment ~ Slash.?) { scriptId =>
+      } ~ path("delscript" / Segment / Segment ~ Slash.?) { (field, scriptId) =>
         post {
           entity(as[String]) { script =>
             complete {
-              scriptBoard.ask(RemoveScript("Account", scriptId))(writeTimeout).collect {
+              scriptBoard.ask(RemoveScript(entityName, field, scriptId))(writeTimeout).collect {
                 case Success(_)  => StatusCodes.OK
                 case Failure(ex) => StatusCodes.InternalServerError
               }
