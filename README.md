@@ -87,6 +87,28 @@ $ curl 'http://localhost:8080/personinfo/get/1/name'
 $ ab -c100 -n100000 -k 'http://localhost:8080/personinfo/get/1'
 ```
 
+Example script (requires JDK8+):
+```JavaScript
+function calc() {
+    var age = record.get("age");
+    notify(age);
+    notify(http_get);
+    http_get.apply("http://localhost:8081/ping");
+    http_post.apply("http://localhost:8081/personinfo/put/2/age", "888");
+    for (i = 0; i < fields.length; i++) {
+        var field = fields[i];
+        notify(field._1);
+        notify(field._2);
+    }
+}
+
+function notify(value) {
+    print(id + ":" + value);
+}
+
+calc();
+```
+
 ##### Example 2: With Embedded Type
 
 Schema: hatInventory.avsc
