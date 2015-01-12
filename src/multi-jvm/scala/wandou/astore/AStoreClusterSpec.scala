@@ -72,6 +72,10 @@ object AStoreClusterSpecConfig extends MultiNodeConfig {
   nodeConfig(entity1) {
     ConfigFactory.parseString(
       """
+        akka.extensions = [
+          "wandou.astore.schema.DistributedSchemaBoard",
+          "wandou.astore.script.DistributedScriptBoard"
+        ]
         akka.contrib.cluster.sharding.role = "entity"
         akka.cluster.roles = ["entity"]
 
@@ -83,6 +87,10 @@ object AStoreClusterSpecConfig extends MultiNodeConfig {
   nodeConfig(entity2) {
     ConfigFactory.parseString(
       """
+        akka.extensions = [
+          "wandou.astore.schema.DistributedSchemaBoard",
+          "wandou.astore.script.DistributedScriptBoard"
+        ]
         akka.contrib.cluster.sharding.role = "entity"
         akka.cluster.roles = ["entity"]
 
@@ -202,9 +210,6 @@ class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMu
 
       // with roles: entity
       runOn(entity1, entity2) { 
-        // start extentions
-        DistributedSchemaBoard(system) 
-        DistributedScriptBoard(system) 
 
         val routes = Directives.respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
           new AStoreRoute(system).route
@@ -227,6 +232,7 @@ class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMu
       runOn(controller, client1) {
         enterBarrier("start-cluster")
       }
+
     }
 
     "do rest calling" in within(30.seconds) {

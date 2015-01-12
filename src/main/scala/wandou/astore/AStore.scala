@@ -8,18 +8,12 @@ import spray.can.Http
 import spray.http.HttpHeaders.RawHeader
 import spray.routing.Directives
 import wandou.astore.route.RestRoute
-import wandou.astore.schema.DistributedSchemaBoard
-import wandou.astore.script.DistributedScriptBoard
 
 /**
  * Start REST astore service
  */
 object AStore extends scala.App {
   implicit val system = ActorSystem("AStoreSystem")
-
-  // start extendtions
-  DistributedSchemaBoard(system)
-  DistributedScriptBoard(system)
 
   val routes = Directives.respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
     new AStoreRoute(system).route
