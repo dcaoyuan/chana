@@ -10,6 +10,7 @@ import scala.util.Failure
 import scala.util.Success
 import spray.http.StatusCodes
 import spray.routing.Directives
+import wandou.astore
 import wandou.astore.schema.DistributedSchemaBoard
 import wandou.astore.schema.PutSchema
 import wandou.astore.schema.RemoveSchema
@@ -106,7 +107,7 @@ trait RestRoute { _: spray.routing.Directives =>
       path("get" / Segment / Segment ~ Slash.?) { (id, fieldName) =>
         get {
           complete {
-            resolver(entityName).ask(avpath.GetField(id, fieldName))(readTimeout).collect {
+            resolver(entityName).ask(astore.GetField(id, fieldName))(readTimeout).collect {
               case Ctx(value, schema, _, _) =>
                 ToJson.toAvroJsonString(value, schema)
               //avro.avroEncode(value, field.schema) match {
@@ -120,7 +121,7 @@ trait RestRoute { _: spray.routing.Directives =>
       } ~ path("get" / Segment ~ Slash.?) { id =>
         get {
           complete {
-            resolver(entityName).ask(avpath.GetRecord(id))(readTimeout).collect {
+            resolver(entityName).ask(astore.GetRecord(id))(readTimeout).collect {
               case Ctx(value, schema, _, _) =>
                 ToJson.toAvroJsonString(value, schema)
               //avro.avroEncode(value, schema) match {
@@ -135,7 +136,7 @@ trait RestRoute { _: spray.routing.Directives =>
         post {
           entity(as[String]) { json =>
             complete {
-              resolver(entityName).ask(avpath.PutFieldJson(id, fieldName, json))(writeTimeout).collect {
+              resolver(entityName).ask(astore.PutFieldJson(id, fieldName, json))(writeTimeout).collect {
                 case Success(_)  => StatusCodes.OK
                 case Failure(ex) => StatusCodes.InternalServerError
               }
@@ -146,7 +147,7 @@ trait RestRoute { _: spray.routing.Directives =>
         post {
           entity(as[String]) { json =>
             complete {
-              resolver(entityName).ask(avpath.PutRecordJson(id, json))(writeTimeout).collect {
+              resolver(entityName).ask(astore.PutRecordJson(id, json))(writeTimeout).collect {
                 case Success(_)  => StatusCodes.OK
                 case Failure(ex) => StatusCodes.InternalServerError
               }
@@ -159,7 +160,7 @@ trait RestRoute { _: spray.routing.Directives =>
             splitPathAndValue(body) match {
               case List(pathExp, _*) =>
                 complete {
-                  resolver(entityName).ask(avpath.Select(id, pathExp))(readTimeout).collect {
+                  resolver(entityName).ask(astore.Select(id, pathExp))(readTimeout).collect {
                     case xs: List[_] =>
                       xs.map {
                         case Ctx(value, schema, _, _) => ToJson.toAvroJsonString(value, schema)
@@ -177,7 +178,7 @@ trait RestRoute { _: spray.routing.Directives =>
             splitPathAndValue(body) match {
               case List(pathExp, valueJson) =>
                 complete {
-                  resolver(entityName).ask(avpath.UpdateJson(id, pathExp, valueJson))(writeTimeout).collect {
+                  resolver(entityName).ask(astore.UpdateJson(id, pathExp, valueJson))(writeTimeout).collect {
                     case Success(_)  => StatusCodes.OK
                     case Failure(ex) => StatusCodes.InternalServerError
                   }
@@ -193,7 +194,7 @@ trait RestRoute { _: spray.routing.Directives =>
             splitPathAndValue(body) match {
               case List(pathExp, json) =>
                 complete {
-                  resolver(entityName).ask(avpath.InsertJson(id, pathExp, json))(writeTimeout).collect {
+                  resolver(entityName).ask(astore.InsertJson(id, pathExp, json))(writeTimeout).collect {
                     case Success(_)  => StatusCodes.OK
                     case Failure(ex) => StatusCodes.InternalServerError
                   }
@@ -209,7 +210,7 @@ trait RestRoute { _: spray.routing.Directives =>
             splitPathAndValue(body) match {
               case List(pathExp, json) =>
                 complete {
-                  resolver(entityName).ask(avpath.InsertAllJson(id, pathExp, json))(writeTimeout).collect {
+                  resolver(entityName).ask(astore.InsertAllJson(id, pathExp, json))(writeTimeout).collect {
                     case Success(_)  => StatusCodes.OK
                     case Failure(ex) => StatusCodes.InternalServerError
                   }
@@ -225,7 +226,7 @@ trait RestRoute { _: spray.routing.Directives =>
             splitPathAndValue(body) match {
               case List(pathExp, _*) =>
                 complete {
-                  resolver(entityName).ask(avpath.Delete(id, pathExp))(writeTimeout).collect {
+                  resolver(entityName).ask(astore.Delete(id, pathExp))(writeTimeout).collect {
                     case Success(_)  => StatusCodes.OK
                     case Failure(ex) => StatusCodes.InternalServerError
                   }
@@ -241,7 +242,7 @@ trait RestRoute { _: spray.routing.Directives =>
             splitPathAndValue(body) match {
               case List(pathExp, _*) =>
                 complete {
-                  resolver(entityName).ask(avpath.Clear(id, pathExp))(writeTimeout).collect {
+                  resolver(entityName).ask(astore.Clear(id, pathExp))(writeTimeout).collect {
                     case Success(_)  => StatusCodes.OK
                     case Failure(ex) => StatusCodes.InternalServerError
                   }
