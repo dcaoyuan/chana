@@ -329,12 +329,13 @@ class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMu
         IO(Http) ! Post(baseUrl1 + "/personinfo/update/1", ".\n{'name':'James Bond1','age':60}")
         expectStr("OK")
 
-        // wait for script's http_post.apply("http://localhost:8081/personinfo/put/2/age", "888");
-        expectNoMsg(2.seconds)
-        IO(Http) ! Get(baseUrl1 + "/personinfo/get/2/age")
-        expectStr("888")
-        IO(Http) ! Get(baseUrl2 + "/personinfo/get/2/age")
-        expectStr("888")
+        // awaitAssert script's http_post.apply("http://localhost:8081/personinfo/put/2/age", "888");
+        awaitAssert {
+          IO(Http) ! Get(baseUrl1 + "/personinfo/get/2/age")
+          expectStr("888")
+          IO(Http) ! Get(baseUrl2 + "/personinfo/get/2/age")
+          expectStr("888")
+        }
 
         IO(Http) ! Post(baseUrl2 + "/personinfo/put/1/age", "100")
         expectStr("OK")

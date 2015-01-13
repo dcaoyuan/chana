@@ -16,6 +16,7 @@ import org.apache.avro.generic.GenericData.Record
 import scala.concurrent.Future
 import scala.util.Failure
 import scala.util.Success
+import scala.util.Try
 import wandou.astore.script.Scriptable
 import wandou.avpath
 import wandou.avpath.Evaluator
@@ -93,12 +94,7 @@ class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends A
       sender() ! avro.avroEncode(record, schema)
 
     case GetRecordJson(_) =>
-      try {
-        val json = avro.ToJson.toAvroJsonString(record, schema)
-        sender() ! Success(json)
-      } catch {
-        case ex: Throwable => sender() ! Failure(ex)
-      }
+      sender() ! avro.jsonEncode(record, schema)
 
     case GetField(_, fieldName) =>
       val field = schema.getField(fieldName)
@@ -113,60 +109,61 @@ class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends A
       if (field != null) {
         sender() ! avro.avroEncode(record.get(field.pos), field.schema)
       } else {
-        sender() ! Failure(new Exception("no field"))
+        val ex = new RuntimeException("Field does not exist: " + fieldName)
+        log.error(ex, ex.getMessage)
+        sender() ! Failure(ex)
       }
 
     case GetFieldJson(_, fieldName) =>
       val field = schema.getField(fieldName)
       if (field != null) {
-        try {
-          val json = avro.ToJson.toAvroJsonString(record.get(field.pos), field.schema)
-          sender() ! Success(json)
-        } catch {
-          case ex: Throwable => sender() ! Failure(ex)
-        }
+        sender() ! avro.jsonEncode(record.get(field.pos), field.schema)
       } else {
-        sender() ! Failure(new Exception("no field"))
+        val ex = new RuntimeException("Field does not exist: " + fieldName)
+        log.error(ex, ex.getMessage)
+        sender() ! Failure(ex)
       }
 
     case PutRecord(_, rec) =>
       commitRecord(id, rec, sender(), doLimitSize = true)
 
     case PutRecordJson(_, json) =>
-      try {
-        val rec = avro.FromJson.fromJsonString(json, schema).asInstanceOf[Record]
-        commitRecord(id, rec, sender(), doLimitSize = true)
-      } catch {
-        case ex: Throwable =>
+      avro.jsonDecode(json, schema) match {
+        case Success(rec: Record) =>
+          commitRecord(id, rec, sender(), doLimitSize = true)
+        case Success(_) =>
+          val ex = new RuntimeException("Json could not to be parsed as a record: " + json)
           log.error(ex, ex.getMessage)
           sender() ! Failure(ex)
+        case x @ Failure(ex) =>
+          log.error(ex, ex.getMessage)
+          sender() ! x
       }
 
     case PutField(_, fieldName, value) =>
-      try {
-        val field = schema.getField(fieldName)
-        if (field != null) {
-          commitField(id, value, field, sender(), doLimitSize = true)
-        } else {
-          sender() ! Failure(new RuntimeException("Field does not exist: " + fieldName))
-        }
-      } catch {
-        case ex: Throwable =>
-          sender() ! Failure(ex)
+      val field = schema.getField(fieldName)
+      if (field != null) {
+        commitField(id, value, field, sender(), doLimitSize = true)
+      } else {
+        val ex = new RuntimeException("Field does not exist: " + fieldName)
+        log.error(ex, ex.getMessage)
+        sender() ! Failure(ex)
       }
 
     case PutFieldJson(_, fieldName, json) =>
-      try {
-        val field = schema.getField(fieldName)
-        if (field != null) {
-          val value = avro.FromJson.fromJsonString(json, field.schema)
-          commitField(id, value, field, sender(), doLimitSize = true)
-        } else {
-          sender() ! Failure(new RuntimeException("Field does not exist: " + fieldName))
+      val field = schema.getField(fieldName)
+      if (field != null) {
+        val value = avro.jsonDecode(json, field.schema) match {
+          case Success(value) =>
+            commitField(id, value, field, sender(), doLimitSize = true)
+          case x @ Failure(ex) =>
+            log.error(ex, ex.getMessage)
+            sender() ! x
         }
-      } catch {
-        case ex: Throwable =>
-          sender() ! Failure(ex)
+      } else {
+        val ex = new RuntimeException("Field does not exist: " + fieldName)
+        log.error(ex, ex.getMessage)
+        sender() ! Failure(ex)
       }
 
     case Select(_, path) =>
@@ -182,62 +179,64 @@ class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends A
     case SelectJson(_, path) =>
       val ast = avpathParser.parse(path)
       val res = Evaluator.select(record, ast)
-      try {
-        val json = res.map {
-          case Ctx(value, schema, _, _) => avro.ToJson.toAvroJsonString(value, schema)
-        } mkString ("[", ",", "]")
-        sender() ! Success(json)
-      } catch {
-        case ex: Throwable => sender() ! Failure(ex)
+      val json = Try(res.map {
+        case Ctx(value, schema, _, _) => avro.jsonEncode(value, schema).get
+      }) match {
+        case Success(xs) =>
+          val json = xs.mkString("[", ",", "]")
+          sender() ! Success(json)
+        case x @ Failure(ex) =>
+          log.error(ex, ex.getMessage)
+          sender() ! x
       }
 
     case Update(_, path, value) =>
-      val copy = new GenericData.Record(record, true)
+      val toBe = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
-      val ctxs = Evaluator.update(copy, ast, value)
-      commit(id, copy, ctxs, sender())
+      val ctxs = Evaluator.update(toBe, ast, value)
+      commit(id, toBe, ctxs, sender())
 
     case UpdateJson(_, path, value) =>
-      val copy = new GenericData.Record(record, true)
+      val toBe = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
-      val ctxs = Evaluator.updateJson(copy, ast, value)
-      commit(id, copy, ctxs, sender())
+      val ctxs = Evaluator.updateJson(toBe, ast, value)
+      commit(id, toBe, ctxs, sender())
 
     case Insert(_, path, value) =>
-      val copy = new GenericData.Record(record, true)
+      val toBe = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
-      val ctxs = Evaluator.insert(copy, ast, value)
-      commit(id, copy, ctxs, sender())
+      val ctxs = Evaluator.insert(toBe, ast, value)
+      commit(id, toBe, ctxs, sender())
 
     case InsertJson(_, path, value) =>
-      val copy = new GenericData.Record(record, true)
+      val toBe = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
-      val ctxs = Evaluator.insertJson(copy, ast, value)
-      commit(id, copy, ctxs, sender())
+      val ctxs = Evaluator.insertJson(toBe, ast, value)
+      commit(id, toBe, ctxs, sender())
 
     case InsertAll(_, path, xs) =>
-      val copy = new GenericData.Record(record, true)
+      val toBe = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
-      val ctxs = Evaluator.insertAll(copy, ast, xs)
-      commit(id, copy, ctxs, sender())
+      val ctxs = Evaluator.insertAll(toBe, ast, xs)
+      commit(id, toBe, ctxs, sender())
 
     case InsertAllJson(_, path, xs) =>
-      val copy = new GenericData.Record(record, true)
+      val toBe = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
-      val ctxs = Evaluator.insertAllJson(copy, ast, xs)
-      commit(id, copy, ctxs, sender())
+      val ctxs = Evaluator.insertAllJson(toBe, ast, xs)
+      commit(id, toBe, ctxs, sender())
 
     case Delete(_, path) =>
-      val copy = new GenericData.Record(record, true)
+      val toBe = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
-      val ctxs = Evaluator.delete(copy, ast)
-      commit(id, copy, ctxs, sender(), false)
+      val ctxs = Evaluator.delete(toBe, ast)
+      commit(id, toBe, ctxs, sender(), false)
 
     case Clear(_, path) =>
-      val copy = new GenericData.Record(record, true)
+      val toBe = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
-      val ctxs = Evaluator.clear(copy, ast)
-      commit(id, copy, ctxs, sender(), false)
+      val ctxs = Evaluator.clear(toBe, ast)
+      commit(id, toBe, ctxs, sender(), false)
 
     case ReceiveTimeout =>
       log.info("Account got ReceiveTimeout")
@@ -333,6 +332,6 @@ class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends A
     }
   }
 
-  def persist(id: String, modifiedFields: List[(Schema.Field, Any)]): Future[Unit] = Future.successful(())
+  def persist(id: String, updatedFields: List[(Schema.Field, Any)]): Future[Unit] = Future.successful(())
 
 }
