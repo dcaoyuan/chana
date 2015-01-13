@@ -144,9 +144,9 @@ trait RestRoute { _: spray.routing.Directives =>
         post {
           entity(as[String]) { body =>
             splitPathAndValue(body) match {
-              case List(pathExp, _*) =>
+              case List(avpathExpr, _*) =>
                 complete {
-                  resolver(entityName).ask(astore.SelectJson(id, pathExp))(readTimeout).collect {
+                  resolver(entityName).ask(astore.SelectJson(id, avpathExpr))(readTimeout).collect {
                     case Success(json: String) => json
                     case Failure(ex)           => ""
                   }
@@ -160,9 +160,9 @@ trait RestRoute { _: spray.routing.Directives =>
         post {
           entity(as[String]) { body =>
             splitPathAndValue(body) match {
-              case List(pathExp, valueJson) =>
+              case List(avpathExpr, valueJson) =>
                 complete {
-                  resolver(entityName).ask(astore.UpdateJson(id, pathExp, valueJson))(writeTimeout).collect {
+                  resolver(entityName).ask(astore.UpdateJson(id, avpathExpr, valueJson))(writeTimeout).collect {
                     case Success(_)  => StatusCodes.OK
                     case Failure(ex) => StatusCodes.InternalServerError
                   }
@@ -176,9 +176,9 @@ trait RestRoute { _: spray.routing.Directives =>
         post {
           entity(as[String]) { body =>
             splitPathAndValue(body) match {
-              case List(pathExp, json) =>
+              case List(avpathExpr, json) =>
                 complete {
-                  resolver(entityName).ask(astore.InsertJson(id, pathExp, json))(writeTimeout).collect {
+                  resolver(entityName).ask(astore.InsertJson(id, avpathExpr, json))(writeTimeout).collect {
                     case Success(_)  => StatusCodes.OK
                     case Failure(ex) => StatusCodes.InternalServerError
                   }
@@ -192,9 +192,9 @@ trait RestRoute { _: spray.routing.Directives =>
         post {
           entity(as[String]) { body =>
             splitPathAndValue(body) match {
-              case List(pathExp, json) =>
+              case List(avpathExpr, json) =>
                 complete {
-                  resolver(entityName).ask(astore.InsertAllJson(id, pathExp, json))(writeTimeout).collect {
+                  resolver(entityName).ask(astore.InsertAllJson(id, avpathExpr, json))(writeTimeout).collect {
                     case Success(_)  => StatusCodes.OK
                     case Failure(ex) => StatusCodes.InternalServerError
                   }
@@ -208,9 +208,9 @@ trait RestRoute { _: spray.routing.Directives =>
         post {
           entity(as[String]) { body =>
             splitPathAndValue(body) match {
-              case List(pathExp, _*) =>
+              case List(avpathExpr, _*) =>
                 complete {
-                  resolver(entityName).ask(astore.Delete(id, pathExp))(writeTimeout).collect {
+                  resolver(entityName).ask(astore.Delete(id, avpathExpr))(writeTimeout).collect {
                     case Success(_)  => StatusCodes.OK
                     case Failure(ex) => StatusCodes.InternalServerError
                   }
@@ -224,9 +224,9 @@ trait RestRoute { _: spray.routing.Directives =>
         post {
           entity(as[String]) { body =>
             splitPathAndValue(body) match {
-              case List(pathExp, _*) =>
+              case List(avpathExpr, _*) =>
                 complete {
-                  resolver(entityName).ask(astore.Clear(id, pathExp))(writeTimeout).collect {
+                  resolver(entityName).ask(astore.Clear(id, avpathExpr))(writeTimeout).collect {
                     case Success(_)  => StatusCodes.OK
                     case Failure(ex) => StatusCodes.InternalServerError
                   }
@@ -267,20 +267,20 @@ trait RestRoute { _: spray.routing.Directives =>
     var i = body.indexOf('\r')
     if (i > 0) {
       if (i + 1 < len && body.charAt(i + 1) == '\n') {
-        val pathExp = body.substring(0, i)
+        val avpathExpr = body.substring(0, i)
         val valueJson = body.substring(i + 2, len)
-        List(pathExp, valueJson)
+        List(avpathExpr, valueJson)
       } else {
-        val pathExp = body.substring(0, i)
+        val avpathExpr = body.substring(0, i)
         val valueJson = body.substring(i + 1, len)
-        List(pathExp, valueJson)
+        List(avpathExpr, valueJson)
       }
     } else {
       i = body.indexOf('\n')
       if (i > 0) {
-        val pathExp = body.substring(0, i)
+        val avpathExpr = body.substring(0, i)
         val valueJson = body.substring(i + 1, len)
-        List(pathExp, valueJson)
+        List(avpathExpr, valueJson)
       } else {
         List(body)
       }

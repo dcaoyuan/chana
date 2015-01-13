@@ -28,39 +28,30 @@ $ ./astore
 Schema: PersonInfo.avsc
 ```json
 {
-  "type": "record",
-  "name": "PersonInfo",
-  "namespace": "astore",
-  "fields": [
-    {
-      "name": "name",
-      "type": "string"
+  "type" : "record",
+  "name" : "PersonInfo",
+  "namespace" : "astore",
+  "fields" : [ {
+    "name" : "name",
+    "type" : "string"
+  }, {
+    "name" : "age",
+    "type" : "int"
+  }, {
+    "name" : "gender",
+    "type" : {
+      "type" : "enum",
+      "name" : "GenderType",
+      "symbols" : [ "Female", "Male", "Unknown" ]
     },
-    {
-      "name": "age",
-      "type": "int"
-    },
-    {
-      "name": "gender",
-      "type": {
-        "type": "enum",
-        "name": "GenderType",
-        "symbols": [
-          "Female",
-          "Male",
-          "Unknown"
-        ]
-      },
-      "default": "Unknown"
-    },
-    {
-      "name": "emails",
-      "type": {
-        "type": "array",
-        "items": "string"
-      }
+    "default" : "Unknown"
+  }, {
+    "name" : "emails",
+    "type" : {
+      "type" : "array",
+      "items" : "string"
     }
-  ]
+  } ]
 }
 
 ```
@@ -89,7 +80,7 @@ $ ab -c100 -n100000 -k 'http://localhost:8080/personinfo/get/1'
 
 Example script (requires JDK8+):
 ```JavaScript
-function calc() {
+function onNameUpdated() {
     var age = record.get("age");
     notify(age);
     notify(http_get);
@@ -106,7 +97,7 @@ function notify(value) {
     print(id + ":" + value);
 }
 
-calc();
+onNameUpdated();
 ```
 
 ##### Example 2: With Embedded Type
@@ -114,46 +105,38 @@ calc();
 Schema: hatInventory.avsc
 ```json
 {
-  "type": "record",
-  "name": "hatInventory",
-  "namespace": "astore",
-  "fields": [
-    {
-      "name": "sku",
-      "type": "string",
-      "default": ""
+  "type" : "record",
+  "name" : "hatInventory",
+  "namespace" : "astore",
+  "fields" : [ {
+    "name" : "sku",
+    "type" : "string",
+    "default" : ""
+  }, {
+    "name" : "description",
+    "type" : {
+      "type" : "record",
+      "name" : "hatInfo",
+      "fields" : [ {
+        "name" : "style",
+        "type" : "string",
+        "default" : ""
+      }, {
+        "name" : "size",
+        "type" : "string",
+        "default" : ""
+      }, {
+        "name" : "color",
+        "type" : "string",
+        "default" : ""
+      }, {
+        "name" : "material",
+        "type" : "string",
+        "default" : ""
+      } ]
     },
-    {
-      "name": "description",
-      "type": {
-        "type": "record",
-        "name": "hatInfo",
-        "fields": [
-          {
-            "name": "style",
-            "type": "string",
-            "default": ""
-          },
-          {
-            "name": "size",
-            "type": "string",
-            "default": ""
-          },
-          {
-            "name": "color",
-            "type": "string",
-            "default": ""
-          },
-          {
-            "name": "material",
-            "type": "string",
-            "default": ""
-          }
-        ]
-      },
-      "default": {}
-    }
-  ]
+    "default" : { }
+  } ]
 }
 ```
 
@@ -167,7 +150,8 @@ OK
 $ curl 'http://localhost:8080/hatinv/get/1'
 {"sku":"","description":{"style":"","size":"","color":"","material":""}}
 
-$ curl --data '{"style": "classic", "size": "Large", "color": "Red"}' 'http://localhost:8080/hatinv/put/1/description'
+$ curl --data '{"style":"classic","size":"Large","color":"Red"}' \
+ 'http://localhost:8080/hatinv/put/1/description'
 OK
 
 $ curl 'http://localhost:8080/hatinv/get/1'
