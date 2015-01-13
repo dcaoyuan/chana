@@ -17,10 +17,6 @@ import wandou.astore.schema.RemoveSchema
 import wandou.astore.script.DistributedScriptBoard
 import wandou.astore.script.PutScript
 import wandou.astore.script.RemoveScript
-import wandou.avpath
-import wandou.avpath.Evaluator.Ctx
-import wandou.avro
-import wandou.avro.ToJson
 
 trait RestRoute { _: spray.routing.Directives =>
   val system: ActorSystem
@@ -66,7 +62,7 @@ trait RestRoute { _: spray.routing.Directives =>
 
           } catch {
             case ex: Throwable =>
-              println(ex) // todo
+              println(ex) // TODO
               complete(StatusCodes.BadRequest)
           }
         }
@@ -85,7 +81,7 @@ trait RestRoute { _: spray.routing.Directives =>
             }
           } catch {
             case ex: Throwable =>
-              println(ex) // todo
+              println(ex) // TODO
               complete(StatusCodes.BadRequest)
           }
         }
@@ -107,28 +103,18 @@ trait RestRoute { _: spray.routing.Directives =>
       path("get" / Segment / Segment ~ Slash.?) { (id, fieldName) =>
         get {
           complete {
-            resolver(entityName).ask(astore.GetField(id, fieldName))(readTimeout).collect {
-              case Ctx(value, schema, _, _) =>
-                ToJson.toAvroJsonString(value, schema)
-              //avro.avroEncode(value, field.schema) match {
-              //  case Success(bytes) => bytes
-              //  case _              => Array[Byte]()
-              //}
-              case _ => ""
+            resolver(entityName).ask(astore.GetFieldJson(id, fieldName))(readTimeout).collect {
+              case Success(json: String) => json
+              case Failure(ex)           => ""
             }
           }
         }
       } ~ path("get" / Segment ~ Slash.?) { id =>
         get {
           complete {
-            resolver(entityName).ask(astore.GetRecord(id))(readTimeout).collect {
-              case Ctx(value, schema, _, _) =>
-                ToJson.toAvroJsonString(value, schema)
-              //avro.avroEncode(value, schema) match {
-              //  case Success(bytes) => bytes
-              //  case _              => Array[Byte]()
-              //}
-              case _ => ""
+            resolver(entityName).ask(astore.GetRecordJson(id))(readTimeout).collect {
+              case Success(json: String) => json
+              case Failure(ex)           => ""
             }
           }
         }
@@ -160,11 +146,9 @@ trait RestRoute { _: spray.routing.Directives =>
             splitPathAndValue(body) match {
               case List(pathExp, _*) =>
                 complete {
-                  resolver(entityName).ask(astore.Select(id, pathExp))(readTimeout).collect {
-                    case xs: List[_] =>
-                      xs.map {
-                        case Ctx(value, schema, _, _) => ToJson.toAvroJsonString(value, schema)
-                      } mkString ("[", ",", "]")
+                  resolver(entityName).ask(astore.SelectJson(id, pathExp))(readTimeout).collect {
+                    case Success(json: String) => json
+                    case Failure(ex)           => ""
                   }
                 }
               case _ =>

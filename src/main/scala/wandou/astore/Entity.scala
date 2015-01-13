@@ -89,12 +89,44 @@ class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends A
     case GetRecord(_) =>
       sender() ! Ctx(record, schema, null)
 
+    case GetRecordAvro(_) =>
+      sender() ! avro.avroEncode(record, schema)
+
+    case GetRecordJson(_) =>
+      try {
+        val json = avro.ToJson.toAvroJsonString(record, schema)
+        sender() ! Success(json)
+      } catch {
+        case ex: Throwable => sender() ! Failure(ex)
+      }
+
     case GetField(_, fieldName) =>
       val field = schema.getField(fieldName)
       if (field != null) {
         sender() ! Ctx(record.get(field.pos), field.schema, field)
       } else {
         // send what ? TODO
+      }
+
+    case GetFieldAvro(_, fieldName) =>
+      val field = schema.getField(fieldName)
+      if (field != null) {
+        sender() ! avro.avroEncode(record.get(field.pos), field.schema)
+      } else {
+        sender() ! Failure(new Exception("no field"))
+      }
+
+    case GetFieldJson(_, fieldName) =>
+      val field = schema.getField(fieldName)
+      if (field != null) {
+        try {
+          val json = avro.ToJson.toAvroJsonString(record.get(field.pos), field.schema)
+          sender() ! Success(json)
+        } catch {
+          case ex: Throwable => sender() ! Failure(ex)
+        }
+      } else {
+        sender() ! Failure(new Exception("no field"))
       }
 
     case PutRecord(_, rec) =>
@@ -142,6 +174,23 @@ class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends A
       val ast = avpathParser.parse(path)
       val res = Evaluator.select(record, ast)
       sender() ! res
+
+    case SelectAvro(_, path) =>
+      val ast = avpathParser.parse(path)
+      val res = Evaluator.select(record, ast)
+      sender() ! res // TODO
+
+    case SelectJson(_, path) =>
+      val ast = avpathParser.parse(path)
+      val res = Evaluator.select(record, ast)
+      try {
+        val json = res.map {
+          case Ctx(value, schema, _, _) => avro.ToJson.toAvroJsonString(value, schema)
+        } mkString ("[", ",", "]")
+        sender() ! Success(json)
+      } catch {
+        case ex: Throwable => sender() ! Failure(ex)
+      }
 
     case Update(_, path, value) =>
       val copy = new GenericData.Record(record, true)

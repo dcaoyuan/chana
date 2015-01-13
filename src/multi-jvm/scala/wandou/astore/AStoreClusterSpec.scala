@@ -281,10 +281,12 @@ class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMu
         IO(Http) ! Post(baseUrl1 + "/personinfo/update/1", ".\n{'name':'James Bond','age':60}")
         expectStr("OK")
 
-        IO(Http) ! Get(baseUrl1 + "/personinfo/get/1")
+        IO(Http) ! Get(baseUrl2 + "/personinfo/get/1")
         expectStr("""{"name":"James Bond","age":60,"gender":"Unknown","emails":[]}""")
 
         IO(Http) ! Get(baseUrl1 + "/personinfo/get/1/age")
+        expectStr("60")
+        IO(Http) ! Get(baseUrl2 + "/personinfo/get/1/age")
         expectStr("60")
 
         IO(Http) ! Post(baseUrl1 + "/personinfo/select/1", ".name")
@@ -328,13 +330,13 @@ class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMu
         expectStr("OK")
 
         // wait for script's http_post.apply("http://localhost:8081/personinfo/put/2/age", "888");
-        expectNoMsg(1.seconds)
+        expectNoMsg(2.seconds)
         IO(Http) ! Get(baseUrl1 + "/personinfo/get/2/age")
         expectStr("888")
+        IO(Http) ! Get(baseUrl2 + "/personinfo/get/2/age")
+        expectStr("888")
 
-        // TODO finished Schema's serializer.
-        //IO(Http) ! Post(baseUrl2 + "/personinfo/put/1/age", "100")
-        IO(Http) ! Post(baseUrl1 + "/personinfo/put/1/age", "100")
+        IO(Http) ! Post(baseUrl2 + "/personinfo/put/1/age", "100")
         expectStr("OK")
 
         expectNoMsg(2.seconds)

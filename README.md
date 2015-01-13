@@ -222,13 +222,19 @@ case class RemoveSchema(entityName: String)
 ### 2. Basic operations
 ```scala
 case class GetRecord(id: String)
+case class GetRecordAvro(id: String)
+case class GetRecordJson(id: String)
 case class PutRecord(id: String, record: Record)
 case class PutRecordJson(id: String, record: String)
 case class GetField(id: String, field: String)
+case class GetFieldAvro(id: String, field: String)
+case class GetFieldJson(id: String, field: String)
 case class PutField(id: String, field: String, value: Any)
 case class PutFieldJson(id: String, field: String, value: String)
 
 case class Select(id: String, path: String)
+case class SelectAvro(id: String, path: String)
+case class SelectJson(id: String, path: String)
 case class Update(id: String, path: String, value: Any)
 case class UpdateJson(id: String, path: String, value: String)
 ```
