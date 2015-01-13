@@ -78,14 +78,16 @@ $ curl 'http://localhost:8080/personinfo/get/1/name'
 $ ab -c100 -n100000 -k 'http://localhost:8080/personinfo/get/1'
 ```
 
-Example script (requires JDK8+):
-```JavaScript
+##### Script example: (requires JDK8+) 
+
+A piece of JavaScript code that will be executed when PersionInfo.name field was updated: on_name.js:
+```javascript
 function onNameUpdated() {
     var age = record.get("age");
     notify(age);
     notify(http_get);
-    http_get.apply("http://localhost:8081/ping");
-    http_post.apply("http://localhost:8081/personinfo/put/2/age", "888");
+    http_get.apply("http://localhost:8080/ping");
+    http_post.apply("http://localhost:8080/personinfo/put/2/age", "888");
     for (i = 0; i < fields.length; i++) {
         var field = fields[i];
         notify(field._1);
@@ -98,6 +100,13 @@ function notify(value) {
 }
 
 onNameUpdated();
+```
+
+Try it:
+```shell
+$ curl --data-binary @on_name.js \
+ 'http://localhost:8080/personinfo/putscript/name/SCRIPT_NO_1'
+OK
 ```
 
 ##### Example 2: With Embedded Type
@@ -462,13 +471,32 @@ BODY:
 Note:
 
 * Replace `$entity` with the object/table/entity name
-
 * Replace `$id` with object id
-
 * Replace `$avpath` with actual avpath expression
-
 * Put the `$avpath` and **<JSON_STRING>** format value(s) for **update / insert / insertall** in **POST** body, separate `$avpath` and **<JSON_STRING>** with **"\n"**, and make sure it’s encoded as binary, set **Content-Type: application/octet-stream**
 
+
+## Scripting supporting
+The bindings that could be accessed in script:
+```scala
+  def prepareBindings(onUpdated: OnUpdated) = {
+    val bindings = new SimpleBindings
+    bindings.put("http_get", http_get)
+    bindings.put("http_post", http_post)
+    bindings.put("id", onUpdated.id)
+    bindings.put("record", onUpdated.recordAfter)
+    bindings.put("fields", onUpdated.fieldsBefore)
+    bindings
+  }
+```
+Where,
+* `http_get`: a function could be invoked via `http_get(url: String)`
+* `http_post`: a function could be invoked via `http_post(url: String, body: String)` 
+* `id`: the id of this entity
+* `record`: the entity record after updated
+* `fields`: array of tuple (Schema.Field, valueBeforeUpdated) during this updating action
+  * `fields(i)._1`: Schema.Field
+  * `fields(i)._2`: value 
 
 # Reference
 
