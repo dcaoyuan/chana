@@ -27,11 +27,11 @@ object Entity {
   def props(name: String, schema: Schema, builder: RecordBuilder) = Props(classOf[Entity], name, schema, builder)
 
   lazy val idExtractor: ShardRegion.IdExtractor = {
-    case cmd: avpath.Command => (cmd.id, cmd)
+    case cmd: Command => (cmd.id, cmd)
   }
 
   lazy val shardResolver: ShardRegion.ShardResolver = {
-    case cmd: avpath.Command => (cmd.id.hashCode % 100).toString
+    case cmd: Command => (cmd.id.hashCode % 100).toString
   }
 
   def startSharding(system: ActorSystem, shardName: String, entryProps: Option[Props]) = {
@@ -86,20 +86,21 @@ class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends A
   def ready = normal orElse scriptableReceive
 
   def normal: Receive = {
-    case avpath.GetRecord(_) =>
+    case GetRecord(_) =>
       sender() ! Ctx(record, schema, null)
 
-    case avpath.GetField(_, fieldName) =>
+    case GetField(_, fieldName) =>
       val field = schema.getField(fieldName)
       if (field != null) {
         sender() ! Ctx(record.get(field.pos), field.schema, field)
       } else {
         // send what ? TODO
       }
-    case avpath.PutRecord(_, rec) =>
+
+    case PutRecord(_, rec) =>
       commitRecord(id, rec, sender(), doLimitSize = true)
 
-    case avpath.PutRecordJson(_, json) =>
+    case PutRecordJson(_, json) =>
       try {
         val rec = avro.FromJson.fromJsonString(json, schema).asInstanceOf[Record]
         commitRecord(id, rec, sender(), doLimitSize = true)
@@ -109,7 +110,7 @@ class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends A
           sender() ! Failure(ex)
       }
 
-    case avpath.PutField(_, fieldName, value) =>
+    case PutField(_, fieldName, value) =>
       try {
         val field = schema.getField(fieldName)
 
@@ -123,7 +124,7 @@ class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends A
           sender() ! Failure(ex)
       }
 
-    case avpath.PutFieldJson(_, fieldName, json) =>
+    case PutFieldJson(_, fieldName, json) =>
       try {
         val field = schema.getField(fieldName)
         if (field != null) {
@@ -137,54 +138,54 @@ class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends A
           sender() ! Failure(ex)
       }
 
-    case avpath.Select(_, path) =>
+    case Select(_, path) =>
       val ast = avpathParser.parse(path)
       val res = Evaluator.select(record, ast)
       sender() ! res
 
-    case avpath.Update(_, path, value) =>
+    case Update(_, path, value) =>
       val copy = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
       val ctxs = Evaluator.update(copy, ast, value)
       commit(id, copy, ctxs, sender())
 
-    case avpath.UpdateJson(_, path, value) =>
+    case UpdateJson(_, path, value) =>
       val copy = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
       val ctxs = Evaluator.updateJson(copy, ast, value)
       commit(id, copy, ctxs, sender())
 
-    case avpath.Insert(_, path, value) =>
+    case Insert(_, path, value) =>
       val copy = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
       val ctxs = Evaluator.insert(copy, ast, value)
       commit(id, copy, ctxs, sender())
 
-    case avpath.InsertJson(_, path, value) =>
+    case InsertJson(_, path, value) =>
       val copy = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
       val ctxs = Evaluator.insertJson(copy, ast, value)
       commit(id, copy, ctxs, sender())
 
-    case avpath.InsertAll(_, path, xs) =>
+    case InsertAll(_, path, xs) =>
       val copy = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
       val ctxs = Evaluator.insertAll(copy, ast, xs)
       commit(id, copy, ctxs, sender())
 
-    case avpath.InsertAllJson(_, path, xs) =>
+    case InsertAllJson(_, path, xs) =>
       val copy = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
       val ctxs = Evaluator.insertAllJson(copy, ast, xs)
       commit(id, copy, ctxs, sender())
 
-    case avpath.Delete(_, path) =>
+    case Delete(_, path) =>
       val copy = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
       val ctxs = Evaluator.delete(copy, ast)
       commit(id, copy, ctxs, sender(), false)
 
-    case avpath.Clear(_, path) =>
+    case Clear(_, path) =>
       val copy = new GenericData.Record(record, true)
       val ast = avpathParser.parse(path)
       val ctxs = Evaluator.clear(copy, ast)
