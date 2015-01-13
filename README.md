@@ -199,7 +199,7 @@ use __avpath__ expression to locate. see [avpath](https://github.com/wandoulabs/
 
 ### 1. Schema
 ```scala
-case class PutSchema(entityName: String, schema: Schema)
+case class PutSchema(entityName: String, schema: String, entityFullName: Option[String])
 case class RemoveSchema(entityName: String)
 ```
 

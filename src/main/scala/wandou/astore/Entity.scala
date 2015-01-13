@@ -145,7 +145,6 @@ class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends A
     case PutField(_, fieldName, value) =>
       try {
         val field = schema.getField(fieldName)
-
         if (field != null) {
           commitField(id, value, field, sender(), doLimitSize = true)
         } else {

@@ -4,7 +4,6 @@ import akka.actor.ActorSystem
 import akka.contrib.pattern.ClusterSharding
 import akka.pattern.ask
 import akka.util.Timeout
-import org.apache.avro.Schema
 import scala.concurrent.duration._
 import scala.util.Failure
 import scala.util.Success
@@ -41,48 +40,22 @@ trait RestRoute { _: spray.routing.Directives =>
     path("putschema" / Segment / Segment ~ Slash.?) { (entityName, fname) =>
       post {
         entity(as[String]) { schemaStr =>
-          try {
-            val schemaParser = new Schema.Parser()
-            val schema = schemaParser.parse(schemaStr)
-            if (schema.getType == Schema.Type.UNION) {
-              val entitySchema = schema.getTypes.get(schema.getIndexNamed(fname))
-              if (entitySchema != null) {
-                complete {
-                  schemaBoard.ask(PutSchema(entityName, entitySchema))(writeTimeout).collect {
-                    case Success(_)  => StatusCodes.OK
-                    case Failure(ex) => StatusCodes.InternalServerError
-                  }
-                }
-              } else {
-                complete(StatusCodes.BadRequest)
-              }
-            } else {
-              complete(StatusCodes.BadRequest)
+          complete {
+            schemaBoard.ask(PutSchema(entityName, schemaStr, Some(fname)))(writeTimeout).collect {
+              case Success(_)  => StatusCodes.OK
+              case Failure(ex) => StatusCodes.InternalServerError
             }
-
-          } catch {
-            case ex: Throwable =>
-              println(ex) // TODO
-              complete(StatusCodes.BadRequest)
           }
         }
       }
     } ~ path("putschema" / Segment ~ Slash.?) { entityName =>
       post {
         entity(as[String]) { schemaStr =>
-          try {
-            val schemaParser = new Schema.Parser()
-            val schema = schemaParser.parse(schemaStr)
-            complete {
-              schemaBoard.ask(PutSchema(entityName, schema))(writeTimeout).collect {
-                case Success(_)  => StatusCodes.OK
-                case Failure(ex) => StatusCodes.InternalServerError
-              }
+          complete {
+            schemaBoard.ask(PutSchema(entityName, schemaStr, None))(writeTimeout).collect {
+              case Success(_)  => StatusCodes.OK
+              case Failure(ex) => StatusCodes.InternalServerError
             }
-          } catch {
-            case ex: Throwable =>
-              println(ex) // TODO
-              complete(StatusCodes.BadRequest)
           }
         }
       }

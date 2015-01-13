@@ -27,7 +27,7 @@ import wandou.avro.RecordBuilder
  * @param   entity name
  * @param   schema of entity
  */
-final case class PutSchema(entityName: String, schema: Schema)
+final case class PutSchema(entityName: String, schema: String, entityFullName: Option[String])
 final case class RemoveSchema(entityName: String)
 
 /**
@@ -119,19 +119,52 @@ class DistributedSchemaBoard(
   def receive = businessReceive orElse generalReceive
 
   def businessReceive: Receive = {
-    case PutSchema(entityName, schema) =>
+    case PutSchema(entityName, schemaStr, Some(fullName)) =>
       val commander = sender()
-      self.ask(Put(entityName, schema.toString))(5.seconds).mapTo[PutAck].onComplete {
-        case Success(ack)  => commander ! Success(entityName)
-        case x: Failure[_] => commander ! x
+      parseSchema(schemaStr) match {
+        case Success(unionSchema) =>
+          if (unionSchema.getType == Schema.Type.UNION) {
+            val schema = unionSchema.getTypes.get(unionSchema.getIndexNamed(fullName))
+            if (schema != null) {
+              self.ask(Put(entityName, schema.toString))(5.seconds).mapTo[PutAck].onComplete {
+                case Success(ack) => commander ! Success(entityName)
+                case failure      => commander ! failure
+              }
+            } else {
+              commander ! Failure(new RuntimeException("Can not parse the " + fullName))
+            }
+          } else {
+            commander ! Failure(new RuntimeException("Schema with full name [" + fullName + "] should be Union type"))
+          }
+        case failure => commander ! failure
+      }
+
+    case PutSchema(entityName, schemaStr, None) =>
+      val commander = sender()
+      parseSchema(schemaStr) match {
+        case Success(schema) =>
+          self.ask(Put(entityName, schema.toString))(5.seconds).mapTo[PutAck].onComplete {
+            case Success(ack) => commander ! Success(entityName)
+            case failure      => commander ! failure
+          }
+        case failure => commander ! failure
       }
 
     case RemoveSchema(entityName) =>
       val commander = sender()
       self.ask(Remove(entityName))(5.seconds).mapTo[RemoveAck].onComplete {
-        case Success(ack)  => commander ! Success(entityName)
-        case x: Failure[_] => commander ! x
+        case Success(ack) => commander ! Success(entityName)
+        case failure      => commander ! failure
       }
+  }
+
+  private def parseSchema(schema: String) = {
+    try {
+      val res = new Schema.Parser().parse(schema)
+      Success(res)
+    } catch {
+      case ex: Throwable => Failure(ex)
+    }
   }
 
   override def onPut(keys: Set[String]) {
@@ -172,7 +205,7 @@ class DistributedSchemaBoardExtension(system: ExtendedActorSystem) extends Exten
   def isTerminated: Boolean = Cluster(system).isTerminated || !role.forall(Cluster(system).selfRoles.contains)
 
   /**
-   * The [[DistributedStatusBoard]]
+   * The [[DistributedSchemaBoard]]
    */
   val board: ActorRef = {
     if (isTerminated)
