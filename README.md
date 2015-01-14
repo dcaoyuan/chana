@@ -108,7 +108,7 @@ $ curl --data-binary @on_name.js \
  'http://localhost:8080/personinfo/putscript/name/SCRIPT_NO_1'
 OK
 
-$ curl --data 'John' 'http://localhost:8080/persioninfo/put/1/name'
+$ curl --data '"John"' 'http://localhost:8080/personinfo/put/1/name'
 OK
 
 $ curl 'http://localhost:8080/personinfo/get/2/age'
