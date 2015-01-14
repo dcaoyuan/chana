@@ -483,8 +483,8 @@ The bindings that could be accessed in script:
   }
 ```
 Where,
-* `http_get`: a function could be invoked via `http_get(url: String)`
-* `http_post`: a function could be invoked via `http_post(url: String, body: String)` 
+* `http_get`: a function could be invoked via `http_get.apply(url: String)`
+* `http_post`: a function could be invoked via `http_post.apply(url: String, body: String)` 
 * `id`: the id of this entity
 * `record`: the entity record after updated
 * `fields`: array of tuple (Schema.Field, valueBeforeUpdated) during this updating action
