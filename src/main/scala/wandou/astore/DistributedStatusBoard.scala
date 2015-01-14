@@ -273,7 +273,9 @@ trait DistributedStatusBoard[T] extends Actor with ActorLogging {
     registry foreach {
       case (owner, bucket) =>
         val oldRemoved = bucket.content.collect {
-          case (key, ValueHolder(version, None)) if (bucket.version - version > removedTimeToLiveMillis) => key
+          // TODO when there is only one node, since the bucker.version could be the same as version,
+          // 'if (bucket.version - version > removedTimeToLiveMillis)' may be always false?
+          case (key, ValueHolder(version, None)) /* if (bucket.version - version > removedTimeToLiveMillis) */ => key
         }
         if (oldRemoved.nonEmpty) {
           registry += owner -> bucket.copy(content = bucket.content -- oldRemoved)
