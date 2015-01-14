@@ -88,6 +88,9 @@ object AStoreClusterSpecConfig extends MultiNodeConfig {
           "wandou.astore.schema.DistributedSchemaBoard",
           "wandou.astore.script.DistributedScriptBoard"
         ]
+        wandou.astore.schema-board.removed-time-to-live = 4s
+        wandou.astore.script-board.removed-time-to-live = 4s
+
         akka.contrib.cluster.sharding.role = "entity"
         akka.cluster.roles = ["entity"]
 
@@ -103,6 +106,9 @@ object AStoreClusterSpecConfig extends MultiNodeConfig {
           "wandou.astore.schema.DistributedSchemaBoard",
           "wandou.astore.script.DistributedScriptBoard"
         ]
+        wandou.astore.schema-board.removed-time-to-live = 4s
+        wandou.astore.script-board.removed-time-to-live = 4s
+
         akka.contrib.cluster.sharding.role = "entity"
         akka.cluster.roles = ["entity"]
 
@@ -342,10 +348,26 @@ class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMu
         IO(Http) ! Post(baseUrl2 + "/personinfo/put/1/age", "100")
         expectStr("OK")
 
-        expectNoMsg(2.seconds)
+        IO(Http) ! Get(baseUrl1 + "/personinfo/delscript/name/SCRIPT_NO_1")
+        expectStr("OK")
+
+        enterBarrier("script-done")
       }
 
-      enterBarrier("script-done")
+      runOn(entity1, entity2) {
+        enterBarrier("script-done")
+
+        awaitAssert {
+          DistributedScriptBoard(system).board ! DistributedStatusBoard.Count
+          expectMsg(0)
+        }
+      }
+
+      runOn(controller) {
+        enterBarrier("script-done")
+      }
+
+      enterBarrier("done")
     }
 
 
