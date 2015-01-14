@@ -107,6 +107,12 @@ Try it:
 $ curl --data-binary @on_name.js \
  'http://localhost:8080/personinfo/putscript/name/SCRIPT_NO_1'
 OK
+
+$ curl --data 'John' 'http://localhost:8080/persioninfo/put/1/name'
+OK
+
+$ curl 'http://localhost:8080/personinfo/get/2/age'
+888
 ```
 
 ##### Example 2: With Embedded Type
@@ -447,15 +453,6 @@ BODY:
 <JavaScript>
 ```
 
-
-* For script, the bindings will be:
-
-    * **id**: the id string of this record
-
-    * **record**: the avro record itself
-
-* The JavaScript code should do what ever operation via function only. You can define local variables in function, and transfer these local vars between functions to share them instead of defining global vars. 
-
 ### Del Script (apply on all instances of this entity)
 ```
 GET /$entity/delscript/$field/$scriptid/
@@ -491,8 +488,11 @@ Where,
 * `id`: the id of this entity
 * `record`: the entity record after updated
 * `fields`: array of tuple (Schema.Field, valueBeforeUpdated) during this updating action
-  * `fields(i)._1`: Schema.Field
+  * `fields(i)._1`: [org.apache.avro.Schema.Field](https://avro.apache.org/docs/1.7.7/api/java/org/apache/avro/Schema.Field.html)
   * `fields(i)._2`: value 
+
+* The JavaScript code should do what ever operation via function only. You can define local variables in function, and transfer these local vars between functions to share them instead of defining global vars. 
+
 
 # Reference
 
