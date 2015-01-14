@@ -80,7 +80,7 @@ object DistributedScriptBoard extends ExtensionId[DistributedScriptBoardExtensio
   lazy val engine = engineManager.getEngineByName("nashorn").asInstanceOf[Compilable]
 
   private val keyToScript = new mutable.HashMap[String, CompiledScript]()
-  private val entityFieldToScripts = new mutable.HashMap[String, List[(String, CompiledScript)]].withDefaultValue(Nil)
+  private val entityFieldToScripts = new mutable.HashMap[String, Map[String, CompiledScript]].withDefaultValue(Map.empty)
   private val scriptsLock = new ReentrantReadWriteLock()
   private def keyOf(entity: String, field: String, id: String) = entity + "/" + "field" + "/" + id
 
@@ -94,7 +94,7 @@ object DistributedScriptBoard extends ExtensionId[DistributedScriptBoardExtensio
     try {
       scriptsLock.writeLock.lock
       keyToScript(key) = compiledScript
-      entityFieldToScripts(entityField) = (id, compiledScript) :: entityFieldToScripts(entityField)
+      entityFieldToScripts(entityField) = entityFieldToScripts(entityField) + (id -> compiledScript)
     } finally {
       scriptsLock.writeLock.unlock
     }
@@ -110,16 +110,16 @@ object DistributedScriptBoard extends ExtensionId[DistributedScriptBoardExtensio
     try {
       scriptsLock.writeLock.lock
       keyToScript -= key
-      entityFieldToScripts(entityField) = entityFieldToScripts(entityField).filterNot(_._1 == id)
+      entityFieldToScripts(entityField) = entityFieldToScripts(entityField) - id
     } finally {
       scriptsLock.writeLock.unlock
     }
   }
 
-  def scriptsOf(entity: String, field: String): List[(String, CompiledScript)] =
+  def scriptsOf(entity: String, field: String): Map[String, CompiledScript] =
     try {
       scriptsLock.readLock.lock
-      entityFieldToScripts.getOrElse(entity + "/" + field, Nil)
+      entityFieldToScripts(entity + "/" + field)
     } finally {
       scriptsLock.readLock.unlock
     }

@@ -153,7 +153,7 @@ class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends A
     case PutFieldJson(_, fieldName, json) =>
       val field = schema.getField(fieldName)
       if (field != null) {
-        val value = avro.jsonDecode(json, field.schema) match {
+        avro.jsonDecode(json, field.schema) match {
           case Success(value) =>
             commitField(id, value, field, sender(), doLimitSize = true)
           case x @ Failure(ex) =>
@@ -179,7 +179,7 @@ class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends A
     case SelectJson(_, path) =>
       val ast = avpathParser.parse(path)
       val res = Evaluator.select(record, ast)
-      val json = Try(res.map {
+      Try(res.map {
         case Ctx(value, schema, _, _) => avro.jsonEncode(value, schema).get
       }) match {
         case Success(xs) =>
