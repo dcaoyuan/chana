@@ -333,6 +333,8 @@ class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMu
         awaitAssert {
           IO(Http) ! Get(baseUrl1 + "/personinfo/get/2/age")
           expectStr("888")
+        }
+        awaitAssert {
           IO(Http) ! Get(baseUrl2 + "/personinfo/get/2/age")
           expectStr("888")
         }

@@ -221,13 +221,11 @@ trait RestRoute { _: spray.routing.Directives =>
           }
         }
       } ~ path("delscript" / Segment / Segment ~ Slash.?) { (field, scriptId) =>
-        post {
-          entity(as[String]) { script =>
-            complete {
-              scriptBoard.ask(RemoveScript(entityName, field, scriptId))(writeTimeout).collect {
-                case Success(_)  => StatusCodes.OK
-                case Failure(ex) => StatusCodes.InternalServerError
-              }
+        get {
+          complete {
+            scriptBoard.ask(RemoveScript(entityName, field, scriptId))(writeTimeout).collect {
+              case Success(_)  => StatusCodes.OK
+              case Failure(ex) => StatusCodes.InternalServerError
             }
           }
         }

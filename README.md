@@ -458,13 +458,9 @@ BODY:
 
 ### Del Script (apply on all instances of this entity)
 ```
-POST /$entity/delscript/$field/$scriptid/
+GET /$entity/delscript/$field/$scriptid/
 
 Host: status.wandoujia.com 
-Content-Type: application/octet-stream 
-Content-Length: NNN
-
-BODY:
 ```
 
 
