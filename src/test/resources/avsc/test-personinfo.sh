@@ -32,3 +32,7 @@ sleep 2s
 curl 'http://localhost:8080/personinfo/get/2/age'
 # 888
 printf "\n"
+
+curl 'http://localhost:8080/personinfo/delscript/name/SCRIPT_NO_1'
+# OK
+printf "\n"

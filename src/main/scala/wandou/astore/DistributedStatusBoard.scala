@@ -273,9 +273,9 @@ trait DistributedStatusBoard[T] extends Actor with ActorLogging {
     registry foreach {
       case (owner, bucket) =>
         val oldRemoved = bucket.content.collect {
-          // TODO when there is only one node, since the bucker.version could be the same as version,
+          // TODO when there is only one node, since the bucker.version could be the same as version @see put(key, None),
           // 'if (bucket.version - version > removedTimeToLiveMillis)' may be always false?
-          case (key, ValueHolder(version, None)) /* if (bucket.version - version > removedTimeToLiveMillis) */ => key
+          case (key, ValueHolder(version, None)) if (bucket.version - version > removedTimeToLiveMillis) => key
         }
         if (oldRemoved.nonEmpty) {
           registry += owner -> bucket.copy(content = bucket.content -- oldRemoved)
@@ -285,6 +285,7 @@ trait DistributedStatusBoard[T] extends Actor with ActorLogging {
   }
 
   def onPut(keys: Set[String]) {}
+  // TODO is this neccessary? we will/should do removing when put(key, None)
   def onRemoved(keys: Set[String]) {}
 }
 

@@ -156,14 +156,19 @@ class DistributedScriptBoard(
     for {
       (owner, bucket) <- registry
       (key, valueHolder) <- bucket.content if keys.contains(key)
-      script <- valueHolder.value
     } {
-      log.info("put script [{}]:\n{} ", key, script)
-      try {
-        val compiledScript = DistributedScriptBoard.engine.compile(script)
-        DistributedScriptBoard.putScript(key, compiledScript)
-      } catch {
-        case ex: Throwable => log.error(ex, ex.getMessage)
+      valueHolder.value match {
+        case Some(script) =>
+          log.info("put script [{}]:\n{} ", key, script)
+          try {
+            val compiledScript = DistributedScriptBoard.engine.compile(script)
+            DistributedScriptBoard.putScript(key, compiledScript)
+          } catch {
+            case ex: Throwable => log.error(ex, ex.getMessage)
+          }
+        case None =>
+          log.info("remove scripts: {}", keys)
+          keys foreach DistributedScriptBoard.removeScript
       }
     }
   }

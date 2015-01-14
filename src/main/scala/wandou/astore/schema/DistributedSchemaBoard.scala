@@ -171,14 +171,19 @@ class DistributedSchemaBoard(
     for {
       (owner, bucket) <- registry
       (entityName, valueHolder) <- bucket.content if keys.contains(entityName)
-      schemaStr <- valueHolder.value
     } {
-      log.info("put schema [{}]:\n{} ", entityName, schemaStr)
-      try {
-        val schema = new Schema.Parser().parse(schemaStr)
-        DistributedSchemaBoard.putSchema(context.system, entityName, schema)
-      } catch {
-        case ex: Throwable => log.error(ex, ex.getMessage)
+      valueHolder.value match {
+        case Some(schemaStr) =>
+          log.info("put schema [{}]:\n{} ", entityName, schemaStr)
+          try {
+            val schema = new Schema.Parser().parse(schemaStr)
+            DistributedSchemaBoard.putSchema(context.system, entityName, schema)
+          } catch {
+            case ex: Throwable => log.error(ex, ex.getMessage)
+          }
+        case None =>
+          log.info("remove schemas: {}", keys)
+          keys foreach DistributedSchemaBoard.removeSchema
       }
     }
   }
