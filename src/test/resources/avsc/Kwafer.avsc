@@ -1,0 +1,521 @@
+[ {
+  "type" : "record",
+  "name" : "KwafRecord",
+  "namespace" : "com.wandoujia.kwaf.schema",
+  "fields" : [ {
+    "name" : "time",
+    "type" : "long",
+    "default" : 0
+  }, {
+    "name" : "ip",
+    "type" : "string",
+    "default" : ""
+  }, {
+    "name" : "session",
+    "type" : "string",
+    "default" : ""
+  }, {
+    "name" : "from",
+    "type" : "string",
+    "default" : ""
+  }, {
+    "name" : "SEC1",
+    "type" : {
+      "type" : "record",
+      "name" : "sec1Record",
+      "fields" : [ {
+        "name" : "imei",
+        "type" : "string",
+        "default" : ""
+      }, {
+        "name" : "imsi",
+        "type" : "string",
+        "default" : ""
+      }, {
+        "name" : "mac",
+        "type" : "string",
+        "default" : ""
+      } ],
+      "default" : { }
+    }
+  }, {
+    "name" : "SEC2",
+    "type" : {
+      "type" : "record",
+      "name" : "sec2Record",
+      "fields" : [ {
+        "name" : "uid",
+        "type" : "string",
+        "default" : ""
+      }, {
+        "name" : "udid",
+        "type" : "string",
+        "default" : ""
+      }, {
+        "name" : "wdj_auth",
+        "type" : "string",
+        "default" : ""
+      } ],
+      "default" : { }
+    }
+  }, {
+    "name" : "action",
+    "type" : [ "null", {
+      "type" : "record",
+      "name" : "AccountRegistedRecord",
+      "fields" : [ {
+        "name" : "type",
+        "type" : "string",
+        "default" : "registed"
+      } ]
+    }, {
+      "type" : "record",
+      "name" : "AccountLoginRecord",
+      "fields" : [ {
+        "name" : "type",
+        "type" : "string",
+        "default" : "login"
+      } ]
+    }, {
+      "type" : "record",
+      "name" : "AccountLoginedRecord",
+      "fields" : [ {
+        "name" : "type",
+        "type" : "string",
+        "default" : "logined"
+      } ]
+    }, {
+      "type" : "record",
+      "name" : "OrderCreateRecord",
+      "fields" : [ {
+        "name" : "type",
+        "type" : "string",
+        "default" : "orderCreate"
+      }, {
+        "name" : "order",
+        "type" : {
+          "type" : "record",
+          "name" : "orderCreateRecordOrderbody",
+          "fields" : [ {
+            "name" : "trade",
+            "type" : "string"
+          }, {
+            "name" : "money",
+            "type" : "int"
+          }, {
+            "name" : "orderName",
+            "type" : "string"
+          }, {
+            "name" : "orderDesc",
+            "type" : "string",
+            "default" : ""
+          } ]
+        }
+      } ]
+    }, {
+      "type" : "record",
+      "name" : "OrderChargeRecord",
+      "fields" : [ {
+        "name" : "type",
+        "type" : "string",
+        "default" : "orderCharge"
+      }, {
+        "name" : "order",
+        "type" : {
+          "type" : "record",
+          "name" : "orderChargeRecordOrderbody",
+          "fields" : [ {
+            "name" : "orderId",
+            "type" : "string"
+          }, {
+            "name" : "chargeMoney",
+            "type" : "int"
+          }, {
+            "name" : "bonusMoney",
+            "type" : "int"
+          }, {
+            "name" : "chargeType",
+            "type" : "string"
+          }, {
+            "name" : "orderName",
+            "type" : "string"
+          }, {
+            "name" : "orderDesc",
+            "type" : "string",
+            "default" : ""
+          } ]
+        }
+      } ]
+    }, {
+      "type" : "record",
+      "name" : "OrderPayRecord",
+      "fields" : [ {
+        "name" : "type",
+        "type" : "string",
+        "default" : "orderPay"
+      }, {
+        "name" : "order",
+        "type" : {
+          "type" : "record",
+          "name" : "orderPayRecordOrderbody",
+          "fields" : [ {
+            "name" : "orderId",
+            "type" : "string"
+          }, {
+            "name" : "money",
+            "type" : "int"
+          }, {
+            "name" : "bonusMoney",
+            "type" : "int"
+          }, {
+            "name" : "orderName",
+            "type" : "string"
+          }, {
+            "name" : "orderDesc",
+            "type" : "string",
+            "default" : ""
+          } ]
+        }
+      }, {
+        "name" : "pay",
+        "type" : {
+          "type" : "record",
+          "name" : "orderPayRecordPayinfo",
+          "fields" : [ {
+            "name" : "accountInfo",
+            "type" : "string"
+          }, {
+            "name" : "cardInfo",
+            "type" : "string",
+            "default" : ""
+          } ]
+        }
+      } ]
+    }, {
+      "type" : "record",
+      "name" : "PayedRecord",
+      "fields" : [ {
+        "name" : "type",
+        "type" : "string",
+        "default" : "payed"
+      }, {
+        "name" : "order",
+        "type" : {
+          "type" : "record",
+          "name" : "payedRecordOrderbody",
+          "fields" : [ {
+            "name" : "orderId",
+            "type" : "string"
+          }, {
+            "name" : "money",
+            "type" : "int"
+          }, {
+            "name" : "cardMoney",
+            "type" : "int",
+            "default" : -1
+          } ]
+        }
+      }, {
+        "name" : "pay",
+        "type" : {
+          "type" : "record",
+          "name" : "payedRecordPayinfo",
+          "fields" : [ {
+            "name" : "merId",
+            "type" : "string"
+          }, {
+            "name" : "result",
+            "type" : "string"
+          }, {
+            "name" : "errcode",
+            "type" : "int",
+            "default" : 0
+          }, {
+            "name" : "version",
+            "type" : "string",
+            "default" : ""
+          } ]
+        }
+      } ]
+    } ],
+    "default" : null
+  } ]
+}, {
+  "type" : "record",
+  "name" : "KwafEntity",
+  "namespace" : "com.wandoujia.kwaf.schema",
+  "fields" : [ {
+    "name" : "id",
+    "type" : "string"
+  }, {
+    "name" : "type",
+    "type" : "string",
+    "default" : "Account"
+  }, {
+    "name" : "activities",
+    "type" : {
+      "type" : "array",
+      "items" : "KwafRecord"
+    },
+    "default" : [ ]
+  } ]
+}, {
+  "type" : "record",
+  "name" : "Kwafer",
+  "namespace" : "com.wandoujia.kwaf.schema",
+  "fields" : [ {
+    "name" : "id",
+    "type" : "string",
+    "default" : "-1"
+  }, {
+    "name" : "registerTime",
+    "type" : "long",
+    "default" : 0
+  }, {
+    "name" : "lastLoginTime",
+    "type" : "long",
+    "default" : 0
+  }, {
+    "name" : "loginRecords",
+    "type" : {
+      "type" : "array",
+      "items" : {
+        "type" : "record",
+        "name" : "LoginRecord",
+        "fields" : [ {
+          "name" : "time",
+          "type" : "long",
+          "default" : 0
+        }, {
+          "name" : "kind",
+          "type" : {
+            "type" : "enum",
+            "name" : "LoginKind",
+            "symbols" : [ "GAME", "WDJ" ]
+          }
+        } ]
+      }
+    },
+    "default" : [ ]
+  }, {
+    "name" : "chargeRecords",
+    "type" : {
+      "type" : "array",
+      "items" : {
+        "type" : "record",
+        "name" : "ChargeRecord",
+        "fields" : [ {
+          "name" : "time",
+          "type" : "long",
+          "default" : 0
+        }, {
+          "name" : "amount",
+          "type" : "double",
+          "default" : 0
+        } ]
+      }
+    },
+    "default" : [ ]
+  }, {
+    "name" : "balance",
+    "type" : "double",
+    "default" : 0
+  }, {
+    "name" : "numFriends",
+    "type" : "int",
+    "default" : 0
+  }, {
+    "name" : "numContacts",
+    "type" : "int",
+    "default" : 0
+  }, {
+    "name" : "numPlayedGames",
+    "type" : "int",
+    "default" : 0
+  }, {
+    "name" : "score",
+    "type" : "double",
+    "default" : 0
+  }, {
+    "name" : "scoreActives",
+    "type" : "double",
+    "default" : 0
+  }, {
+    "name" : "scoreFaithful",
+    "type" : "double",
+    "default" : 0
+  }, {
+    "name" : "scoreLogins",
+    "type" : "double",
+    "default" : 0
+  }, {
+    "name" : "scorePayments",
+    "type" : "double",
+    "default" : 0
+  }, {
+    "name" : "scoreApps",
+    "type" : "double",
+    "default" : 0
+  }, {
+    "name" : "scoreActions",
+    "type" : "double",
+    "default" : 0
+  }, {
+    "name" : "devApps",
+    "type" : {
+      "type" : "map",
+      "values" : {
+        "type" : "record",
+        "name" : "AppInfo",
+        "fields" : [ {
+          "name" : "numBlackApps",
+          "type" : "int",
+          "default" : 0
+        }, {
+          "name" : "numInstalledApps",
+          "type" : "int",
+          "default" : 0
+        }, {
+          "name" : "numUninstalledApps",
+          "type" : "int",
+          "default" : 0
+        }, {
+          "name" : "stdDevInstallingTime",
+          "type" : "double",
+          "default" : 0
+        }, {
+          "name" : "hasAppList",
+          "type" : "boolean",
+          "default" : false
+        }, {
+          "name" : "scoreAppInfo",
+          "type" : "double",
+          "default" : 0
+        } ]
+      }
+    },
+    "default" : { }
+  }, {
+    "name" : "devActions",
+    "type" : {
+      "type" : "map",
+      "values" : {
+        "type" : "record",
+        "name" : "ActionInfo",
+        "fields" : [ {
+          "name" : "actionRecords",
+          "type" : {
+            "type" : "array",
+            "items" : {
+              "type" : "record",
+              "name" : "ActionRecord",
+              "fields" : [ {
+                "name" : "time",
+                "type" : "long",
+                "default" : 0
+              }, {
+                "name" : "kind",
+                "type" : {
+                  "type" : "enum",
+                  "name" : "ActionKind",
+                  "symbols" : [ "DOWNLOAD", "UPGRADE", "CLICK", "QUERY", "UNINSTALL" ]
+                }
+              } ]
+            }
+          },
+          "default" : [ ]
+        }, {
+          "name" : "scoreDownloads",
+          "type" : "double",
+          "default" : 0
+        }, {
+          "name" : "scoreUpgrades",
+          "type" : "double",
+          "default" : 0
+        }, {
+          "name" : "scoreClicks",
+          "type" : "double",
+          "default" : 0
+        }, {
+          "name" : "scoreQueries",
+          "type" : "double",
+          "default" : 0
+        }, {
+          "name" : "scoreUninstalls",
+          "type" : "double",
+          "default" : 0
+        }, {
+          "name" : "scoreActionInfo",
+          "type" : "double",
+          "default" : 0
+        } ]
+      }
+    },
+    "default" : { }
+  }, {
+    "name" : "activityRecords",
+    "type" : {
+      "type" : "array",
+      "items" : {
+        "type" : "record",
+        "name" : "ActivityRecord",
+        "fields" : [ {
+          "name" : "time",
+          "type" : "long",
+          "default" : 0
+        }, {
+          "name" : "kind",
+          "type" : {
+            "type" : "enum",
+            "name" : "ActivityKind",
+            "symbols" : [ "registed", "login", "logined", "orderCreate", "orderCharge", "orderPay", "payed" ]
+          }
+        }, {
+          "name" : "auth",
+          "type" : "string",
+          "default" : ""
+        }, {
+          "name" : "desc",
+          "type" : "string",
+          "default" : ""
+        } ]
+      }
+    },
+    "default" : [ ]
+  }, {
+    "name" : "accountRecords",
+    "type" : {
+      "type" : "array",
+      "items" : "KwafRecord"
+    },
+    "default" : [ ]
+  }, {
+    "name" : "orderCreateRecords",
+    "type" : {
+      "type" : "array",
+      "items" : "KwafRecord"
+    },
+    "default" : [ ]
+  }, {
+    "name" : "orderChargeRecords",
+    "type" : {
+      "type" : "array",
+      "items" : "KwafRecord"
+    },
+    "default" : [ ]
+  }, {
+    "name" : "orderPayRecords",
+    "type" : {
+      "type" : "array",
+      "items" : "KwafRecord"
+    },
+    "default" : [ ]
+  }, {
+    "name" : "payedRecords",
+    "type" : {
+      "type" : "array",
+      "items" : "KwafRecord"
+    },
+    "default" : [ ]
+  } ]
+} ]
