@@ -57,6 +57,7 @@ class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends A
 
   private val id = self.path.name
   private val parser = new avpath.Parser()
+  private val encoderDecoder = new avro.EncoderDecoder()
   private var limitedSize = 30 // TODO
 
   private var record: Record = _
@@ -111,7 +112,7 @@ class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends A
       val commander = sender()
       val field = schema.getField(fieldName)
       if (field != null) {
-        commander ! avro.avroEncode(record.get(field.pos), field.schema)
+        commander ! encoderDecoder.avroEncode(record.get(field.pos), field.schema)
       } else {
         val ex = new RuntimeException("Field does not exist: " + fieldName)
         log.error(ex, ex.getMessage)
@@ -122,7 +123,7 @@ class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends A
       val commander = sender()
       val field = schema.getField(fieldName)
       if (field != null) {
-        commander ! avro.jsonEncode(record.get(field.pos), field.schema)
+        commander ! encoderDecoder.jsonEncode(record.get(field.pos), field.schema)
       } else {
         val ex = new RuntimeException("Field does not exist: " + fieldName)
         log.error(ex, ex.getMessage)
@@ -199,7 +200,7 @@ class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends A
       avpath.select(parser)(record, path) match {
         case Success(ctxs) =>
           Try(ctxs.map {
-            case Ctx(value, schema, _, _) => avro.jsonEncode(value, schema).get
+            case Ctx(value, schema, _, _) => encoderDecoder.jsonEncode(value, schema).get
           }) match {
             case Success(xs) =>
               val json = xs.mkString("[", ",", "]")
