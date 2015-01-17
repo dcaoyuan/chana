@@ -64,13 +64,9 @@ object AStoreClusterSpecConfig extends MultiNodeConfig {
       akka.actor {
         serializers {
           avro = "wandou.astore.serializer.AvroSerializer"
-          avroschema = "wandou.astore.serializer.AvroSchemaSerializer"
         }
         serialization-bindings {
-          "org.apache.avro.generic.GenericData$Record" = avro
-          "org.apache.avro.generic.GenericRecord" = avro
-          "org.apache.avro.Schema$RecordSchema" = avroschema
-          "org.apache.avro.Schema$IntSchema" = avroschema
+          "org.apache.avro.generic.IndexedRecord" = avro
         }
       }
       akka.actor.provider = "akka.cluster.ClusterActorRefProvider"

@@ -2,10 +2,10 @@ package wandou.astore.serializer
 
 import akka.actor.ExtendedActorSystem
 import akka.serialization.Serializer
-import akka.util.{ ByteString }
+import akka.util.ByteString
 import java.nio.ByteOrder
-import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
+import org.apache.avro.generic.IndexedRecord
 import scala.util.Failure
 import wandou.astore.schema.DistributedSchemaBoard
 import wandou.avro
@@ -18,7 +18,7 @@ class AvroSerializer(val system: ExtendedActorSystem) extends Serializer {
   override def includeManifest: Boolean = true
 
   override def toBinary(obj: AnyRef): Array[Byte] = obj match {
-    case record: GenericRecord =>
+    case record: IndexedRecord =>
       val r = avro.avroEncode(record, record.getSchema)
       if (r.isSuccess) {
         val builder = ByteString.newBuilder
@@ -26,9 +26,6 @@ class AvroSerializer(val system: ExtendedActorSystem) extends Serializer {
         builder.putBytes(r.get)
         builder.result.toArray
       } else throw r.asInstanceOf[Failure[Array[Byte]]].exception
-
-    case schema: Schema =>
-      schema.toString.getBytes
 
     case _ => {
       val errorMsg = "Can't serialize a non-Avro message using AvroSerializer [" + obj + "]"
@@ -47,27 +44,6 @@ class AvroSerializer(val system: ExtendedActorSystem) extends Serializer {
     if (r.isSuccess) {
       r.get
     } else throw r.asInstanceOf[Failure[Array[Byte]]].exception
-  }
-
-}
-
-class AvroSchemaSerializer(val system: ExtendedActorSystem) extends Serializer {
-  implicit val byteOrder = ByteOrder.BIG_ENDIAN
-
-  override def identifier: Int = 844372014
-
-  override def includeManifest: Boolean = true
-
-  override def toBinary(obj: AnyRef): Array[Byte] = obj match {
-    case schema: Schema => schema.toString.getBytes
-    case _ => {
-      val errorMsg = "Can't serialize a non-Avro message using AvroSerializer [" + obj + "]"
-      throw new IllegalArgumentException(errorMsg)
-    }
-  }
-
-  override def fromBinary(bytes: Array[Byte], manifest: Option[Class[_]]): AnyRef = {
-    new Schema.Parser().parse(new String(bytes))
   }
 
 }
