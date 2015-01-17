@@ -17,19 +17,12 @@ import scala.collection.mutable
 import scala.concurrent.duration._
 import scala.util.Failure
 import scala.util.Success
+import wandou.astore
 import wandou.astore.DistributedStatusBoard
 import wandou.astore.DistributedStatusBoard.Put
 import wandou.astore.DistributedStatusBoard.PutAck
 import wandou.astore.DistributedStatusBoard.Remove
 import wandou.astore.DistributedStatusBoard.RemoveAck
-
-/**
- * @param   entity name
- * @param   script id
- * @param   JavaScript code in string
- */
-final case class PutScript(entity: String, field: String, id: String, script: String)
-final case class RemoveScript(entity: String, field: String, id: String)
 
 /**
  * Extension that starts a [[DistributedScriptBoard]] actor
@@ -137,14 +130,14 @@ class DistributedScriptBoard(
   def receive = businessReceive orElse generalReceive
 
   def businessReceive: Receive = {
-    case PutScript(entity, field, id, script) =>
+    case astore.PutScript(entity, field, id, script) =>
       val commander = sender()
       self.ask(Put(entity + "/" + field + "/" + id, script))(5.seconds).mapTo[PutAck].onComplete {
         case Success(ack)  => commander ! Success(id)
         case x: Failure[_] => commander ! x
       }
 
-    case RemoveScript(entity, field, id) =>
+    case astore.RemoveScript(entity, field, id) =>
       val commander = sender()
       self.ask(Remove(entity + "/" + field + "/" + id))(5.seconds).mapTo[RemoveAck].onComplete {
         case Success(ack)  => commander ! Success(id)

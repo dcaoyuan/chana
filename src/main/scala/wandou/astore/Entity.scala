@@ -56,7 +56,7 @@ class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends A
   import context.dispatcher
 
   private val id = self.path.name
-  private val avpathParser = new avpath.Parser()
+  private val parser = new avpath.Parser()
   private var limitedSize = 30 // TODO
 
   private var record: Record = _
@@ -84,11 +84,11 @@ class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends A
       stash()
   }
 
-  def ready = normal orElse scriptableReceive
+  def ready = accessBehavior orElse scriptableBehavior
 
-  def normal: Receive = {
+  def accessBehavior: Receive = {
     case GetRecord(_) =>
-      sender() ! Ctx(record, schema, null)
+      sender() ! Success(Ctx(record, schema, null))
 
     case GetRecordAvro(_) =>
       sender() ! avro.avroEncode(record, schema)
@@ -97,146 +97,209 @@ class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends A
       sender() ! avro.jsonEncode(record, schema)
 
     case GetField(_, fieldName) =>
+      val commander = sender()
       val field = schema.getField(fieldName)
       if (field != null) {
-        sender() ! Ctx(record.get(field.pos), field.schema, field)
+        commander ! Success(Ctx(record.get(field.pos), field.schema, field))
       } else {
-        // send what ? TODO
+        val ex = new RuntimeException("Field does not exist: " + fieldName)
+        log.error(ex, ex.getMessage)
+        commander ! Failure(ex)
       }
 
     case GetFieldAvro(_, fieldName) =>
+      val commander = sender()
       val field = schema.getField(fieldName)
       if (field != null) {
-        sender() ! avro.avroEncode(record.get(field.pos), field.schema)
+        commander ! avro.avroEncode(record.get(field.pos), field.schema)
       } else {
         val ex = new RuntimeException("Field does not exist: " + fieldName)
         log.error(ex, ex.getMessage)
-        sender() ! Failure(ex)
+        commander ! Failure(ex)
       }
 
     case GetFieldJson(_, fieldName) =>
+      val commander = sender()
       val field = schema.getField(fieldName)
       if (field != null) {
-        sender() ! avro.jsonEncode(record.get(field.pos), field.schema)
+        commander ! avro.jsonEncode(record.get(field.pos), field.schema)
       } else {
         val ex = new RuntimeException("Field does not exist: " + fieldName)
         log.error(ex, ex.getMessage)
-        sender() ! Failure(ex)
+        commander ! Failure(ex)
       }
 
     case PutRecord(_, rec) =>
       commitRecord(id, rec, sender(), doLimitSize = true)
 
     case PutRecordJson(_, json) =>
+      val commander = sender()
       avro.jsonDecode(json, schema) match {
         case Success(rec: Record) =>
-          commitRecord(id, rec, sender(), doLimitSize = true)
+          commitRecord(id, rec, commander, doLimitSize = true)
         case Success(_) =>
-          val ex = new RuntimeException("Json could not to be parsed as a record: " + json)
+          val ex = new RuntimeException("Json could not to be parsed to a record: " + json)
           log.error(ex, ex.getMessage)
-          sender() ! Failure(ex)
+          commander ! Failure(ex)
         case x @ Failure(ex) =>
           log.error(ex, ex.getMessage)
-          sender() ! x
+          commander ! x
       }
 
     case PutField(_, fieldName, value) =>
+      val commander = sender()
       val field = schema.getField(fieldName)
       if (field != null) {
-        commitField(id, value, field, sender(), doLimitSize = true)
+        commitField(id, value, field, commander, doLimitSize = true)
       } else {
         val ex = new RuntimeException("Field does not exist: " + fieldName)
         log.error(ex, ex.getMessage)
-        sender() ! Failure(ex)
+        commander ! Failure(ex)
       }
 
     case PutFieldJson(_, fieldName, json) =>
+      val commander = sender()
       val field = schema.getField(fieldName)
       if (field != null) {
         avro.jsonDecode(json, field.schema) match {
           case Success(value) =>
-            commitField(id, value, field, sender(), doLimitSize = true)
+            commitField(id, value, field, commander, doLimitSize = true)
           case x @ Failure(ex) =>
             log.error(ex, ex.getMessage)
-            sender() ! x
+            commander ! x
         }
       } else {
         val ex = new RuntimeException("Field does not exist: " + fieldName)
         log.error(ex, ex.getMessage)
-        sender() ! Failure(ex)
+        commander ! Failure(ex)
       }
 
     case Select(_, path) =>
-      val ast = avpathParser.parse(path)
-      val res = Evaluator.select(record, ast)
-      sender() ! res
-
-    case SelectAvro(_, path) =>
-      val ast = avpathParser.parse(path)
-      val res = Evaluator.select(record, ast)
-      sender() ! res // TODO
-
-    case SelectJson(_, path) =>
-      val ast = avpathParser.parse(path)
-      val res = Evaluator.select(record, ast)
-      Try(res.map {
-        case Ctx(value, schema, _, _) => avro.jsonEncode(value, schema).get
-      }) match {
-        case Success(xs) =>
-          val json = xs.mkString("[", ",", "]")
-          sender() ! Success(json)
+      val commander = sender()
+      avpath.select(parser)(record, path) match {
+        case x @ Success(_) =>
+          commander ! x
         case x @ Failure(ex) =>
           log.error(ex, ex.getMessage)
-          sender() ! x
+          commander ! x
+      }
+
+    case SelectAvro(_, path) =>
+      val commander = sender()
+      avpath.select(parser)(record, path) match {
+        case x @ Success(ctxs) =>
+          commander ! x // TODO encode to avro
+        case x @ Failure(ex) =>
+          log.error(ex, ex.getMessage)
+          commander ! x
+      }
+
+    case SelectJson(_, path) =>
+      val commander = sender()
+      avpath.select(parser)(record, path) match {
+        case Success(ctxs) =>
+          Try(ctxs.map {
+            case Ctx(value, schema, _, _) => avro.jsonEncode(value, schema).get
+          }) match {
+            case Success(xs) =>
+              val json = xs.mkString("[", ",", "]")
+              commander ! Success(json)
+            case x @ Failure(ex) =>
+              log.error(ex, ex.getMessage)
+              commander ! x
+          }
+        case x @ Failure(ex) =>
+          log.error(ex, ex.getMessage)
+          commander ! x
       }
 
     case Update(_, path, value) =>
+      val commander = sender()
       val toBe = new GenericData.Record(record, true)
-      val ast = avpathParser.parse(path)
-      val ctxs = Evaluator.update(toBe, ast, value)
-      commit(id, toBe, ctxs, sender())
+      avpath.update(parser)(toBe, path, value) match {
+        case Success(ctxs) =>
+          commit(id, toBe, ctxs, commander)
+        case x @ Failure(ex) =>
+          log.error(ex, ex.getMessage)
+          commander ! x
+      }
 
     case UpdateJson(_, path, value) =>
+      val commander = sender()
       val toBe = new GenericData.Record(record, true)
-      val ast = avpathParser.parse(path)
-      val ctxs = Evaluator.updateJson(toBe, ast, value)
-      commit(id, toBe, ctxs, sender())
+      avpath.updateJson(parser)(toBe, path, value) match {
+        case Success(ctxs) =>
+          commit(id, toBe, ctxs, commander)
+        case x @ Failure(ex) =>
+          log.error(ex, ex.getMessage)
+          commander ! x
+      }
 
     case Insert(_, path, value) =>
+      val commander = sender()
       val toBe = new GenericData.Record(record, true)
-      val ast = avpathParser.parse(path)
-      val ctxs = Evaluator.insert(toBe, ast, value)
-      commit(id, toBe, ctxs, sender())
+      avpath.insert(parser)(toBe, path, value) match {
+        case Success(ctxs) =>
+          commit(id, toBe, ctxs, commander)
+        case x @ Failure(ex) =>
+          log.error(ex, ex.getMessage)
+          commander ! x
+      }
 
     case InsertJson(_, path, value) =>
+      val commander = sender()
       val toBe = new GenericData.Record(record, true)
-      val ast = avpathParser.parse(path)
-      val ctxs = Evaluator.insertJson(toBe, ast, value)
-      commit(id, toBe, ctxs, sender())
+      avpath.insertJson(parser)(toBe, path, value) match {
+        case Success(ctxs) =>
+          commit(id, toBe, ctxs, commander)
+        case x @ Failure(ex) =>
+          log.error(ex, ex.getMessage)
+          commander ! x
+      }
 
-    case InsertAll(_, path, xs) =>
+    case InsertAll(_, path, values) =>
+      val commander = sender()
       val toBe = new GenericData.Record(record, true)
-      val ast = avpathParser.parse(path)
-      val ctxs = Evaluator.insertAll(toBe, ast, xs)
-      commit(id, toBe, ctxs, sender())
+      avpath.insertAll(parser)(toBe, path, values) match {
+        case Success(ctxs) =>
+          commit(id, toBe, ctxs, commander)
+        case x @ Failure(ex) =>
+          log.error(ex, ex.getMessage)
+          commander ! x
+      }
 
-    case InsertAllJson(_, path, xs) =>
+    case InsertAllJson(_, path, values) =>
+      val commander = sender()
       val toBe = new GenericData.Record(record, true)
-      val ast = avpathParser.parse(path)
-      val ctxs = Evaluator.insertAllJson(toBe, ast, xs)
-      commit(id, toBe, ctxs, sender())
+      avpath.insertAllJson(parser)(toBe, path, values) match {
+        case Success(ctxs) =>
+          commit(id, toBe, ctxs, commander)
+        case x @ Failure(ex) =>
+          log.error(ex, ex.getMessage)
+          commander ! x
+      }
 
     case Delete(_, path) =>
+      val commander = sender()
       val toBe = new GenericData.Record(record, true)
-      val ast = avpathParser.parse(path)
-      val ctxs = Evaluator.delete(toBe, ast)
-      commit(id, toBe, ctxs, sender(), false)
+      avpath.delete(parser)(toBe, path) match {
+        case Success(ctxs) =>
+          commit(id, toBe, ctxs, commander, false)
+        case x @ Failure(ex) =>
+          log.error(ex, ex.getMessage)
+          commander ! x
+      }
 
     case Clear(_, path) =>
+      val commander = sender()
       val toBe = new GenericData.Record(record, true)
-      val ast = avpathParser.parse(path)
-      val ctxs = Evaluator.clear(toBe, ast)
-      commit(id, toBe, ctxs, sender(), false)
+      avpath.clear(parser)(toBe, path) match {
+        case Success(ctxs) =>
+          commit(id, toBe, ctxs, commander, false)
+        case x @ Failure(ex) =>
+          log.error(ex, ex.getMessage)
+          commander ! x
+      }
 
     case ReceiveTimeout =>
       log.info("Account got ReceiveTimeout")
@@ -306,7 +369,7 @@ class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends A
   }
 
   private def commit2(id: String, updatedFields: List[(Schema.Field, Any)], commander: ActorRef) {
-    //context.become(persisting)
+    //context.become(persistingBehavior)
     persist(id, updatedFields).onComplete {
       case Success(_) =>
         val data = GenericData.get

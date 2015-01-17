@@ -19,7 +19,7 @@ trait Scriptable { me: Actor =>
 
   import context.dispatcher
 
-  def scriptableReceive: Receive = {
+  def scriptableBehavior: Receive = {
     case x @ OnUpdated(id, fieldsBefore, recordAfter) =>
       for {
         (field, _) <- fieldsBefore

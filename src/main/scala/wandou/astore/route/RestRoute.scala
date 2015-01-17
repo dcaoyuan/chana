@@ -11,11 +11,7 @@ import spray.http.StatusCodes
 import spray.routing.Directives
 import wandou.astore
 import wandou.astore.schema.DistributedSchemaBoard
-import wandou.astore.schema.PutSchema
-import wandou.astore.schema.RemoveSchema
 import wandou.astore.script.DistributedScriptBoard
-import wandou.astore.script.PutScript
-import wandou.astore.script.RemoveScript
 
 trait RestRoute { _: spray.routing.Directives =>
   val system: ActorSystem
@@ -41,7 +37,7 @@ trait RestRoute { _: spray.routing.Directives =>
       post {
         entity(as[String]) { schemaStr =>
           complete {
-            schemaBoard.ask(PutSchema(entityName, schemaStr, Some(fname)))(writeTimeout).collect {
+            schemaBoard.ask(astore.PutSchema(entityName, schemaStr, Some(fname)))(writeTimeout).collect {
               case Success(_)  => StatusCodes.OK
               case Failure(ex) => StatusCodes.InternalServerError
             }
@@ -52,7 +48,7 @@ trait RestRoute { _: spray.routing.Directives =>
       post {
         entity(as[String]) { schemaStr =>
           complete {
-            schemaBoard.ask(PutSchema(entityName, schemaStr, None))(writeTimeout).collect {
+            schemaBoard.ask(astore.PutSchema(entityName, schemaStr, None))(writeTimeout).collect {
               case Success(_)  => StatusCodes.OK
               case Failure(ex) => StatusCodes.InternalServerError
             }
@@ -62,7 +58,7 @@ trait RestRoute { _: spray.routing.Directives =>
     } ~ path("delschema" / Segment ~ Slash.?) { entityName =>
       get {
         complete {
-          schemaBoard.ask(RemoveSchema(entityName))(writeTimeout).collect {
+          schemaBoard.ask(astore.RemoveSchema(entityName))(writeTimeout).collect {
             case Success(_)  => StatusCodes.OK
             case Failure(ex) => StatusCodes.InternalServerError
           }
@@ -121,7 +117,7 @@ trait RestRoute { _: spray.routing.Directives =>
                 complete {
                   resolver(entityName).ask(astore.SelectJson(id, avpathExpr))(readTimeout).collect {
                     case Success(json: String) => json
-                    case Failure(ex)           => ""
+                    case Failure(ex)           => "[]"
                   }
                 }
               case _ =>
@@ -213,7 +209,7 @@ trait RestRoute { _: spray.routing.Directives =>
         post {
           entity(as[String]) { script =>
             complete {
-              scriptBoard.ask(PutScript(entityName, field, scriptId, script))(writeTimeout).collect {
+              scriptBoard.ask(astore.PutScript(entityName, field, scriptId, script))(writeTimeout).collect {
                 case Success(_)  => StatusCodes.OK
                 case Failure(ex) => StatusCodes.InternalServerError
               }
@@ -223,7 +219,7 @@ trait RestRoute { _: spray.routing.Directives =>
       } ~ path("delscript" / Segment / Segment ~ Slash.?) { (field, scriptId) =>
         get {
           complete {
-            scriptBoard.ask(RemoveScript(entityName, field, scriptId))(writeTimeout).collect {
+            scriptBoard.ask(astore.RemoveScript(entityName, field, scriptId))(writeTimeout).collect {
               case Success(_)  => StatusCodes.OK
               case Failure(ex) => StatusCodes.InternalServerError
             }

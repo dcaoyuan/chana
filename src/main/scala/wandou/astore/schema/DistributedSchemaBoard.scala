@@ -15,6 +15,7 @@ import scala.collection.mutable
 import scala.concurrent.duration._
 import scala.util.Failure
 import scala.util.Success
+import wandou.astore
 import wandou.astore.DistributedStatusBoard
 import wandou.astore.DistributedStatusBoard.Put
 import wandou.astore.DistributedStatusBoard.PutAck
@@ -22,13 +23,6 @@ import wandou.astore.DistributedStatusBoard.Remove
 import wandou.astore.DistributedStatusBoard.RemoveAck
 import wandou.astore.Entity
 import wandou.avro.RecordBuilder
-
-/**
- * @param   entity name
- * @param   schema of entity
- */
-final case class PutSchema(entityName: String, schema: String, entityFullName: Option[String])
-final case class RemoveSchema(entityName: String)
 
 /**
  * Extension that starts a [[DistributedSchemaBoard]] actor
@@ -119,7 +113,7 @@ class DistributedSchemaBoard(
   def receive = businessReceive orElse generalReceive
 
   def businessReceive: Receive = {
-    case PutSchema(entityName, schemaStr, Some(fullName)) =>
+    case astore.PutSchema(entityName, schemaStr, Some(fullName)) =>
       val commander = sender()
       parseSchema(schemaStr) match {
         case Success(unionSchema) =>
@@ -139,7 +133,7 @@ class DistributedSchemaBoard(
         case failure => commander ! failure
       }
 
-    case PutSchema(entityName, schemaStr, None) =>
+    case astore.PutSchema(entityName, schemaStr, None) =>
       val commander = sender()
       parseSchema(schemaStr) match {
         case Success(schema) =>
@@ -150,7 +144,7 @@ class DistributedSchemaBoard(
         case failure => commander ! failure
       }
 
-    case RemoveSchema(entityName) =>
+    case astore.RemoveSchema(entityName) =>
       val commander = sender()
       self.ask(Remove(entityName))(5.seconds).mapTo[RemoveAck].onComplete {
         case Success(ack) => commander ! Success(entityName)

@@ -101,7 +101,7 @@ object Dependencies {
     "org.apache.avro" % "avro" % "1.7.7")
 
   val avpath = Seq(
-    "com.wandoulabs.avro" %% "wandou-avpath" % "0.1.2-SNAPSHOT")
+    "com.wandoulabs.avro" %% "wandou-avpath" % "0.1.3-SNAPSHOT")
 
   val spray = Seq(
     "io.spray" %% "spray-can" % SPRAY_VERSION,
