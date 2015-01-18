@@ -75,7 +75,7 @@ $ curl 'http://localhost:8080/personinfo/get/1'
 $ curl 'http://localhost:8080/personinfo/get/1/name'
 "James Bond"
 
-$ ab -c100 -n100000 -k 'http://localhost:8080/personinfo/get/1'
+$ ab -c100 -n100000 -k 'http://localhost:8080/personinfo/get/1?benchmark_only=true'
 ```
 
 ##### Script example: (requires JDK8+) 

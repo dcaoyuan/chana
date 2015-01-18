@@ -6,6 +6,7 @@ import akka.pattern.ask
 import akka.util.Timeout
 import scala.concurrent.duration._
 import scala.util.Failure
+import scala.util.Random
 import scala.util.Success
 import spray.http.StatusCodes
 import spray.routing.Directives
@@ -31,6 +32,9 @@ trait RestRoute { _: spray.routing.Directives =>
     println("PONG")
     complete("pong")
   }
+
+  private val random = new Random()
+  private def nextRandomId(min: Int, max: Int) = random.nextInt(max - min + 1) + min
 
   final def schemaApi = {
     path("putschema" / Segment / Segment ~ Slash.?) { (entityName, fname) =>
@@ -80,12 +84,21 @@ trait RestRoute { _: spray.routing.Directives =>
         }
       } ~ path("get" / Segment ~ Slash.?) { id =>
         get {
-          complete {
-            resolver(entityName).ask(astore.GetRecordJson(id))(readTimeout).collect {
-              case Success(json: String) => json
-              case Failure(ex)           => ""
+          parameters('benchmark_only.as[String]) { benchmark =>
+            val shiftedId = nextRandomId(1, 1024).toString
+            complete {
+              resolver(entityName).ask(astore.GetRecordJson(shiftedId))(readTimeout).collect {
+                case Success(json: String) => json
+                case Failure(ex)           => ""
+              }
             }
-          }
+          } ~
+            complete {
+              resolver(entityName).ask(astore.GetRecordJson(id))(readTimeout).collect {
+                case Success(json: String) => json
+                case Failure(ex)           => ""
+              }
+            }
         }
       } ~ path("put" / Segment / Segment ~ Slash.?) { (id, fieldName) =>
         post {
