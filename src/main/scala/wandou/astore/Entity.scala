@@ -92,10 +92,10 @@ class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends A
       sender() ! Success(Ctx(record, schema, null))
 
     case GetRecordAvro(_) =>
-      sender() ! avro.avroEncode(record, schema)
+      sender() ! encoderDecoder.avroEncode(record, schema)
 
     case GetRecordJson(_) =>
-      sender() ! avro.jsonEncode(record, schema)
+      sender() ! encoderDecoder.jsonEncode(record, schema)
 
     case GetField(_, fieldName) =>
       val commander = sender()
