@@ -37,24 +37,26 @@ trait RestRoute { _: spray.routing.Directives =>
   private def nextRandomId(min: Int, max: Int) = random.nextInt(max - min + 1) + min
 
   final def schemaApi = {
-    path("putschema" / Segment / Segment ~ Slash.?) { (entityName, fname) =>
-      post {
-        entity(as[String]) { schemaStr =>
-          complete {
-            schemaBoard.ask(astore.PutSchema(entityName, schemaStr, Some(fname)))(writeTimeout).collect {
-              case Success(_)  => StatusCodes.OK
-              case Failure(ex) => StatusCodes.InternalServerError
+    pathPrefix("putschema") {
+      path(Segment / Segment ~ Slash.?) { (entityName, fname) =>
+        post {
+          entity(as[String]) { schemaStr =>
+            complete {
+              schemaBoard.ask(astore.PutSchema(entityName, schemaStr, Some(fname)))(writeTimeout).collect {
+                case Success(_)  => StatusCodes.OK
+                case Failure(ex) => StatusCodes.InternalServerError
+              }
             }
           }
         }
-      }
-    } ~ path("putschema" / Segment ~ Slash.?) { entityName =>
-      post {
-        entity(as[String]) { schemaStr =>
-          complete {
-            schemaBoard.ask(astore.PutSchema(entityName, schemaStr, None))(writeTimeout).collect {
-              case Success(_)  => StatusCodes.OK
-              case Failure(ex) => StatusCodes.InternalServerError
+      } ~ path(Segment ~ Slash.?) { entityName =>
+        post {
+          entity(as[String]) { schemaStr =>
+            complete {
+              schemaBoard.ask(astore.PutSchema(entityName, schemaStr, None))(writeTimeout).collect {
+                case Success(_)  => StatusCodes.OK
+                case Failure(ex) => StatusCodes.InternalServerError
+              }
             }
           }
         }
@@ -73,51 +75,56 @@ trait RestRoute { _: spray.routing.Directives =>
 
   final def accessApi = {
     pathPrefix(Segment) { entityName =>
-      path("get" / Segment / Segment ~ Slash.?) { (id, fieldName) =>
-        get {
-          complete {
-            resolver(entityName).ask(astore.GetFieldJson(id, fieldName))(readTimeout).collect {
-              case Success(json: String) => json
-              case Failure(ex)           => ""
-            }
-          }
-        }
-      } ~ path("get" / Segment ~ Slash.?) { id =>
-        get {
-          parameters('benchmark_only.as[String]) { benchmark =>
-            val shiftedId = nextRandomId(1, 1024).toString
+      pathPrefix("get") {
+        path(Segment / Segment ~ Slash.?) { (id, fieldName) =>
+          get {
             complete {
-              resolver(entityName).ask(astore.GetRecordJson(shiftedId))(readTimeout).collect {
+              resolver(entityName).ask(astore.GetFieldJson(id, fieldName))(readTimeout).collect {
                 case Success(json: String) => json
                 case Failure(ex)           => ""
               }
             }
-          } ~
-            complete {
-              resolver(entityName).ask(astore.GetRecordJson(id))(readTimeout).collect {
-                case Success(json: String) => json
-                case Failure(ex)           => ""
+          }
+        } ~ path(Segment ~ Slash.?) { id =>
+          get {
+            // Only for benchmark test purpose
+            parameters('benchmark_only.as[String]) { benchmark_only =>
+              val shiftedId = nextRandomId(1, 1024).toString
+              complete {
+                resolver(entityName).ask(astore.GetRecordJson(shiftedId))(readTimeout).collect {
+                  case Success(json: String) => json
+                  case Failure(ex)           => ""
+                }
               }
-            }
+            } ~
+              complete {
+                resolver(entityName).ask(astore.GetRecordJson(id))(readTimeout).collect {
+                  case Success(json: String) => json
+                  case Failure(ex)           => ""
+                }
+              }
+          }
         }
-      } ~ path("put" / Segment / Segment ~ Slash.?) { (id, fieldName) =>
-        post {
-          entity(as[String]) { json =>
-            complete {
-              resolver(entityName).ask(astore.PutFieldJson(id, fieldName, json))(writeTimeout).collect {
-                case Success(_)  => StatusCodes.OK
-                case Failure(ex) => StatusCodes.InternalServerError
+      } ~ pathPrefix("put") {
+        path(Segment / Segment ~ Slash.?) { (id, fieldName) =>
+          post {
+            entity(as[String]) { json =>
+              complete {
+                resolver(entityName).ask(astore.PutFieldJson(id, fieldName, json))(writeTimeout).collect {
+                  case Success(_)  => StatusCodes.OK
+                  case Failure(ex) => StatusCodes.InternalServerError
+                }
               }
             }
           }
-        }
-      } ~ path("put" / Segment ~ Slash.?) { id =>
-        post {
-          entity(as[String]) { json =>
-            complete {
-              resolver(entityName).ask(astore.PutRecordJson(id, json))(writeTimeout).collect {
-                case Success(_)  => StatusCodes.OK
-                case Failure(ex) => StatusCodes.InternalServerError
+        } ~ path(Segment ~ Slash.?) { id =>
+          post {
+            entity(as[String]) { json =>
+              complete {
+                resolver(entityName).ask(astore.PutRecordJson(id, json))(writeTimeout).collect {
+                  case Success(_)  => StatusCodes.OK
+                  case Failure(ex) => StatusCodes.InternalServerError
+                }
               }
             }
           }
