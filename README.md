@@ -5,6 +5,12 @@ Avro Data Store based on Akka (TODO persistence)
 
 <a href="https://travis-ci.org/wandoulabs/astore"><img src="https://travis-ci.org/wandoulabs/astore.png" alt="astore build status"></a>
 
+#### Core Design
+
+* Each record is an actor (non-blocking)
+* Akka sharding cluster (easily to scale-out)
+* Locate field/value deeply via [avpath](https://github.com/wandoulabs/avpath)
+
 #### Run astore
 ```shell
 $ sbt run
