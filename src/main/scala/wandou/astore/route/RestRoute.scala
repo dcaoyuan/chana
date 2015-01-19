@@ -29,7 +29,6 @@ trait RestRoute { _: spray.routing.Directives =>
   final def restApi = schemaApi ~ accessApi
 
   final def ping = path("ping") {
-    println("PONG")
     complete("pong")
   }
 
