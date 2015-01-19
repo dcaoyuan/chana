@@ -198,7 +198,7 @@ Detailed result:
 sbt run
 cd src/test/resources/avsc
 ./bench.sh
-./bench-set.sh
+./bench-put.sh
 ```
 
 # Preface
