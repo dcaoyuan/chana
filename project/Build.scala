@@ -23,7 +23,7 @@ object Build extends sbt.Build {
 
   lazy val basicSettings = Seq(
     organization := "com.wandoulabs.avro",
-    version := "0.1.1-SNAPSHOT",
+    version := "0.1.1",
     scalaVersion := "2.11.5",
     scalacOptions ++= Seq("-unchecked", "-deprecation"),
     javacOptions ++= Seq("-source", "1.6", "-target", "1.6"),
@@ -58,7 +58,14 @@ object Build extends sbt.Build {
      <scm>
        <url>git@github.com:wandoulabs/astore.git</url>
        <connection>scm:git:git@github.com:wandoulabs/astore.git</connection>
-     </scm>)
+     </scm>
+      <developers>
+        <developer>
+          <id>dcaoyuan</id>
+          <name>Caoyuan DENG</name>
+          <email>dcaoyuan@gmail.com</email>
+        </developer>
+      </developers>)
 
   def multiJvmSettings = Seq(
     compile in MultiJvm <<= (compile in MultiJvm) triggeredBy (compile in Test),
