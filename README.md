@@ -60,22 +60,22 @@ Testing:
 ```shell
 $ cd src/test/resources/avsc
 
-$ curl --data @PersonInfo.avsc 'http://localhost:8080/putschema/personinfo'
+$ curl --data @PersonInfo.avsc 'http://127.0.0.1:8080/putschema/personinfo'
 OK
 
-$ curl 'http://localhost:8080/personinfo/get/1'
+$ curl 'http://127.0.0.1:8080/personinfo/get/1'
 {"name":"","age":0,"gender":"Unknown","emails":[]}
 
-$ curl --data-binary @PersonInfo.update 'http://localhost:8080/personinfo/update/1'
+$ curl --data-binary @PersonInfo.update 'http://127.0.0.1:8080/personinfo/update/1'
 OK
 
-$ curl 'http://localhost:8080/personinfo/get/1'
+$ curl 'http://127.0.0.1:8080/personinfo/get/1'
 {"name":"James Bond","age":60,"gender":"Unknown","emails":[]}
 
-$ curl 'http://localhost:8080/personinfo/get/1/name'
+$ curl 'http://127.0.0.1:8080/personinfo/get/1/name'
 "James Bond"
 
-$ ab -c100 -n100000 -k 'http://localhost:8080/personinfo/get/1?benchmark_only=true'
+$ ab -c100 -n100000 -k 'http://127.0.0.1:8080/personinfo/get/1?benchmark_only=true'
 ```
 
 ##### Script example: (requires JDK8+) 
@@ -105,13 +105,13 @@ onNameUpdated();
 Try it:
 ```shell
 $ curl --data-binary @on_name.js \
- 'http://localhost:8080/personinfo/putscript/name/SCRIPT_NO_1'
+ 'http://127.0.0.1:8080/personinfo/putscript/name/SCRIPT_NO_1'
 OK
 
-$ curl --data '"John"' 'http://localhost:8080/personinfo/put/1/name'
+$ curl --data '"John"' 'http://127.0.0.1:8080/personinfo/put/1/name'
 OK
 
-$ curl 'http://localhost:8080/personinfo/get/2/age'
+$ curl 'http://127.0.0.1:8080/personinfo/get/2/age'
 888
 ```
 
@@ -159,23 +159,23 @@ Testing:
 ```shell
 $ cd src/test/resources/avsc
 
-$ curl --data @hatInventory.avsc 'http://localhost:8080/putschema/hatinv'
+$ curl --data @hatInventory.avsc 'http://127.0.0.1:8080/putschema/hatinv'
 OK
 
-$ curl 'http://localhost:8080/hatinv/get/1'
+$ curl 'http://127.0.0.1:8080/hatinv/get/1'
 {"sku":"","description":{"style":"","size":"","color":"","material":""}}
 
 $ curl --data '{"style":"classic","size":"Large","color":"Red"}' \
- 'http://localhost:8080/hatinv/put/1/description'
+ 'http://127.0.0.1:8080/hatinv/put/1/description'
 OK
 
-$ curl 'http://localhost:8080/hatinv/get/1'
+$ curl 'http://127.0.0.1:8080/hatinv/get/1'
 {"sku":"","description":{"style":"classic","size":"Large","color":"Red","material":""}}
 
-$ curl 'http://localhost:8080/hatinv/get/1/description'
+$ curl 'http://127.0.0.1:8080/hatinv/get/1/description'
 {"style":"classic","size":"Large","color":"Red","material":""}
 
-$ ab -c100 -n100000 -k 'http://localhost:8080/hatinv/get/1'
+$ ab -c100 -n100000 -k 'http://127.0.0.1:8080/hatinv/get/1'
 ```
 ##### Simple benchmark for REST-JSON API (too simple too naive)
 ###### Environment: 
@@ -185,10 +185,10 @@ CPU: 2 x Intel(R) Xeon(R) CPU E5-2420 v2 @ 2.20GHz
 OS: CentOS Linux release 7.0.1406 (Core)
 ```
 
-###### Simple GET/SET REST-JSON Result:
+###### Simple GET/PET REST-JSON Result:
 ```
-Simple GET: 46221 [req#/sec] (mean)
-Simple SET: 38616 [req#/sec] (mean)
+Simple GET: 78364 [req#/sec] (mean)
+Simple PET: 65259 [req#/sec] (mean)
 ```
 Detailed result:
 [Benchmark](https://github.com/wandoulabs/astore/wiki)
