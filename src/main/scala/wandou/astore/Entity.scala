@@ -50,10 +50,17 @@ object Entity {
   }
 }
 
-class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends Actor with Stash with ActorLogging with Scriptable {
+class Entity(val name: String, val schema: Schema, val builder: RecordBuilder) extends EntityActor with Scriptable {
+  override def ready = accessBehavior orElse scriptableBehavior
+}
+
+trait EntityActor extends Actor with Stash with ActorLogging {
   import Entity.Internal._
 
   import context.dispatcher
+
+  def schema: Schema
+  def builder: RecordBuilder
 
   private val id = self.path.name
   private val parser = new avpath.Parser()
@@ -85,7 +92,7 @@ class Entity(val name: String, schema: Schema, builder: RecordBuilder) extends A
       stash()
   }
 
-  def ready = accessBehavior orElse scriptableBehavior
+  def ready = accessBehavior
 
   def accessBehavior: Receive = {
     case GetRecord(_) =>
