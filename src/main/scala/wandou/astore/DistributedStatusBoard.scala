@@ -48,6 +48,7 @@ object DistributedStatusBoard {
 
 /**
  * Marker trait for remote messages with special serializer.
+ * Derived from [[akka.contrib.pattern.DistrubitedPubSubMediator]]
  */
 trait DistributedStatusBoardMessage extends Serializable
 

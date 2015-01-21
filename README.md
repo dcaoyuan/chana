@@ -62,7 +62,7 @@ Schema: PersonInfo.avsc
 
 ```
 
-Testing:
+Try it:
 ```shell
 $ cd src/test/resources/avsc
 
@@ -161,7 +161,7 @@ Schema: hatInventory.avsc
 }
 ```
 
-Testing:
+Try it:
 ```shell
 $ cd src/test/resources/avsc
 
