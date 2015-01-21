@@ -6,11 +6,16 @@ jdk:
 script:
 - sbt ++$TRAVIS_SCALA_VERSION compile test:compile
 - sbt ++$TRAVIS_SCALA_VERSION test
+after_success:
+- |
+  test "${TRAVIS_PULL_REQUEST}" = 'false' && test "${TRAVIS_JDK_VERSION}" = 'oraclejdk8' && sbt 'set resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"' 'set credentials += Credentials("Sonatype Nexus Repository Manager", "oss.sonatype.org", System.getenv("SONATYPE_USER"), System.getenv("SONATYPE_PASS"))' ++${TRAVIS_SCALA_VERSION} '+ publish'
 branches:
   only:
   - master
 env:
   global:
+  - secure: gJ4GD7eyn4DeZ/5awwIBUF9qyMmopaWnAajrDQVVJUDTXtXQdGT/QCrRDdsOrqf4Yn3R7RdZT6Of84VvwXniIaia74C+8oVCGda5tXjqOOF9X4klTnucNDrEtUDqrfqPkT3AUHjAqc3kS1jywLPppJpMlNj/oBr/MY2avgiRThw=
+  - secure: NAfbq/rwWtceYdMPmjboaLUP8m8113yzfpdwny6B1j56YwG7bH/FJmmvOAe7O9XPOhn8T3PFzEro5Ygb8s5gZCF6rwAv4FGj/8qDZyac7BDXvPWtdDMnFC9xLY0T9a9lm5NH2L0eDL0EGNit3Z8nl8Qfuj2BMftz3cVK93d0P8Y=
 notifications:
   email:
   - dcaoyuan@wandoujia.com
