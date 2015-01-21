@@ -112,7 +112,7 @@ object Dependencies {
 
   val spray = Seq(
     "io.spray" %% "spray-can" % SPRAY_VERSION,
-    "io.spray" %% "spray-routing" % SPRAY_VERSION,
+    "io.spray" %% "spray-routing-shapeless2" % SPRAY_VERSION,
     "io.spray" %% "spray-testkit" % SPRAY_VERSION % "test")
 
   val log = Seq(
