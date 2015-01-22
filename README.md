@@ -8,8 +8,9 @@ Avro Data Store based on Akka (TODO persistence)
 #### Core Design
 
 * Each record is an actor (non-blocking)
-* Akka sharding cluster (easily to scale-out)
+* Akka sharding cluster (easy to scale-out)
 * Locate field/value deeply via [avpath](https://github.com/wandoulabs/avpath)
+* Scripting triggered by field updating events (JDK 8 JavaScript engine - [Nashorn](http://docs.oracle.com/javase/8/docs/technotes/guides/scripting/nashorn/))
 
 #### Run astore
 ```shell
@@ -86,23 +87,23 @@ $ ab -c100 -n100000 -k 'http://127.0.0.1:8080/personinfo/get/1?benchmark_only=tr
 
 ##### Script example: (requires JDK8+) 
 
-A piece of JavaScript code that will be executed when PersionInfo.name field was updated: on_name.js:
+A piece of JavaScript code that will be executed when field PersionInfo.name was updated: on_name.js:
 ```javascript
 function onNameUpdated() {
     var age = record.get("age");
-    notify(age);
-    notify(http_get);
+    what_is(age);
+    what_is(http_get);
     http_get.apply("http://localhost:8080/ping");
     http_post.apply("http://localhost:8080/personinfo/put/2/age", "888");
     for (i = 0; i < fields.length; i++) {
         var field = fields[i];
-        notify(field._1);
-        notify(field._2);
+        what_is(field._1);
+        what_is(field._2);
     }
 }
 
-function notify(value) {
-    print(id + ":" + value);
+function what_is(value) {
+    print(id + ": " + value);
 }
 
 onNameUpdated();
@@ -503,4 +504,4 @@ Where,
 # Reference
 
 * [avpath](https://github.com/wandoulabs/avpath)
-
+* [Nashorn](https://wiki.openjdk.java.net/display/Nashorn/Main)
