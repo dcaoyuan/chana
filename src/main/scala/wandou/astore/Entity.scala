@@ -63,13 +63,13 @@ trait EntityActor extends Actor with Stash {
   def schema: Schema
   def builder: RecordBuilder
 
-  private val id = self.path.name
-  private val parser = new avpath.Parser()
-  private val encoderDecoder = new avro.EncoderDecoder()
-  private var limitedSize = 30 // TODO
-  private var receivedTimeout = 3600.seconds
+  protected val id = self.path.name
+  protected val parser = new avpath.Parser()
+  protected val encoderDecoder = new avro.EncoderDecoder()
+  protected var limitedSize = 30 // TODO
+  protected var receivedTimeout = 3600.seconds
 
-  private var record: Record = _
+  protected var record: Record = _
   protected def loadRecord() = {
     // TODO load persistented data
     builder.build()
