@@ -48,9 +48,10 @@ object Entity {
   final case class OnUpdated(id: String, fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record)
 }
 
-class AEntity(val entityName: String, val schema: Schema, val builder: RecordBuilder) extends Entity
-    with Actor
+class AEntity(val entityName: String, val schema: Schema, val builder: RecordBuilder)
+    extends Entity
     with Scriptable
+    with Actor
     with ActorLogging {
   override def ready = accessBehavior orElse scriptableBehavior
 }
