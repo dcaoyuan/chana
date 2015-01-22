@@ -12,6 +12,10 @@ import scala.collection.immutable.TreeMap
 import scala.concurrent.duration._
 import scala.concurrent.forkjoin.ThreadLocalRandom
 
+/**
+ *
+ * Derived from [[akka.contrib.pattern.DistrubitedPubSubMediator]]
+ */
 object DistributedStatusBoard {
 
   @SerialVersionUID(1L) case class Put[T](key: String, value: T)
@@ -47,8 +51,8 @@ object DistributedStatusBoard {
 }
 
 /**
+ *
  * Marker trait for remote messages with special serializer.
- * Derived from [[akka.contrib.pattern.DistrubitedPubSubMediator]]
  */
 trait DistributedStatusBoardMessage extends Serializable
 

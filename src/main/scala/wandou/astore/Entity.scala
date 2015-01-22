@@ -14,6 +14,7 @@ import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData
 import org.apache.avro.generic.GenericData.Record
 import scala.concurrent.Future
+import scala.concurrent.duration._
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
@@ -66,19 +67,19 @@ trait EntityActor extends Actor with Stash with ActorLogging {
   private val parser = new avpath.Parser()
   private val encoderDecoder = new avro.EncoderDecoder()
   private var limitedSize = 30 // TODO
+  private var receivedTimeout = 3600.seconds
 
   private var record: Record = _
-  private def createRecord() {
-    record = builder.build()
+  protected def loadRecord() = {
+    // TODO load persistented data
+    builder.build()
   }
 
   override def preStart {
     super[Actor].preStart
     log.debug("Starting: {} ", id)
-    //context.setReceiveTimeout(ReceiveTimeoutSecs)
-    createRecord()
-    // TODO load persistented data
-    self ! Bootstrap(record)
+    context.setReceiveTimeout(receivedTimeout)
+    self ! Bootstrap(loadRecord())
   }
 
   override def receive: Receive = initial
@@ -314,14 +315,14 @@ trait EntityActor extends Actor with Stash with ActorLogging {
     //context.parent ! Passivate(stopMessage = PoisonPill)
   }
 
-  def persisting: Receive = {
+  def persistingBehavior: Receive = {
     case Success(_) =>
       log.debug("Account persistence success: {}", id)
       context.become(ready)
       unstashAll()
 
     case PersistenceFailure(payload, sequenceNr, cause) =>
-      log.error(cause, "")
+      log.error(cause, cause.getMessage)
       context.become(ready)
       unstashAll()
 
@@ -377,7 +378,7 @@ trait EntityActor extends Actor with Stash with ActorLogging {
   }
 
   private def commit2(id: String, updatedFields: List[(Schema.Field, Any)], commander: ActorRef) {
-    //context.become(persistingBehavior)
+    context.become(persistingBehavior)
     persist(id, updatedFields).onComplete {
       case Success(_) =>
         val data = GenericData.get
