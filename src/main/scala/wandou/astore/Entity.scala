@@ -45,20 +45,17 @@ object Entity {
       shardResolver = shardResolver)
   }
 
+  final case class Bootstrap(record: Record)
   final case class OnUpdated(id: String, fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record)
-
-  private[astore] object Internal {
-    final case class Bootstrap(val record: Record)
-  }
 }
 
-class Entity(val entityName: String, val schema: Schema, val builder: RecordBuilder) extends EntityActor with Scriptable with ActorLogging {
+class Entity(val entityName: String, val schema: Schema, val builder: RecordBuilder) extends EntityActor
+    with Scriptable
+    with ActorLogging {
   override def ready = accessBehavior orElse scriptableBehavior
 }
 
 trait EntityActor extends Actor with Stash {
-  import Entity.Internal._
-
   import context.dispatcher
 
   def log: LoggingAdapter
@@ -82,13 +79,13 @@ trait EntityActor extends Actor with Stash {
     super[Actor].preStart
     log.debug("Starting: {} ", id)
     context.setReceiveTimeout(receivedTimeout)
-    self ! Bootstrap(loadRecord())
+    self ! Entity.Bootstrap(loadRecord())
   }
 
   override def receive: Receive = initial
 
   def initial: Receive = {
-    case Bootstrap(r) =>
+    case Entity.Bootstrap(r) =>
       record = r
       context.become(ready)
       unstashAll()
