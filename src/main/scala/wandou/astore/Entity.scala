@@ -9,6 +9,7 @@ import akka.actor.ReceiveTimeout
 import akka.actor.Stash
 import akka.contrib.pattern.ClusterSharding
 import akka.contrib.pattern.ShardRegion
+import akka.event.LoggingAdapter
 import akka.persistence.PersistenceFailure
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData
@@ -26,7 +27,7 @@ import wandou.avro
 import wandou.avro.RecordBuilder
 
 object Entity {
-  def props(name: String, schema: Schema, builder: RecordBuilder) = Props(classOf[Entity], name, schema, builder)
+  def props(entityName: String, schema: Schema, builder: RecordBuilder) = Props(classOf[Entity], entityName, schema, builder)
 
   lazy val idExtractor: ShardRegion.IdExtractor = {
     case cmd: Command => (cmd.id, cmd)
@@ -51,14 +52,16 @@ object Entity {
   }
 }
 
-class Entity(val name: String, val schema: Schema, val builder: RecordBuilder) extends EntityActor with Scriptable {
+class Entity(val entityName: String, val schema: Schema, val builder: RecordBuilder) extends EntityActor with Scriptable with ActorLogging {
   override def ready = accessBehavior orElse scriptableBehavior
 }
 
-trait EntityActor extends Actor with Stash with ActorLogging {
+trait EntityActor extends Actor with Stash {
   import Entity.Internal._
 
   import context.dispatcher
+
+  def log: LoggingAdapter
 
   def schema: Schema
   def builder: RecordBuilder

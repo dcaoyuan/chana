@@ -12,10 +12,10 @@ import spray.can.Http
 import spray.httpx.RequestBuilding._
 import wandou.astore.Entity.OnUpdated
 
-trait Scriptable { me: Actor =>
+trait Scriptable { _: Actor =>
 
   def log: LoggingAdapter
-  def name: String
+  def entityName: String
 
   import context.dispatcher
 
@@ -23,7 +23,7 @@ trait Scriptable { me: Actor =>
     case x @ OnUpdated(id, fieldsBefore, recordAfter) =>
       for {
         (field, _) <- fieldsBefore
-        (id, script) <- DistributedScriptBoard.scriptsOf(name, field.name)
+        (id, script) <- DistributedScriptBoard.scriptsOf(entityName, field.name)
       } {
         try {
           script.eval(prepareBindings(x))
