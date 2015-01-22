@@ -21,13 +21,12 @@ import scala.util.Success
 import scala.util.Try
 import wandou.astore.script.Scriptable
 import wandou.avpath
-import wandou.avpath.Evaluator
 import wandou.avpath.Evaluator.Ctx
 import wandou.avro
 import wandou.avro.RecordBuilder
 
 object Entity {
-  def props(entityName: String, schema: Schema, builder: RecordBuilder) = Props(classOf[Entity], entityName, schema, builder)
+  def props(entityName: String, schema: Schema, builder: RecordBuilder) = Props(classOf[AEntity], entityName, schema, builder)
 
   lazy val idExtractor: ShardRegion.IdExtractor = {
     case cmd: Command => (cmd.id, cmd)
@@ -49,13 +48,14 @@ object Entity {
   final case class OnUpdated(id: String, fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record)
 }
 
-class Entity(val entityName: String, val schema: Schema, val builder: RecordBuilder) extends EntityActor
+class AEntity(val entityName: String, val schema: Schema, val builder: RecordBuilder) extends Entity
+    with Actor
     with Scriptable
     with ActorLogging {
   override def ready = accessBehavior orElse scriptableBehavior
 }
 
-trait EntityActor extends Actor with Stash {
+trait Entity extends Actor with Stash {
   import context.dispatcher
 
   def log: LoggingAdapter
@@ -355,11 +355,11 @@ trait EntityActor extends Actor with Stash {
     commit2(id, updatedFields, commander)
   }
 
-  private def commit(id: String, toBe: Record, ctxs: List[Evaluator.Ctx], commander: ActorRef, doLimitSize: Boolean = true) {
+  private def commit(id: String, toBe: Record, ctxs: List[Ctx], commander: ActorRef, doLimitSize: Boolean = true) {
     val time = System.currentTimeMillis
     // TODO when avpath is ".", topLevelField will be null, it's better to return all topLevelFields
     val updatedFields =
-      for (Evaluator.Ctx(value, schema, topLevelField, _) <- ctxs if topLevelField != null) yield {
+      for (Ctx(value, schema, topLevelField, _) <- ctxs if topLevelField != null) yield {
         if (doLimitSize) {
           avro.toLimitedSize(toBe, topLevelField, limitedSize) match {
             case Some(newValue) => (topLevelField, newValue)

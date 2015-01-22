@@ -10,9 +10,9 @@ import scala.collection
 import scala.concurrent.duration._
 import spray.can.Http
 import spray.httpx.RequestBuilding._
-import wandou.astore.Entity.OnUpdated
+import wandou.astore.Entity
 
-trait Scriptable { _: Actor =>
+trait Scriptable extends Actor {
 
   def log: LoggingAdapter
   def entityName: String
@@ -20,7 +20,7 @@ trait Scriptable { _: Actor =>
   import context.dispatcher
 
   def scriptableBehavior: Receive = {
-    case x @ OnUpdated(id, fieldsBefore, recordAfter) =>
+    case x @ Entity.OnUpdated(id, fieldsBefore, recordAfter) =>
       for {
         (field, _) <- fieldsBefore
         (id, script) <- DistributedScriptBoard.scriptsOf(entityName, field.name)
@@ -47,7 +47,7 @@ trait Scriptable { _: Actor =>
       }
   }
 
-  def prepareBindings(onUpdated: OnUpdated) = {
+  def prepareBindings(onUpdated: Entity.OnUpdated) = {
     val bindings = new SimpleBindings
     bindings.put("http_get", http_get)
     bindings.put("http_post", http_post)
