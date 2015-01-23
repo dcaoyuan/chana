@@ -82,7 +82,7 @@ $ curl 'http://127.0.0.1:8080/personinfo/get/1'
 $ curl 'http://127.0.0.1:8080/personinfo/get/1/name'
 "James Bond"
 
-$ ab -c100 -n100000 -k 'http://127.0.0.1:8080/personinfo/get/1?benchmark_only=true'
+$ ab -c100 -n100000 -k 'http://127.0.0.1:8080/personinfo/get/1?benchmark_only=1024'
 ```
 
 ##### Script example: (requires JDK8+) 
@@ -182,7 +182,7 @@ $ curl 'http://127.0.0.1:8080/hatinv/get/1'
 $ curl 'http://127.0.0.1:8080/hatinv/get/1/description'
 {"style":"classic","size":"Large","color":"Red","material":""}
 
-$ ab -c100 -n100000 -k 'http://127.0.0.1:8080/hatinv/get/1'
+$ ab -c100 -n100000 -k 'http://127.0.0.1:8080/hatinv/get/1?benchmark_only=1024'
 ```
 ##### Simple benchmark for REST-JSON API (too simple too naive)
 ###### Environment: 

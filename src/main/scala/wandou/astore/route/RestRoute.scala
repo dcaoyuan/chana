@@ -79,27 +79,27 @@ trait RestRoute { _: spray.routing.Directives =>
           get {
             complete {
               resolver(entityName).ask(astore.GetFieldJson(id, fieldName))(readTimeout).collect {
-                case Success(json: String) => json
-                case Failure(ex)           => ""
+                case Success(json: Array[Byte]) => new String(json)
+                case Failure(ex)                => ""
               }
             }
           }
         } ~ path(Segment ~ Slash.?) { id =>
           get {
             // Only for benchmark test purpose
-            parameters('benchmark_only.as[String]) { benchmark_only =>
-              val shiftedId = nextRandomId(1, 1024).toString
+            parameters('benchmark_only.as[String]) { benchmark_num =>
+              val shiftedId = nextRandomId(1, benchmark_num.toInt).toString
               complete {
                 resolver(entityName).ask(astore.GetRecordJson(shiftedId))(readTimeout).collect {
-                  case Success(json: String) => json
-                  case Failure(ex)           => ""
+                  case Success(json: Array[Byte]) => new String(json)
+                  case Failure(ex)                => ""
                 }
               }
             } ~
               complete {
                 resolver(entityName).ask(astore.GetRecordJson(id))(readTimeout).collect {
-                  case Success(json: String) => json
-                  case Failure(ex)           => ""
+                  case Success(json: Array[Byte]) => new String(json)
+                  case Failure(ex)                => ""
                 }
               }
           }
@@ -135,8 +135,8 @@ trait RestRoute { _: spray.routing.Directives =>
               case List(avpathExpr, _*) =>
                 complete {
                   resolver(entityName).ask(astore.SelectJson(id, avpathExpr))(readTimeout).collect {
-                    case Success(json: String) => json
-                    case Failure(ex)           => "[]"
+                    case Success(jsons: List[_]) => jsons.asInstanceOf[List[Array[Byte]]].map(new String(_)).mkString("[", ",", "]")
+                    case Failure(ex)             => "[]"
                   }
                 }
               case _ =>

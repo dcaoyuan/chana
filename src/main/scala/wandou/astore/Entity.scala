@@ -187,7 +187,7 @@ trait Entity extends Actor with Stash {
     case Select(_, path) =>
       val commander = sender()
       avpath.select(parser)(record, path) match {
-        case x @ Success(_) =>
+        case x: Success[_] =>
           commander ! x
         case x @ Failure(ex) =>
           log.error(ex, ex.getMessage)
@@ -198,7 +198,13 @@ trait Entity extends Actor with Stash {
       val commander = sender()
       avpath.select(parser)(record, path) match {
         case x @ Success(ctxs) =>
-          commander ! x // TODO encode to avro
+          Try(ctxs.map { ctx => encoderDecoder.avroEncode(ctx.value, ctx.schema).get }) match {
+            case xs: Success[_] =>
+              commander ! xs // List[Array[Byte]] 
+            case x @ Failure(ex) =>
+              log.error(ex, ex.getMessage)
+              commander ! x
+          }
         case x @ Failure(ex) =>
           log.error(ex, ex.getMessage)
           commander ! x
@@ -208,12 +214,9 @@ trait Entity extends Actor with Stash {
       val commander = sender()
       avpath.select(parser)(record, path) match {
         case Success(ctxs) =>
-          Try(ctxs.map {
-            case Ctx(value, schema, _, _) => encoderDecoder.jsonEncode(value, schema).get
-          }) match {
-            case Success(xs) =>
-              val json = xs.mkString("[", ",", "]")
-              commander ! Success(json)
+          Try(ctxs.map { ctx => encoderDecoder.jsonEncode(ctx.value, ctx.schema).get }) match {
+            case xs: Success[_] =>
+              commander ! xs // List[Array[Byte]]
             case x @ Failure(ex) =>
               log.error(ex, ex.getMessage)
               commander ! x
