@@ -188,17 +188,16 @@ $ ab -c100 -n100000 -k 'http://127.0.0.1:8080/hatinv/get/1?benchmark_only=1024'
 ###### Environment: 
 ```
 HOST: Dell Inc. PowerEdge R420/0VD50G
-CPU: 2 x Intel(R) Xeon(R) CPU E5-2420 v2 @ 2.20GHz
+CPU: 2 x Intel(R) Xeon(R) CPU E5-2420 v2 @ 2.20GHz (12 #core, 24 #HT)
 OS: CentOS Linux release 7.0.1406 (Core)
 ```
 
 ###### Simple GET/PET REST-JSON Result:
 ```
-Simple GET: 78364 [req#/sec] (mean)
-Simple PET: 65259 [req#/sec] (mean)
+Simple GET: 169,437 [req#/sec] (mean)
+Simple PET: 102,961 [req#/sec] (mean)
 ```
-Detailed result:
-[Benchmark](https://github.com/wandoulabs/astore/wiki)
+Details: [Benchmark](https://github.com/wandoulabs/astore/wiki)
 
 ###### To run:
 ```shell
