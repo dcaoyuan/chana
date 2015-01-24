@@ -1,4 +1,4 @@
-package wandou.astore.route
+package wandou.astore.http
 
 import akka.actor.ActorSystem
 import akka.contrib.pattern.ClusterSharding
@@ -14,7 +14,7 @@ import wandou.astore
 import wandou.astore.schema.DistributedSchemaBoard
 import wandou.astore.script.DistributedScriptBoard
 
-trait RestRoute { _: spray.routing.Directives =>
+trait RestRoute extends Directives {
   val system: ActorSystem
   import system.dispatcher
 

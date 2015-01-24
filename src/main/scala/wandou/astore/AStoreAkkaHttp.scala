@@ -7,23 +7,25 @@ import akka.http.server.Directives
 import akka.stream.FlowMaterializer
 import akka.util.Timeout
 import scala.concurrent.duration._
-import wandou.astore.route.RestRouteAkka
+import wandou.astore.http.RestRouteAkka
 
 /**
- * astore REST service
+ * AStore REST service
  */
 object AStoreAkkaHttp extends scala.App {
   implicit val system = ActorSystem("AStoreSystem")
   implicit val materializer = FlowMaterializer()
   implicit val dispatcher = system.dispatcher
 
-  val routes = Directives.respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
+  val route = Directives.respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
     new AStoreRouteAkka(system).route
   }
 
   val webConfig = system.settings.config.getConfig("wandou.astore.web")
-  val serverBinding = Http().bind(interface = webConfig.getString("hostname"), port = webConfig.getInt("port"))
-  serverBinding.startHandlingWith(routes)
+  val binding = Http().bind(interface = webConfig.getString("interface"), port = webConfig.getInt("port"))
+  binding.connections.foreach { conn =>
+    conn.handleWith(route)
+  }
 }
 
 class AStoreRouteAkka(val system: ActorSystem) extends RestRouteAkka with Directives {

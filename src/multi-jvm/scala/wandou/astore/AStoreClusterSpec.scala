@@ -229,7 +229,7 @@ class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMu
           new AStoreRoute(system).route
         }
 
-        val server = system.actorOf(HttpServer.props(routes), "astore-web")
+        val server = system.actorOf(RestServer.props(routes), "astore-web")
         val webConfig = system.settings.config.getConfig("web")
         IO(Http) ! Http.Bind(server, "127.0.0.1", webConfig.getInt("port"))
         expectMsgType[Tcp.Bound]

@@ -1,4 +1,4 @@
-package wandou.astore.route
+package wandou.astore.http
 
 import akka.actor.ActorSystem
 import akka.contrib.pattern.ClusterSharding
@@ -15,7 +15,7 @@ import wandou.astore
 import wandou.astore.schema.DistributedSchemaBoard
 import wandou.astore.script.DistributedScriptBoard
 
-trait RestRouteAkka extends akka.http.server.Directives {
+trait RestRouteAkka extends Directives {
   implicit val system: ActorSystem
   implicit val materializer = FlowMaterializer()
   import system.dispatcher
