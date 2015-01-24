@@ -383,7 +383,8 @@ trait Entity extends Actor with Stash {
   }
 
   private def commit2(id: String, updatedFields: List[(Schema.Field, Any)], commander: ActorRef) {
-    context.become(persistingBehavior)
+    // TODO enabling persistingBehavior will bring bad performance. 
+    //context.become(persistingBehavior)
     persist(id, updatedFields).onComplete {
       case Success(_) =>
         val data = GenericData.get

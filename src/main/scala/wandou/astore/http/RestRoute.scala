@@ -95,19 +95,29 @@ trait RestRoute extends Directives {
                   case Failure(ex)                => ""
                 }
               }
-            } ~
-              complete {
-                resolver(entityName).ask(astore.GetRecordJson(id))(readTimeout).collect {
-                  case Success(json: Array[Byte]) => new String(json)
-                  case Failure(ex)                => ""
-                }
+            } ~ complete {
+              resolver(entityName).ask(astore.GetRecordJson(id))(readTimeout).collect {
+                case Success(json: Array[Byte]) => new String(json)
+                case Failure(ex)                => ""
               }
+            }
           }
         }
       } ~ pathPrefix("put") {
         path(Segment / Segment ~ Slash.?) { (id, fieldName) =>
           post {
-            entity(as[String]) { json =>
+            // Only for benchmark test purpose
+            parameters('benchmark_only.as[String]) { benchmark_num =>
+              val shiftedId = nextRandomId(1, benchmark_num.toInt).toString
+              entity(as[String]) { json =>
+                complete {
+                  resolver(entityName).ask(astore.PutFieldJson(id, fieldName, json))(writeTimeout).collect {
+                    case Success(_)  => StatusCodes.OK
+                    case Failure(ex) => StatusCodes.InternalServerError
+                  }
+                }
+              }
+            } ~ entity(as[String]) { json =>
               complete {
                 resolver(entityName).ask(astore.PutFieldJson(id, fieldName, json))(writeTimeout).collect {
                   case Success(_)  => StatusCodes.OK
