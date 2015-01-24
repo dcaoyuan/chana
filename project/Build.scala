@@ -94,6 +94,7 @@ object Build extends sbt.Build {
 object Dependencies {
   val SLF4J_VERSION = "1.7.7"
   val AKKA_VERSION = "2.3.9"
+  val AKKA_STREAM_VERSION = "1.0-M2"
   val SPRAY_VERSION = "1.3.2"
 
   val akka = Seq(
@@ -103,6 +104,13 @@ object Dependencies {
     "com.typesafe.akka" %% "akka-slf4j" % AKKA_VERSION,
     "com.typesafe.akka" %% "akka-testkit" % AKKA_VERSION % "test",
     "com.typesafe.akka" %% "akka-multi-node-testkit" % AKKA_VERSION % "test")
+
+  val akka_http = Seq(
+    "com.typesafe.akka" %% "akka-stream-experimental" % AKKA_STREAM_VERSION,
+    "com.typesafe.akka" %% "akka-http-experimental" % AKKA_STREAM_VERSION,
+    "com.typesafe.akka" %% "akka-http-core-experimental" % AKKA_STREAM_VERSION,
+    "com.typesafe.akka" %% "akka-http-spray-json-experimental" % AKKA_STREAM_VERSION
+  )
 
   val avro = Seq(
     "org.apache.avro" % "avro" % "1.7.7")
@@ -125,7 +133,7 @@ object Dependencies {
     "org.scalamock" %% "scalamock-scalatest-support" % "3.2-RC1" % "test",
     "org.scalatest" %% "scalatest" % "2.1.3" % "test")
 
-  val basic: Seq[sbt.ModuleID] = akka ++ avro ++ avpath ++ spray ++ log ++ test
+  val basic: Seq[sbt.ModuleID] = akka ++ akka_http ++ avro ++ avpath ++ spray ++ log ++ test
 
   val all = basic
 }
@@ -175,6 +183,7 @@ object Packaging {
 
   val settings = packagerSettings ++ deploymentSettings ++
     packageArchetype.java_application ++ Seq(
+      mainClass in Compile := Some("wandou.astore.AStore"),
       name := "astore",
       NativePackagerKeys.packageName := "astore",
       bashScriptConfigLocation := Some("${app_home}/../conf/jvmopts"),

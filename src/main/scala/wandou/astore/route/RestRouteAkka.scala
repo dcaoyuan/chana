@@ -2,20 +2,22 @@ package wandou.astore.route
 
 import akka.actor.ActorSystem
 import akka.contrib.pattern.ClusterSharding
+import akka.http.model.StatusCodes
+import akka.http.server.Directives
 import akka.pattern.ask
+import akka.stream.FlowMaterializer
 import akka.util.Timeout
 import scala.concurrent.duration._
 import scala.util.Failure
 import scala.util.Random
 import scala.util.Success
-import spray.http.StatusCodes
-import spray.routing.Directives
 import wandou.astore
 import wandou.astore.schema.DistributedSchemaBoard
 import wandou.astore.script.DistributedScriptBoard
 
-trait RestRoute { _: spray.routing.Directives =>
-  val system: ActorSystem
+trait RestRouteAkka extends akka.http.server.Directives {
+  implicit val system: ActorSystem
+  implicit val materializer = FlowMaterializer()
   import system.dispatcher
 
   def readTimeout: Timeout
@@ -39,9 +41,9 @@ trait RestRoute { _: spray.routing.Directives =>
     pathPrefix("putschema") {
       path(Segment / Segment ~ Slash.?) { (entityName, fname) =>
         post {
-          entity(as[String]) { schemaStr =>
+          entity(as[String]) { schema =>
             complete {
-              schemaBoard.ask(astore.PutSchema(entityName, schemaStr, Some(fname)))(writeTimeout).collect {
+              schemaBoard.ask(astore.PutSchema(entityName, schema, Some(fname)))(writeTimeout).collect {
                 case Success(_)  => StatusCodes.OK
                 case Failure(ex) => StatusCodes.InternalServerError
               }
@@ -50,9 +52,9 @@ trait RestRoute { _: spray.routing.Directives =>
         }
       } ~ path(Segment ~ Slash.?) { entityName =>
         post {
-          entity(as[String]) { schemaStr =>
+          entity(as[String]) { schema =>
             complete {
-              schemaBoard.ask(astore.PutSchema(entityName, schemaStr, None))(writeTimeout).collect {
+              schemaBoard.ask(astore.PutSchema(entityName, schema, None))(writeTimeout).collect {
                 case Success(_)  => StatusCodes.OK
                 case Failure(ex) => StatusCodes.InternalServerError
               }

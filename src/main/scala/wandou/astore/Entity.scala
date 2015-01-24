@@ -61,6 +61,7 @@ trait Entity extends Actor with Stash {
 
   def log: LoggingAdapter
 
+  def entityName: String
   def schema: Schema
   def builder: RecordBuilder
 
@@ -315,13 +316,13 @@ trait Entity extends Actor with Stash {
       }
 
     case ReceiveTimeout =>
-      log.info("Account got ReceiveTimeout")
+      log.info("{}: {} got ReceiveTimeout", entityName, id)
     //context.parent ! Passivate(stopMessage = PoisonPill)
   }
 
   def persistingBehavior: Receive = {
     case Success(_) =>
-      log.debug("Account persistence success: {}", id)
+      log.debug("{}: {} persistence success: {}", entityName, id)
       context.become(ready)
       unstashAll()
 
@@ -331,7 +332,7 @@ trait Entity extends Actor with Stash {
       unstashAll()
 
     case x =>
-      log.debug("Entity got {}", x)
+      log.debug("{} got {}", entityName, x)
       stash()
   }
 
