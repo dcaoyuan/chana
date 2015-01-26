@@ -5,8 +5,8 @@ import akka.contrib.pattern.ClusterSharding
 import akka.pattern.ask
 import akka.util.Timeout
 import scala.concurrent.duration._
+import scala.concurrent.forkjoin.ThreadLocalRandom
 import scala.util.Failure
-import scala.util.Random
 import scala.util.Success
 import spray.http.StatusCodes
 import spray.routing.Directives
@@ -32,8 +32,7 @@ trait RestRoute extends Directives {
     complete("pong")
   }
 
-  private val random = new Random()
-  private def nextRandomId(min: Int, max: Int) = random.nextInt(max - min + 1) + min
+  private def nextRandomId(min: Int, max: Int) = ThreadLocalRandom.current.nextInt(max - min + 1) + min
 
   final def schemaApi = {
     pathPrefix("putschema") {
