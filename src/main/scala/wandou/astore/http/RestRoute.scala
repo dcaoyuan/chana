@@ -4,11 +4,11 @@ import akka.actor.ActorSystem
 import akka.contrib.pattern.ClusterSharding
 import akka.pattern.ask
 import akka.util.Timeout
+import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.concurrent.forkjoin.ThreadLocalRandom
-import scala.util.Failure
-import scala.util.Success
-import spray.http.StatusCodes
+import scala.util.{ Failure, Success, Try }
+import spray.http.{ StatusCode, StatusCodes }
 import spray.routing.Directives
 import wandou.astore
 import wandou.astore.schema.DistributedSchemaBoard
@@ -40,9 +40,8 @@ trait RestRoute extends Directives {
         post {
           entity(as[String]) { schemaStr =>
             complete {
-              schemaBoard.ask(astore.PutSchema(entityName, schemaStr, Some(fname)))(writeTimeout).collect {
-                case Success(_)  => StatusCodes.OK
-                case Failure(ex) => StatusCodes.InternalServerError
+              withStatusCode {
+                schemaBoard.ask(astore.PutSchema(entityName, schemaStr, Some(fname)))(writeTimeout)
               }
             }
           }
@@ -51,9 +50,8 @@ trait RestRoute extends Directives {
         post {
           entity(as[String]) { schemaStr =>
             complete {
-              schemaBoard.ask(astore.PutSchema(entityName, schemaStr, None))(writeTimeout).collect {
-                case Success(_)  => StatusCodes.OK
-                case Failure(ex) => StatusCodes.InternalServerError
+              withStatusCode {
+                schemaBoard.ask(astore.PutSchema(entityName, schemaStr, None))(writeTimeout)
               }
             }
           }
@@ -62,9 +60,8 @@ trait RestRoute extends Directives {
     } ~ path("delschema" / Segment ~ Slash.?) { entityName =>
       get {
         complete {
-          schemaBoard.ask(astore.RemoveSchema(entityName))(writeTimeout).collect {
-            case Success(_)  => StatusCodes.OK
-            case Failure(ex) => StatusCodes.InternalServerError
+          withStatusCode {
+            schemaBoard.ask(astore.RemoveSchema(entityName))(writeTimeout)
           }
         }
       }
@@ -77,9 +74,8 @@ trait RestRoute extends Directives {
         path(Segment / Segment ~ Slash.?) { (id, fieldName) =>
           get {
             complete {
-              resolver(entityName).ask(astore.GetFieldJson(id, fieldName))(readTimeout).collect {
-                case Success(json: Array[Byte]) => new String(json)
-                case Failure(ex)                => ""
+              withJson {
+                resolver(entityName).ask(astore.GetFieldJson(id, fieldName))(readTimeout)
               }
             }
           }
@@ -89,15 +85,13 @@ trait RestRoute extends Directives {
             parameters('benchmark_only.as[String]) { benchmark_num =>
               val shiftedId = nextRandomId(1, benchmark_num.toInt).toString
               complete {
-                resolver(entityName).ask(astore.GetRecordJson(shiftedId))(readTimeout).collect {
-                  case Success(json: Array[Byte]) => new String(json)
-                  case Failure(ex)                => ""
+                withJson {
+                  resolver(entityName).ask(astore.GetRecordJson(shiftedId))(readTimeout)
                 }
               }
             } ~ complete {
-              resolver(entityName).ask(astore.GetRecordJson(id))(readTimeout).collect {
-                case Success(json: Array[Byte]) => new String(json)
-                case Failure(ex)                => ""
+              withJson {
+                resolver(entityName).ask(astore.GetRecordJson(id))(readTimeout)
               }
             }
           }
@@ -110,17 +104,15 @@ trait RestRoute extends Directives {
               val shiftedId = nextRandomId(1, benchmark_num.toInt).toString
               entity(as[String]) { json =>
                 complete {
-                  resolver(entityName).ask(astore.PutFieldJson(id, fieldName, json))(writeTimeout).collect {
-                    case Success(_)  => StatusCodes.OK
-                    case Failure(ex) => StatusCodes.InternalServerError
+                  withStatusCode {
+                    resolver(entityName).ask(astore.PutFieldJson(id, fieldName, json))(writeTimeout)
                   }
                 }
               }
             } ~ entity(as[String]) { json =>
               complete {
-                resolver(entityName).ask(astore.PutFieldJson(id, fieldName, json))(writeTimeout).collect {
-                  case Success(_)  => StatusCodes.OK
-                  case Failure(ex) => StatusCodes.InternalServerError
+                withStatusCode {
+                  resolver(entityName).ask(astore.PutFieldJson(id, fieldName, json))(writeTimeout)
                 }
               }
             }
@@ -129,9 +121,8 @@ trait RestRoute extends Directives {
           post {
             entity(as[String]) { json =>
               complete {
-                resolver(entityName).ask(astore.PutRecordJson(id, json))(writeTimeout).collect {
-                  case Success(_)  => StatusCodes.OK
-                  case Failure(ex) => StatusCodes.InternalServerError
+                withStatusCode {
+                  resolver(entityName).ask(astore.PutRecordJson(id, json))(writeTimeout)
                 }
               }
             }
@@ -159,9 +150,8 @@ trait RestRoute extends Directives {
             splitPathAndValue(body) match {
               case List(avpathExpr, valueJson) =>
                 complete {
-                  resolver(entityName).ask(astore.UpdateJson(id, avpathExpr, valueJson))(writeTimeout).collect {
-                    case Success(_)  => StatusCodes.OK
-                    case Failure(ex) => StatusCodes.InternalServerError
+                  withStatusCode {
+                    resolver(entityName).ask(astore.UpdateJson(id, avpathExpr, valueJson))(writeTimeout)
                   }
                 }
               case _ =>
@@ -175,9 +165,8 @@ trait RestRoute extends Directives {
             splitPathAndValue(body) match {
               case List(avpathExpr, json) =>
                 complete {
-                  resolver(entityName).ask(astore.InsertJson(id, avpathExpr, json))(writeTimeout).collect {
-                    case Success(_)  => StatusCodes.OK
-                    case Failure(ex) => StatusCodes.InternalServerError
+                  withStatusCode {
+                    resolver(entityName).ask(astore.InsertJson(id, avpathExpr, json))(writeTimeout)
                   }
                 }
               case _ =>
@@ -191,9 +180,8 @@ trait RestRoute extends Directives {
             splitPathAndValue(body) match {
               case List(avpathExpr, json) =>
                 complete {
-                  resolver(entityName).ask(astore.InsertAllJson(id, avpathExpr, json))(writeTimeout).collect {
-                    case Success(_)  => StatusCodes.OK
-                    case Failure(ex) => StatusCodes.InternalServerError
+                  withStatusCode {
+                    resolver(entityName).ask(astore.InsertAllJson(id, avpathExpr, json))(writeTimeout)
                   }
                 }
               case _ =>
@@ -207,9 +195,8 @@ trait RestRoute extends Directives {
             splitPathAndValue(body) match {
               case List(avpathExpr, _*) =>
                 complete {
-                  resolver(entityName).ask(astore.Delete(id, avpathExpr))(writeTimeout).collect {
-                    case Success(_)  => StatusCodes.OK
-                    case Failure(ex) => StatusCodes.InternalServerError
+                  withStatusCode {
+                    resolver(entityName).ask(astore.Delete(id, avpathExpr))(writeTimeout)
                   }
                 }
               case _ =>
@@ -223,9 +210,8 @@ trait RestRoute extends Directives {
             splitPathAndValue(body) match {
               case List(avpathExpr, _*) =>
                 complete {
-                  resolver(entityName).ask(astore.Clear(id, avpathExpr))(writeTimeout).collect {
-                    case Success(_)  => StatusCodes.OK
-                    case Failure(ex) => StatusCodes.InternalServerError
+                  withStatusCode {
+                    resolver(entityName).ask(astore.Clear(id, avpathExpr))(writeTimeout)
                   }
                 }
               case _ =>
@@ -237,9 +223,8 @@ trait RestRoute extends Directives {
         post {
           entity(as[String]) { script =>
             complete {
-              scriptBoard.ask(astore.PutScript(entityName, field, scriptId, script))(writeTimeout).collect {
-                case Success(_)  => StatusCodes.OK
-                case Failure(ex) => StatusCodes.InternalServerError
+              withStatusCode {
+                scriptBoard.ask(astore.PutScript(entityName, field, scriptId, script))(writeTimeout)
               }
             }
           }
@@ -247,9 +232,8 @@ trait RestRoute extends Directives {
       } ~ path("delscript" / Segment / Segment ~ Slash.?) { (field, scriptId) =>
         get {
           complete {
-            scriptBoard.ask(astore.RemoveScript(entityName, field, scriptId))(writeTimeout).collect {
-              case Success(_)  => StatusCodes.OK
-              case Failure(ex) => StatusCodes.InternalServerError
+            withStatusCode {
+              scriptBoard.ask(astore.RemoveScript(entityName, field, scriptId))(writeTimeout)
             }
           }
         }
@@ -280,6 +264,16 @@ trait RestRoute extends Directives {
         List(body)
       }
     }
+  }
+
+  private def withStatusCode(f: => Future[Any]): Future[StatusCode] = f.mapTo[Try[String]].map {
+    case Success(_) => StatusCodes.OK
+    case Failure(_) => StatusCodes.InternalServerError
+  }
+
+  private def withJson(f: => Future[Any]): Future[String] = f.mapTo[Try[Array[Byte]]].map {
+    case Success(json: Array[Byte]) => new String(json)
+    case Failure(_)                 => ""
   }
 
 }
