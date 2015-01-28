@@ -236,7 +236,7 @@ To run:
     ./bench-put.sh
 
 Preface
-=======
+-------
 
 astore stores Avro record, with two groups of APIs:
 
