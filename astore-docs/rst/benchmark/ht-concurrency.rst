@@ -8,19 +8,23 @@ Environment
 
 Client:
 ~~~~~~
-HOST: Dell Inc. PowerEdge R420/0VD50G
-CPU: 2 x Intel(R) Xeon(R) CPU E5-2420 v2 @ 2.20GHz (2 x 6 #core, 2 x 12 #HT)
-OS: CentOS release 6.6 (Final)
-Kernel: 2.6.32-504.3.3.el6.x86_64
+::
+
+  HOST: Dell Inc. PowerEdge R420/0VD50G
+  CPU: 2 x Intel(R) Xeon(R) CPU E5-2420 v2 @ 2.20GHz (2 x 6 #core, 2 x 12 #HT)
+  OS: CentOS release 6.6 (Final)
+  Kernel: 2.6.32-504.3.3.el6.x86_64
 
 4 apache ab concurrent processes 
 
 Server:
 ~~~~~~
-HOST: Dell Inc. PowerEdge R420/0VD50G
-CPU: 2 x Intel(R) Xeon(R) CPU E5-2420 v2 @ 2.20GHz (2 x 6 #core, 2 x 12 #HT)
-OS: CentOS Linux release 7.0.1406 (Core)
-Kernel: 3.10.0-123.13.2.el7.x86_64 
+::
+
+  HOST: Dell Inc. PowerEdge R420/0VD50G
+  CPU: 2 x Intel(R) Xeon(R) CPU E5-2420 v2 @ 2.20GHz (2 x 6 #core, 2 x 12 #HT)
+  OS: CentOS Linux release 7.0.1406 (Core)
+  Kernel: 3.10.0-123.13.2.el7.x86_64 
 
 1 AStore node
 
