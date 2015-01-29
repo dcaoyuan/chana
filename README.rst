@@ -3,6 +3,10 @@ astore
 
 Avro Data Store based on Akka (TODO persistence)
 
+.. image:: https://travis-ci.org/wandoulabs/astore.png
+   :target: https://travis-ci.org/wandoulabs/astore
+   :alt: astore build status
+
 Core Design
 ^^^^^^^^^^^
 
