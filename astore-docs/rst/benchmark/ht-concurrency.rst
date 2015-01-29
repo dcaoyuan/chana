@@ -1,5 +1,5 @@
 ======================
-Concurrent Throughput under Intel© Hyper-Threading
+Concurrent Throughput on Hyper-Threading
 ======================
 
 Akka/AStore concurrent behavior on a 12-core system with HT enabled (represented as 24 CPUs on a system)
