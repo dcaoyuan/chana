@@ -574,14 +574,15 @@ The bindings that could be accessed in script:
         bindings
       }
 
-Where, \* ``http_get``: a function could be invoked via
-``http_get.apply(url: String)`` \* ``http_post``: a function could be
-invoked via ``http_post.apply(url: String, body: String)`` \* ``id``:
-the id of this entity \* ``record``: the entity record after updated \*
-``fields``: array of tuple (Schema.Field, valueBeforeUpdated) during
-this updating action \* ``fields(i)._1``:
-`org.apache.avro.Schema.Field <https://avro.apache.org/docs/1.7.7/api/java/org/apache/avro/Schema.Field.html>`__
-\* ``fields(i)._2``: value
+Where, 
+
+-  ``http_get``: a function could be invoked via ``http_get.apply(url: String)`` 
+-  ``http_post``: a function could be invoked via ``http_post.apply(url: String, body: String)`` 
+-  ``id``: the id of this entity 
+-  ``record``: the entity record after updated 
+-  ``fields``: array of tuple (Schema.Field, valueBeforeUpdated) during this updating action 
+-  ``fields(i)._1``:`org.apache.avro.Schema.Field <https://avro.apache.org/docs/1.7.7/api/java/org/apache/avro/Schema.Field.html>`__
+-  ``fields(i)._2``: value
 
 -  The JavaScript code should do what ever operation via function only.
    You can define local variables in function, and transfer these local
