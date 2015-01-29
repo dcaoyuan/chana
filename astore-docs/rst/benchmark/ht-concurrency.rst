@@ -1,5 +1,5 @@
 ======================
-Concurrent Behavior with Hyper-Threading on
+AStore Concurrent Thoughput under Intel© Hyper-Threading
 ======================
 
 
@@ -31,7 +31,7 @@ Configuration
       fork-join-executor {
         parallelism-factor = 1
         parallelism-min = 1
-        parallelism-max = 22  
+        parallelism-max = 22 # we'll increase it from 1 to 22 
       }
       throughput = 100
     }
@@ -65,14 +65,30 @@ Apache ab command
 
 Approach
 --------
-- Stick 2 threads for ``akka.io.tcp.nr-of-selections``
-- Increase ``akk.actor.default-dispatcher.fork-join-executor.parallelism-max`` from 1 to 22 
+- Keep 2 threads for ``akka.io.tcp.nr-of-selections``
+- Increase ``akk.actor.default-dispatcher.fork-join-executor.parallelism-max`` from 1 to 22 for each round
 - Access astore server via 4 ab processes from client machine concurrently through 1Gb ethernet interface
-- Each ab process runs 10 rounds
-- Discard results of first 2-rounds and last 2-rounds, keep the 3rd to 8th rounds and average the results 
+- Each ab process runs 10 times 
+- Discard results of first 2-round and last 2-round, keep the 3\ :sup:`rd`\ to 8\ :sup:`th`\ rounds and average the results 
 - Sum the above average results of 4 ab processes 
 
 Benchmark chart
 ---------------
 
 .. image:: ../images/ht-concurrent.png
+
+
+Observation
+-----------
+
+- The 2 threads of akka-io selectors kept < 60%
+- The default-dispatcher threads (from 1 to 22) kept about 90%
+- There were other jvm threads kept about 10%
+- The thoughput scaled almost linearly when parallelism-max <= 13
+- The thoughput did not scale any more when parallelism-max >= 18, and the total CPU usage kept 100% therefrom
+
+Conclusion
+----------
+- Akka scales very well under multiple-core machine
+- By enabling Intel© Hyper-Threading, you can acheive about 25% more thoughtput after total CPU usage reached 50%
+
