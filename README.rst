@@ -223,7 +223,10 @@ Simple GET/PET REST-JSON Result:
     Simple GET: 169,437 [req#/sec] (mean)
     Simple PET: 102,961 [req#/sec] (mean)
 
-Details: `Benchmark <https://github.com/wandoulabs/astore/wiki>`__
+Details: 
+
+- `Benchmark <https://github.com/wandoulabs/astore/blob/master/astore-docs/rst/benchmark/benchmark.rst>`__
+- `Benchmark through multiple-core <https://github.com/wandoulabs/astore/blob/master/astore-docs/rst/benchmark/ht-concurrency.rst>`__
 
 To run:
        
@@ -552,9 +555,9 @@ Note:
 -  Replace ``$entity`` with the object/table/entity name
 -  Replace ``$id`` with object id
 -  Replace ``$avpath`` with actual avpath expression
--  Put the ``$avpath`` and **** format value(s) for **update / insert /
-   insertall** in **POST** body, separate ``$avpath`` and **** with
-   **""**, and make sure it’s encoded as binary, set **Content-Type:
+-  Put the ``$avpath`` and JSON format value(s) for **update / insert /
+   insertall** in **POST** body, separate ``$avpath`` and JSON value(s) with
+   **\\n**, and make sure it’s encoded as binary, set **Content-Type:
    application/octet-stream**
 
 Scripting supporting
