@@ -1,8 +1,9 @@
-Welcome to the astore wiki!
+
+Benchmark
 ===========================
 
-Benchmark (Simple)
-------------------
+Simple
+------
 
 Environment:
 ~~~~~~~~~~~~
@@ -125,4 +126,14 @@ Result:
     Time per request:       0.406 [ms] (mean)
     Time per request:       0.004 [ms] (mean, across all concurrent requests)
     Transfer rate:          48306.96 [Kbytes/sec] received
+
+
+Simple GET on 3,000,000 entries
+-------------------------------
+::
+
+  Client: 4 ab process, 100 connections total, 20,000,000 requests total
+  Server: 3,000,000 entries, 50 bytes JSON each
+  Result: 125K [#/sec], average response time 0.813 ms, 98% < 1 ms, 99% < 2 ms, CPU usage 100%, data transfered 28MB/sec
+
 
