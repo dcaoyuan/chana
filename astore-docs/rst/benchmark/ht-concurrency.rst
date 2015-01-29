@@ -2,6 +2,7 @@
 Concurrent Throughput under Intel© Hyper-Threading
 ======================
 
+Akka/AStore concurrent behavior on a 12-core system with HT enabled (represented as 24 CPUs on a system)
 
 Environment
 -----------
@@ -74,8 +75,8 @@ Approach
 - Keep 2 threads for ``akka.io.tcp.nr-of-selections``
 - Increase ``akk.actor.default-dispatcher.fork-join-executor.parallelism-max`` from 1 to 22 for each round
 - Access astore server via 4 ab processes from client machine concurrently through 1Gb ethernet interface
-- Each ab process runs 10 times 
-- Discard results of first 2-round and last 2-round, keep the 3\ :sup:`rd`\  to 8\ :sup:`th`\  rounds and average the results 
+- Each ab process runs 10 rounds 
+- Discard results of 2 head rounds and 2 tail rounds, keep the 3\ :sup:`rd`\  to 8\ :sup:`th`\  rounds and average the results 
 - Sum the above average results of 4 ab processes 
 
 Benchmark chart
