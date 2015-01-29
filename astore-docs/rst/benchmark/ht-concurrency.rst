@@ -24,7 +24,7 @@ Kernel: 3.10.0-123.13.2.el7.x86_64
 
 Configuration
 -------------
-.. code:: json
+.. code:: 
 
   akka {
     actor.default-dispatcher {
