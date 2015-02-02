@@ -4,8 +4,9 @@ import akka.actor.Actor
 import akka.actor.ActorLogging
 import akka.actor.ActorRef
 import akka.actor.ActorSystem
+import akka.actor.Cancellable
+import akka.actor.PoisonPill
 import akka.actor.Props
-import akka.actor.ReceiveTimeout
 import akka.actor.Stash
 import akka.contrib.pattern.ClusterSharding
 import akka.contrib.pattern.ShardRegion
@@ -44,6 +45,15 @@ object Entity {
       shardResolver = shardResolver)
   }
 
+  private final val emptyCancellable: Cancellable = new Cancellable {
+    def isCancelled: Boolean = false
+    def cancel(): Boolean = false
+  }
+  private final val emptyIdleTimeoutData: (Duration, Cancellable) = (Duration.Undefined, emptyCancellable)
+
+  case object IdleTimeout
+  final case class SetIdleTimeout(milliseconds: Long)
+
   final case class Bootstrap(record: Record)
   final case class OnUpdated(id: String, fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record)
 }
@@ -69,18 +79,20 @@ trait Entity extends Actor with Stash {
   protected val parser = new avpath.Parser()
   protected val encoderDecoder = new avro.EncoderDecoder()
   protected var limitedSize = 30 // TODO
-  protected var receivedTimeout = 3600.seconds
-
   protected var record: Record = _
   protected def loadRecord() = {
     // TODO load persistented data
     builder.build()
   }
 
+  private var idleTimeoutData: (Duration, Cancellable) = Entity.emptyIdleTimeoutData
+  final def idleTimeout: Duration = idleTimeoutData._1
+  final def setIdleTimeout(timeout: Duration): Unit = idleTimeoutData = idleTimeoutData.copy(_1 = timeout)
+
   override def preStart {
     super[Actor].preStart
     log.debug("Starting: {} ", id)
-    context.setReceiveTimeout(receivedTimeout)
+    resetIdleTimeout()
     self ! Entity.Bootstrap(loadRecord())
   }
 
@@ -99,15 +111,19 @@ trait Entity extends Actor with Stash {
 
   def accessBehavior: Receive = {
     case GetRecord(_) =>
+      resetIdleTimeout()
       sender() ! Success(Ctx(record, schema, null))
 
     case GetRecordAvro(_) =>
+      resetIdleTimeout()
       sender() ! encoderDecoder.avroEncode(record, schema)
 
     case GetRecordJson(_) =>
+      resetIdleTimeout()
       sender() ! encoderDecoder.jsonEncode(record, schema)
 
     case GetField(_, fieldName) =>
+      resetIdleTimeout()
       val commander = sender()
       val field = schema.getField(fieldName)
       if (field != null) {
@@ -119,6 +135,7 @@ trait Entity extends Actor with Stash {
       }
 
     case GetFieldAvro(_, fieldName) =>
+      resetIdleTimeout()
       val commander = sender()
       val field = schema.getField(fieldName)
       if (field != null) {
@@ -130,6 +147,7 @@ trait Entity extends Actor with Stash {
       }
 
     case GetFieldJson(_, fieldName) =>
+      resetIdleTimeout()
       val commander = sender()
       val field = schema.getField(fieldName)
       if (field != null) {
@@ -141,9 +159,11 @@ trait Entity extends Actor with Stash {
       }
 
     case PutRecord(_, rec) =>
+      resetIdleTimeout()
       commitRecord(id, rec, sender(), doLimitSize = true)
 
     case PutRecordJson(_, json) =>
+      resetIdleTimeout()
       val commander = sender()
       avro.jsonDecode(json, schema) match {
         case Success(rec: Record) =>
@@ -158,6 +178,7 @@ trait Entity extends Actor with Stash {
       }
 
     case PutField(_, fieldName, value) =>
+      resetIdleTimeout()
       val commander = sender()
       val field = schema.getField(fieldName)
       if (field != null) {
@@ -169,6 +190,7 @@ trait Entity extends Actor with Stash {
       }
 
     case PutFieldJson(_, fieldName, json) =>
+      resetIdleTimeout()
       val commander = sender()
       val field = schema.getField(fieldName)
       if (field != null) {
@@ -186,6 +208,7 @@ trait Entity extends Actor with Stash {
       }
 
     case Select(_, path) =>
+      resetIdleTimeout()
       val commander = sender()
       avpath.select(parser)(record, path) match {
         case x: Success[_] =>
@@ -196,6 +219,7 @@ trait Entity extends Actor with Stash {
       }
 
     case SelectAvro(_, path) =>
+      resetIdleTimeout()
       val commander = sender()
       avpath.select(parser)(record, path) match {
         case x @ Success(ctxs) =>
@@ -212,6 +236,7 @@ trait Entity extends Actor with Stash {
       }
 
     case SelectJson(_, path) =>
+      resetIdleTimeout()
       val commander = sender()
       avpath.select(parser)(record, path) match {
         case Success(ctxs) =>
@@ -228,6 +253,7 @@ trait Entity extends Actor with Stash {
       }
 
     case Update(_, path, value) =>
+      resetIdleTimeout()
       val commander = sender()
       val toBe = new GenericData.Record(record, true)
       avpath.update(parser)(toBe, path, value) match {
@@ -239,6 +265,7 @@ trait Entity extends Actor with Stash {
       }
 
     case UpdateJson(_, path, value) =>
+      resetIdleTimeout()
       val commander = sender()
       val toBe = new GenericData.Record(record, true)
       avpath.updateJson(parser)(toBe, path, value) match {
@@ -250,6 +277,7 @@ trait Entity extends Actor with Stash {
       }
 
     case Insert(_, path, value) =>
+      resetIdleTimeout()
       val commander = sender()
       val toBe = new GenericData.Record(record, true)
       avpath.insert(parser)(toBe, path, value) match {
@@ -261,6 +289,7 @@ trait Entity extends Actor with Stash {
       }
 
     case InsertJson(_, path, value) =>
+      resetIdleTimeout()
       val commander = sender()
       val toBe = new GenericData.Record(record, true)
       avpath.insertJson(parser)(toBe, path, value) match {
@@ -272,6 +301,7 @@ trait Entity extends Actor with Stash {
       }
 
     case InsertAll(_, path, values) =>
+      resetIdleTimeout()
       val commander = sender()
       val toBe = new GenericData.Record(record, true)
       avpath.insertAll(parser)(toBe, path, values) match {
@@ -283,6 +313,7 @@ trait Entity extends Actor with Stash {
       }
 
     case InsertAllJson(_, path, values) =>
+      resetIdleTimeout()
       val commander = sender()
       val toBe = new GenericData.Record(record, true)
       avpath.insertAllJson(parser)(toBe, path, values) match {
@@ -294,6 +325,7 @@ trait Entity extends Actor with Stash {
       }
 
     case Delete(_, path) =>
+      resetIdleTimeout()
       val commander = sender()
       val toBe = new GenericData.Record(record, true)
       avpath.delete(parser)(toBe, path) match {
@@ -305,6 +337,7 @@ trait Entity extends Actor with Stash {
       }
 
     case Clear(_, path) =>
+      resetIdleTimeout()
       val commander = sender()
       val toBe = new GenericData.Record(record, true)
       avpath.clear(parser)(toBe, path) match {
@@ -315,9 +348,11 @@ trait Entity extends Actor with Stash {
           commander ! x
       }
 
-    case ReceiveTimeout =>
-      log.info("{}: {} got ReceiveTimeout", entityName, id)
-    //context.parent ! Passivate(stopMessage = PoisonPill)
+    case Entity.SetIdleTimeout(milliseconds) => setIdleTimeout(milliseconds.milliseconds)
+    case Entity.IdleTimeout =>
+      log.info("{}: {} idle timeout", entityName, id)
+      cancelIdleTimeout()
+      context.parent ! ShardRegion.Passivate(stopMessage = PoisonPill)
   }
 
   def persistingBehavior: Receive = {
@@ -412,4 +447,21 @@ trait Entity extends Actor with Stash {
 
   def persist(id: String, updatedFields: List[(Schema.Field, Any)]): Future[Unit] = Future.successful(())
 
+  final def resetIdleTimeout() {
+    val idletimeout = idleTimeoutData
+    idletimeout._1 match {
+      case f: FiniteDuration =>
+        idletimeout._2.cancel() // Cancel any ongoing future
+        val task = context.system.scheduler.scheduleOnce(f, self, Entity.IdleTimeout)(context.dispatcher)
+        idleTimeoutData = (f, task)
+      case _ => cancelIdleTimeout()
+    }
+  }
+
+  final def cancelIdleTimeout() {
+    if (idleTimeoutData._2 ne Entity.emptyCancellable) {
+      idleTimeoutData._2.cancel()
+      idleTimeoutData = (idleTimeoutData._1, Entity.emptyCancellable)
+    }
+  }
 }
