@@ -70,14 +70,14 @@ object DistributedSchemaBoard extends ExtensionId[DistributedSchemaBoardExtensio
   /**
    * TODO support multiple versions of schema
    */
-  private def putSchema(system: ActorSystem, entityName: String, schema: Schema): Unit =
+  private def putSchema(system: ActorSystem, entityName: String, schema: Schema, idleTimeout: Duration = Duration.Undefined): Unit =
     try {
       schemasLock.writeLock.lock
       entityToSchema.get(entityName) match {
         case Some(`schema`) => // existed, do nothing, or upgrade to new schema ? TODO
         case _ =>
           entityToSchema(entityName) = schema
-          Entity.startSharding(system, entityName, Some(Entity.props(entityName, schema, RecordBuilder(schema))))
+          Entity.startSharding(system, entityName, Some(Entity.props(entityName, schema, RecordBuilder(schema), idleTimeout)))
       }
     } finally {
       schemasLock.writeLock.unlock
@@ -106,21 +106,21 @@ class DistributedSchemaBoard(
     val role: Option[String],
     val gossipInterval: FiniteDuration,
     val removedTimeToLive: FiniteDuration,
-    val maxDeltaElements: Int) extends DistributedStatusBoard[String] {
+    val maxDeltaElements: Int) extends DistributedStatusBoard[(String, Duration)] {
 
   import context.dispatcher
 
   def receive = businessReceive orElse generalReceive
 
   def businessReceive: Receive = {
-    case astore.PutSchema(entityName, schemaStr, Some(fullName)) =>
+    case astore.PutSchema(entityName, schemaStr, Some(fullName), idleTimeout) =>
       val commander = sender()
       parseSchema(schemaStr) match {
         case Success(unionSchema) =>
           if (unionSchema.getType == Schema.Type.UNION) {
             val schema = unionSchema.getTypes.get(unionSchema.getIndexNamed(fullName))
             if (schema != null) {
-              self.ask(Put(entityName, schema.toString))(5.seconds).mapTo[PutAck].onComplete {
+              self.ask(Put(entityName, (schema.toString, idleTimeout)))(5.seconds).mapTo[PutAck].onComplete {
                 case Success(ack) => commander ! Success(entityName)
                 case failure      => commander ! failure
               }
@@ -133,11 +133,11 @@ class DistributedSchemaBoard(
         case failure => commander ! failure
       }
 
-    case astore.PutSchema(entityName, schemaStr, None) =>
+    case astore.PutSchema(entityName, schemaStr, None, idleTimeout) =>
       val commander = sender()
       parseSchema(schemaStr) match {
         case Success(schema) =>
-          self.ask(Put(entityName, schema.toString))(5.seconds).mapTo[PutAck].onComplete {
+          self.ask(Put(entityName, (schema.toString, idleTimeout)))(5.seconds).mapTo[PutAck].onComplete {
             case Success(ack) => commander ! Success(entityName)
             case failure      => commander ! failure
           }
@@ -167,11 +167,11 @@ class DistributedSchemaBoard(
       (entityName, valueHolder) <- bucket.content if keys.contains(entityName)
     } {
       valueHolder.value match {
-        case Some(schemaStr) =>
+        case Some((schemaStr, duration)) =>
           log.info("put schema [{}]:\n{} ", entityName, schemaStr)
           try {
             val schema = new Schema.Parser().parse(schemaStr)
-            DistributedSchemaBoard.putSchema(context.system, entityName, schema)
+            DistributedSchemaBoard.putSchema(context.system, entityName, schema, duration)
           } catch {
             case ex: Throwable => log.error(ex, ex.getMessage)
           }

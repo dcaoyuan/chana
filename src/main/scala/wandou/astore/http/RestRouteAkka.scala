@@ -2,15 +2,18 @@ package wandou.astore.http
 
 import akka.actor.ActorSystem
 import akka.contrib.pattern.ClusterSharding
+import akka.http.model.StatusCode
 import akka.http.model.StatusCodes
 import akka.http.server.Directives
 import akka.pattern.ask
 import akka.stream.FlowMaterializer
 import akka.util.Timeout
+import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.Failure
 import scala.util.Random
 import scala.util.Success
+import scala.util.Try
 import wandou.astore
 import wandou.astore.schema.DistributedSchemaBoard
 import wandou.astore.script.DistributedScriptBoard
@@ -41,22 +44,36 @@ trait RestRouteAkka extends Directives {
     pathPrefix("putschema") {
       path(Segment / Segment ~ Slash.?) { (entityName, fname) =>
         post {
-          entity(as[String]) { schema =>
+          parameters('timeout.as[Long]) { idleTimeout =>
+            entity(as[String]) { schemaStr =>
+              complete {
+                withStatusCode {
+                  schemaBoard.ask(astore.PutSchema(entityName, schemaStr, Some(fname), idleTimeout.milliseconds))(writeTimeout)
+                }
+              }
+            }
+          } ~ entity(as[String]) { schemaStr =>
             complete {
-              schemaBoard.ask(astore.PutSchema(entityName, schema, Some(fname)))(writeTimeout).collect {
-                case Success(_)  => StatusCodes.OK
-                case Failure(ex) => StatusCodes.InternalServerError
+              withStatusCode {
+                schemaBoard.ask(astore.PutSchema(entityName, schemaStr, Some(fname), Duration.Undefined))(writeTimeout)
               }
             }
           }
         }
       } ~ path(Segment ~ Slash.?) { entityName =>
         post {
-          entity(as[String]) { schema =>
+          parameters('timeout.as[Long]) { idleTimeout =>
+            entity(as[String]) { schemaStr =>
+              complete {
+                withStatusCode {
+                  schemaBoard.ask(astore.PutSchema(entityName, schemaStr, None, idleTimeout.milliseconds))(writeTimeout)
+                }
+              }
+            }
+          } ~ entity(as[String]) { schemaStr =>
             complete {
-              schemaBoard.ask(astore.PutSchema(entityName, schema, None))(writeTimeout).collect {
-                case Success(_)  => StatusCodes.OK
-                case Failure(ex) => StatusCodes.InternalServerError
+              withStatusCode {
+                schemaBoard.ask(astore.PutSchema(entityName, schemaStr, None, Duration.Undefined))(writeTimeout)
               }
             }
           }
@@ -275,4 +292,13 @@ trait RestRouteAkka extends Directives {
     }
   }
 
+  private def withStatusCode(f: => Future[Any]): Future[StatusCode] = f.mapTo[Try[String]].map {
+    case Success(_) => StatusCodes.OK
+    case Failure(_) => StatusCodes.InternalServerError
+  }
+
+  private def withJson(f: => Future[Any]): Future[String] = f.mapTo[Try[Array[Byte]]].map {
+    case Success(json: Array[Byte]) => new String(json)
+    case Failure(_)                 => ""
+  }
 }

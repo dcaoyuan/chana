@@ -38,20 +38,36 @@ trait RestRoute extends Directives {
     pathPrefix("putschema") {
       path(Segment / Segment ~ Slash.?) { (entityName, fname) =>
         post {
-          entity(as[String]) { schemaStr =>
+          parameters('timeout.as[Long]) { idleTimeout =>
+            entity(as[String]) { schemaStr =>
+              complete {
+                withStatusCode {
+                  schemaBoard.ask(astore.PutSchema(entityName, schemaStr, Some(fname), idleTimeout.milliseconds))(writeTimeout)
+                }
+              }
+            }
+          } ~ entity(as[String]) { schemaStr =>
             complete {
               withStatusCode {
-                schemaBoard.ask(astore.PutSchema(entityName, schemaStr, Some(fname)))(writeTimeout)
+                schemaBoard.ask(astore.PutSchema(entityName, schemaStr, Some(fname), Duration.Undefined))(writeTimeout)
               }
             }
           }
         }
       } ~ path(Segment ~ Slash.?) { entityName =>
         post {
-          entity(as[String]) { schemaStr =>
+          parameters('timeout.as[Long]) { idleTimeout =>
+            entity(as[String]) { schemaStr =>
+              complete {
+                withStatusCode {
+                  schemaBoard.ask(astore.PutSchema(entityName, schemaStr, None, idleTimeout.milliseconds))(writeTimeout)
+                }
+              }
+            }
+          } ~ entity(as[String]) { schemaStr =>
             complete {
               withStatusCode {
-                schemaBoard.ask(astore.PutSchema(entityName, schemaStr, None))(writeTimeout)
+                schemaBoard.ask(astore.PutSchema(entityName, schemaStr, None, Duration.Undefined))(writeTimeout)
               }
             }
           }

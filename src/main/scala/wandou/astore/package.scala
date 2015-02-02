@@ -1,6 +1,7 @@
 package wandou
 
 import org.apache.avro.generic.GenericData.Record
+import scala.concurrent.duration.Duration
 
 package object astore {
 
@@ -35,7 +36,7 @@ package object astore {
    * @param   entity name
    * @param   schema of entity
    */
-  final case class PutSchema(entityName: String, schema: String, entityFullName: Option[String])
+  final case class PutSchema(entityName: String, schema: String, entityFullName: Option[String], idleTimeout: Duration)
   final case class RemoveSchema(entityName: String)
 
   /**

@@ -261,7 +261,7 @@ use **avpath** expression to locate. see
 
 .. code:: scala
 
-    case class PutSchema(entityName: String, schema: String, entityFullName: Option[String])
+    case class PutSchema(entityName: String, schema: String, entityFullName: Option[String], idleTimeout: Duration)
     case class RemoveSchema(entityName: String)
 
 2. Basic operations
@@ -314,7 +314,7 @@ Put schema
 
 ::
 
-    POST /putschema/$entityName/ 
+    POST /putschema/$entityName?timeout=1000 
 
     Host: status.wandoujia.com  
     Content-Type: application/octet-stream 
@@ -322,13 +322,17 @@ Put schema
 
     BODY:
     <SCHEMA_STRING>
+
+parameters:
+
+- timeout: idle timeout in milliseconds. Optional 
 
 Put schema that contains multiple referenced complex types in union
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
-    POST /putschema/$entityName/$entryEntityFullName 
+    POST /putschema/$entityName/$entryEntityFullName?timeout=1000
 
     Host: status.wandoujia.com  
     Content-Type: application/octet-stream 
@@ -336,6 +340,10 @@ Put schema that contains multiple referenced complex types in union
 
     BODY:
     <SCHEMA_STRING>
+
+parameters:
+
+- timeout: idle timeout in milliseconds. Optional 
 
 Del schame
 ~~~~~~~~~~

@@ -27,7 +27,8 @@ import wandou.avro
 import wandou.avro.RecordBuilder
 
 object Entity {
-  def props(entityName: String, schema: Schema, builder: RecordBuilder) = Props(classOf[AEntity], entityName, schema, builder)
+  def props(entityName: String, schema: Schema, builder: RecordBuilder, idleTimeout: Duration) =
+    Props(classOf[AEntity], entityName, schema, builder, idleTimeout)
 
   lazy val idExtractor: ShardRegion.IdExtractor = {
     case cmd: Command => (cmd.id, cmd)
@@ -37,13 +38,12 @@ object Entity {
     case cmd: Command => (cmd.id.hashCode % 100).toString
   }
 
-  def startSharding(system: ActorSystem, shardName: String, entryProps: Option[Props]) = {
+  def startSharding(system: ActorSystem, shardName: String, entryProps: Option[Props]) =
     ClusterSharding(system).start(
       typeName = shardName,
       entryProps = entryProps,
       idExtractor = idExtractor,
       shardResolver = shardResolver)
-  }
 
   private final val emptyCancellable: Cancellable = new Cancellable {
     def isCancelled: Boolean = false
@@ -58,11 +58,19 @@ object Entity {
   final case class OnUpdated(id: String, fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record)
 }
 
-class AEntity(val entityName: String, val schema: Schema, val builder: RecordBuilder)
+class AEntity(val entityName: String, val schema: Schema, val builder: RecordBuilder, idleTimeout: Duration)
     extends Entity
     with Scriptable
     with Actor
     with ActorLogging {
+
+  idleTimeout match {
+    case f: FiniteDuration =>
+      setIdleTimeout(f)
+      resetIdleTimeout()
+    case _ =>
+  }
+
   override def ready = accessBehavior orElse scriptableBehavior
 }
 
@@ -78,21 +86,39 @@ trait Entity extends Actor with Stash {
   protected val id = self.path.name
   protected val parser = new avpath.Parser()
   protected val encoderDecoder = new avro.EncoderDecoder()
-  protected var limitedSize = 30 // TODO
+
   protected var record: Record = _
   protected def loadRecord() = {
     // TODO load persistented data
     builder.build()
   }
 
+  protected var limitedSize = Int.MaxValue // TODO
   private var idleTimeoutData: (Duration, Cancellable) = Entity.emptyIdleTimeoutData
   final def idleTimeout: Duration = idleTimeoutData._1
   final def setIdleTimeout(timeout: Duration): Unit = idleTimeoutData = idleTimeoutData.copy(_1 = timeout)
 
+  final def resetIdleTimeout() {
+    val idletimeout = idleTimeoutData
+    idletimeout._1 match {
+      case f: FiniteDuration =>
+        idletimeout._2.cancel() // Cancel any ongoing future
+        val task = context.system.scheduler.scheduleOnce(f, self, Entity.IdleTimeout)
+        idleTimeoutData = (f, task)
+      case _ => cancelIdleTimeout()
+    }
+  }
+
+  final def cancelIdleTimeout() {
+    if (idleTimeoutData._2 ne Entity.emptyCancellable) {
+      idleTimeoutData._2.cancel()
+      idleTimeoutData = (idleTimeoutData._1, Entity.emptyCancellable)
+    }
+  }
+
   override def preStart {
     super[Actor].preStart
     log.debug("Starting: {} ", id)
-    resetIdleTimeout()
     self ! Entity.Bootstrap(loadRecord())
   }
 
@@ -447,21 +473,4 @@ trait Entity extends Actor with Stash {
 
   def persist(id: String, updatedFields: List[(Schema.Field, Any)]): Future[Unit] = Future.successful(())
 
-  final def resetIdleTimeout() {
-    val idletimeout = idleTimeoutData
-    idletimeout._1 match {
-      case f: FiniteDuration =>
-        idletimeout._2.cancel() // Cancel any ongoing future
-        val task = context.system.scheduler.scheduleOnce(f, self, Entity.IdleTimeout)(context.dispatcher)
-        idleTimeoutData = (f, task)
-      case _ => cancelIdleTimeout()
-    }
-  }
-
-  final def cancelIdleTimeout() {
-    if (idleTimeoutData._2 ne Entity.emptyCancellable) {
-      idleTimeoutData._2.cancel()
-      idleTimeoutData = (idleTimeoutData._1, Entity.emptyCancellable)
-    }
-  }
 }
