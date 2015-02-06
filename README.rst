@@ -314,7 +314,7 @@ Put schema
 
 ::
 
-    POST /putschema/$entityName/?fullname=entity_full_name&timeout=1000
+    POST /putschema/$entityName?fullname=entity_full_name&timeout=1000
 
     Host: status.wandoujia.com  
     Content-Type: application/octet-stream 
