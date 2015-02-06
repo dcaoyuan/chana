@@ -325,9 +325,9 @@ Put schema
 
 parameters:
 
-- fullname: for schema that contains multiple referenced complex types in union,
-  you should provide the full name of main entry.
-- timeout: idle timeout in milliseconds. Optional 
+- ``fullname``: for schema that contains multiple referenced complex types in union,
+  you should provide the full name of main entry. **Optional**
+- ``timeout``: idle timeout in milliseconds. **Optional** 
 
 Del schame
 ~~~~~~~~~~
