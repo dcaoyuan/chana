@@ -306,7 +306,7 @@ use **avpath** expression to locate. see
     case class PutScript(entity: String, field: String, id: String, script: String)
     case class RemoveScript(entity: String, field: String, id: String)
 
-RESTful API
+REST API
 -----------
 
 Put schema
@@ -314,7 +314,7 @@ Put schema
 
 ::
 
-    POST /putschema/$entityName?timeout=1000 
+    POST /putschema/$entityName/?fullname=entity_full_name&timeout=1000
 
     Host: status.wandoujia.com  
     Content-Type: application/octet-stream 
@@ -325,24 +325,8 @@ Put schema
 
 parameters:
 
-- timeout: idle timeout in milliseconds. Optional 
-
-Put schema that contains multiple referenced complex types in union
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-::
-
-    POST /putschema/$entityName/$entryEntityFullName?timeout=1000
-
-    Host: status.wandoujia.com  
-    Content-Type: application/octet-stream 
-    Content-Length: NNN
-
-    BODY:
-    <SCHEMA_STRING>
-
-parameters:
-
+- fullname: for schema that contains multiple referenced complex types in union,
+  you should provide the full name of main entry.
 - timeout: idle timeout in milliseconds. Optional 
 
 Del schame
@@ -420,13 +404,14 @@ Update
 
 ::
 
-    POST /$entity/update/$id/$avpath
+    POST /$entity/update/$id/
 
     Host: status.wandoujia.com 
     Content-Type: application/octet-stream 
     Content-Length: NNN
 
     BODY:
+    $avpath
     <JSON_STRING>
 
 Example (update array field -> record’s number field):
@@ -452,13 +437,14 @@ Insert (applicable for Array / Map only)
 
 ::
 
-    POST /$entity/insert/$id/$avpath
+    POST /$entity/insert/$id/
 
     Host: status.wandoujia.com 
     Content-Type: application/octet-stream 
     Content-Length: NNN
 
     BODY:
+    $avpath
     <JSON_STRING>
 
 Example (insert to array field):
@@ -484,13 +470,14 @@ InsertAll (applicable for Array / Map only)
 
 ::
 
-    POST /$entity/insertall/$id/$avpath
+    POST /$entity/insertall/$id/
 
     Host: status.wandoujia.com 
     Content-Type: application/octet-stream 
     Content-Length: NNN
 
     BODY:
+    $avpath
     <JSON_STRING>
 
 Example (insert to array field):

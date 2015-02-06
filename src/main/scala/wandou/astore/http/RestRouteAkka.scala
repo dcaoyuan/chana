@@ -42,38 +42,14 @@ trait RestRouteAkka extends Directives {
 
   final def schemaApi = {
     pathPrefix("putschema") {
-      path(Segment / Segment ~ Slash.?) { (entityName, fname) =>
+      path(Segment ~ Slash.?) { entityName =>
         post {
-          parameters('timeout.as[Long]) { idleTimeout =>
+          parameters('fullname.as[String].?, 'timeout.as[Long].?) { (fullname, idleTimeout) =>
             entity(as[String]) { schemaStr =>
               complete {
                 withStatusCode {
-                  schemaBoard.ask(astore.PutSchema(entityName, schemaStr, Some(fname), idleTimeout.milliseconds))(writeTimeout)
+                  schemaBoard.ask(astore.PutSchema(entityName, schemaStr, fullname, idleTimeout.fold(Duration.Undefined: Duration)(_.milliseconds)))(writeTimeout)
                 }
-              }
-            }
-          } ~ entity(as[String]) { schemaStr =>
-            complete {
-              withStatusCode {
-                schemaBoard.ask(astore.PutSchema(entityName, schemaStr, Some(fname), Duration.Undefined))(writeTimeout)
-              }
-            }
-          }
-        }
-      } ~ path(Segment ~ Slash.?) { entityName =>
-        post {
-          parameters('timeout.as[Long]) { idleTimeout =>
-            entity(as[String]) { schemaStr =>
-              complete {
-                withStatusCode {
-                  schemaBoard.ask(astore.PutSchema(entityName, schemaStr, None, idleTimeout.milliseconds))(writeTimeout)
-                }
-              }
-            }
-          } ~ entity(as[String]) { schemaStr =>
-            complete {
-              withStatusCode {
-                schemaBoard.ask(astore.PutSchema(entityName, schemaStr, None, Duration.Undefined))(writeTimeout)
               }
             }
           }
@@ -106,32 +82,43 @@ trait RestRouteAkka extends Directives {
         } ~ path(Segment ~ Slash.?) { id =>
           get {
             // Only for benchmark test purpose
-            parameters('benchmark_only.as[String]) { benchmark_num =>
-              val shiftedId = nextRandomId(1, benchmark_num.toInt).toString
-              complete {
-                resolver(entityName).ask(astore.GetRecordJson(shiftedId))(readTimeout).collect {
-                  case Success(json: Array[Byte]) => new String(json)
-                  case Failure(ex)                => ""
+            parameters('benchmark_only.as[String].?) {
+              case Some(benchmark_num) =>
+                // Only for benchmark test purpose
+                val shiftedId = nextRandomId(1, benchmark_num.toInt).toString
+                complete {
+                  withJson {
+                    resolver(entityName).ask(astore.GetRecordJson(shiftedId))(readTimeout)
+                  }
                 }
-              }
-            } ~
-              complete {
-                resolver(entityName).ask(astore.GetRecordJson(id))(readTimeout).collect {
-                  case Success(json: Array[Byte]) => new String(json)
-                  case Failure(ex)                => ""
+              case _ =>
+                complete {
+                  withJson {
+                    resolver(entityName).ask(astore.GetRecordJson(id))(readTimeout)
+                  }
                 }
-              }
+            }
           }
         }
       } ~ pathPrefix("put") {
         path(Segment / Segment ~ Slash.?) { (id, fieldName) =>
           post {
             entity(as[String]) { json =>
-              complete {
-                resolver(entityName).ask(astore.PutFieldJson(id, fieldName, json))(writeTimeout).collect {
-                  case Success(_)  => StatusCodes.OK
-                  case Failure(ex) => StatusCodes.InternalServerError
-                }
+              // Only for benchmark test purpose
+              parameters('benchmark_only.as[String].?) {
+                case Some(benchmark_num) =>
+                  val shiftedId = nextRandomId(1, benchmark_num.toInt).toString
+                  complete {
+                    withStatusCode {
+                      resolver(entityName).ask(astore.PutFieldJson(id, fieldName, json))(writeTimeout)
+                    }
+                  }
+                case _ =>
+                  complete {
+                    withStatusCode {
+                      resolver(entityName).ask(astore.PutFieldJson(id, fieldName, json))(writeTimeout)
+                    }
+                  }
               }
             }
           }
