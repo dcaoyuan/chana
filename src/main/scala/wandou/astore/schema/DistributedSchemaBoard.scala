@@ -112,7 +112,7 @@ class DistributedSchemaBoard extends Actor with ActorLogging {
             case Left(schema) =>
               val key = entityName
 
-              replicator.ask(Update(DistributedSchemaBoard.DataKey, LWWMap(), WriteLocal)(_ + (key -> (schema.toString, idleTimeout))))(60.seconds).onComplete {
+              replicator.ask(Update(DistributedSchemaBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ + (key -> (schema.toString, idleTimeout))))(60.seconds).onComplete {
                 case Success(_: UpdateSuccess) =>
                   log.info("put schema [{}]:\n{} ", key, schemaStr)
                   DistributedSchemaBoard.putSchema(context.system, key, schema, idleTimeout)
@@ -132,7 +132,7 @@ class DistributedSchemaBoard extends Actor with ActorLogging {
       val commander = sender()
       val key = entityName
 
-      replicator.ask(Update(DistributedSchemaBoard.DataKey, LWWMap(), WriteLocal)(_ - key))(60.seconds).onComplete {
+      replicator.ask(Update(DistributedSchemaBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ - key))(60.seconds).onComplete {
         case Success(_: UpdateSuccess) =>
           log.info("remove schemas: {}", key)
           DistributedSchemaBoard.removeSchema(key)

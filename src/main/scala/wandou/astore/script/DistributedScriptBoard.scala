@@ -113,7 +113,7 @@ class DistributedScriptBoard extends Actor with ActorLogging {
         case Success(compiledScript) =>
           val key = DistributedScriptBoard.keyOf(entity, field, id)
 
-          replicator.ask(Update(DistributedScriptBoard.DataKey, LWWMap(), WriteLocal)(_ + (key -> script)))(60.seconds).onComplete {
+          replicator.ask(Update(DistributedScriptBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ + (key -> script)))(60.seconds).onComplete {
             case Success(_: UpdateSuccess) =>
               DistributedScriptBoard.putScript(key, compiledScript)
               log.info("put script [{}]:\n{} ", key, script)
@@ -131,7 +131,7 @@ class DistributedScriptBoard extends Actor with ActorLogging {
       val commander = sender()
       val key = DistributedScriptBoard.keyOf(entity, field, id)
 
-      replicator.ask(Update(DistributedScriptBoard.DataKey, LWWMap(), WriteLocal)(_ - key))(60.seconds).onComplete {
+      replicator.ask(Update(DistributedScriptBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ - key))(60.seconds).onComplete {
         case Success(_: UpdateSuccess) =>
           log.info("remove scripts: {}", key)
           DistributedScriptBoard.removeScript(key)
