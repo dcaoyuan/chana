@@ -1,5 +1,7 @@
 package wandou.astore.schema
 
+import akka.actor.Actor
+import akka.actor.ActorLogging
 import akka.actor.ActorRef
 import akka.actor.ActorSystem
 import akka.actor.ExtendedActorSystem
@@ -7,6 +9,8 @@ import akka.actor.Extension
 import akka.actor.ExtensionId
 import akka.actor.ExtensionIdProvider
 import akka.actor.Props
+import akka.contrib.datareplication.DataReplication
+import akka.contrib.datareplication.LWWMap
 import akka.pattern.ask
 import akka.cluster.Cluster
 import java.util.concurrent.locks.ReentrantReadWriteLock
@@ -16,11 +20,6 @@ import scala.concurrent.duration._
 import scala.util.Failure
 import scala.util.Success
 import wandou.astore
-import wandou.astore.DistributedStatusBoard
-import wandou.astore.DistributedStatusBoard.Put
-import wandou.astore.DistributedStatusBoard.PutAck
-import wandou.astore.DistributedStatusBoard.Remove
-import wandou.astore.DistributedStatusBoard.RemoveAck
 import wandou.astore.Entity
 import wandou.avro.RecordBuilder
 
@@ -38,31 +37,7 @@ object DistributedSchemaBoard extends ExtensionId[DistributedSchemaBoardExtensio
   /**
    * Scala API: Factory method for `DistributedSchemaBoard` [[akka.actor.Props]].
    */
-  def props(
-    role: Option[String],
-    gossipInterval: FiniteDuration = 1.second,
-    removedTimeToLive: FiniteDuration = 2.minutes,
-    maxDeltaElements: Int = 3000): Props = Props(classOf[DistributedSchemaBoard], role, gossipInterval, removedTimeToLive, maxDeltaElements)
-
-  /**
-   * Java API: Factory method for `DistributedSchemaBoard` [[akka.actor.Props]].
-   */
-  def props(
-    role: String,
-    gossipInterval: FiniteDuration,
-    removedTimeToLive: FiniteDuration,
-    maxDeltaElements: Int): Props = props(roleOption(role), gossipInterval, removedTimeToLive, maxDeltaElements)
-
-  /**
-   * Java API: Factory method for `DistributedSchemaBoard` [[akka.actor.Props]]
-   * with default values.
-   */
-  def defaultProps(role: String): Props = props(roleOption(role))
-
-  def roleOption(role: String): Option[String] = role match {
-    case null | "" => None
-    case _         => Some(role)
-  }
+  def props(): Props = Props(classOf[DistributedSchemaBoard])
 
   private val entityToSchema = new mutable.HashMap[String, Schema]()
   private val schemasLock = new ReentrantReadWriteLock()
@@ -100,92 +75,107 @@ object DistributedSchemaBoard extends ExtensionId[DistributedSchemaBoardExtensio
       schemasLock.readLock.unlock
     }
 
+  val DataKey = "astore-schemas"
+
 }
 
-class DistributedSchemaBoard(
-    val role: Option[String],
-    val gossipInterval: FiniteDuration,
-    val removedTimeToLive: FiniteDuration,
-    val maxDeltaElements: Int) extends DistributedStatusBoard[(String, Duration)] {
+class DistributedSchemaBoard extends Actor with ActorLogging {
+  import akka.contrib.datareplication.Replicator._
 
+  val replicator = DataReplication(context.system).replicator
+
+  implicit val cluster = Cluster(context.system)
   import context.dispatcher
 
-  def receive = businessReceive orElse generalReceive
+  replicator ! Subscribe(DistributedSchemaBoard.DataKey, self)
 
-  def businessReceive: Receive = {
-    case astore.PutSchema(entityName, schemaStr, Some(fullName), idleTimeout) =>
+  def receive = {
+    case astore.PutSchema(entityName, schemaStr, entityFullName, idleTimeout) =>
       val commander = sender()
       parseSchema(schemaStr) match {
-        case Success(unionSchema) =>
-          if (unionSchema.getType == Schema.Type.UNION) {
-            val schema = unionSchema.getTypes.get(unionSchema.getIndexNamed(fullName))
-            if (schema != null) {
-              self.ask(Put(entityName, (schema.toString, idleTimeout)))(5.seconds).mapTo[PutAck].onComplete {
-                case Success(ack) => commander ! Success(entityName)
-                case failure      => commander ! failure
+        case Success(parsedSchema) =>
+          val aschema = entityFullName match {
+            case Some(fullName) =>
+              if (parsedSchema.getType == Schema.Type.UNION) {
+                val x = parsedSchema.getTypes.get(parsedSchema.getIndexNamed(fullName))
+                if (x != null) {
+                  Left(x)
+                } else {
+                  Right("Schema with full name [" + fullName + "] cannot be found")
+                }
+              } else {
+                Right("Schema with full name [" + fullName + "] should be Union type")
               }
-            } else {
-              commander ! Failure(new RuntimeException("Can not parse the " + fullName))
-            }
-          } else {
-            commander ! Failure(new RuntimeException("Schema with full name [" + fullName + "] should be Union type"))
+            case None => Left(parsedSchema)
           }
-        case failure => commander ! failure
-      }
+          aschema match {
+            case Left(schema) =>
+              val key = entityName
 
-    case astore.PutSchema(entityName, schemaStr, None, idleTimeout) =>
-      val commander = sender()
-      parseSchema(schemaStr) match {
-        case Success(schema) =>
-          self.ask(Put(entityName, (schema.toString, idleTimeout)))(5.seconds).mapTo[PutAck].onComplete {
-            case Success(ack) => commander ! Success(entityName)
-            case failure      => commander ! failure
+              replicator.ask(Update(DistributedSchemaBoard.DataKey, LWWMap(), WriteLocal)(_ + (key -> (schema.toString, idleTimeout))))(60.seconds).onComplete {
+                case Success(_: UpdateSuccess) =>
+                  log.info("put schema [{}]:\n{} ", key, schemaStr)
+                  DistributedSchemaBoard.putSchema(context.system, key, schema, idleTimeout)
+                  // TODO wait for sharding ready
+                  commander ! Success(key)
+                case Success(_: UpdateTimeout) => commander ! Failure(new RuntimeException("Update timeout"))
+                case Success(x: InvalidUsage)  => commander ! Failure(x)
+                case Success(x: ModifyFailure) => commander ! Failure(x)
+                case failure                   => commander ! failure
+              }
+            case Right(reason) => commander ! Failure(new RuntimeException(reason))
           }
         case failure => commander ! failure
       }
 
     case astore.RemoveSchema(entityName) =>
       val commander = sender()
-      self.ask(Remove(entityName))(5.seconds).mapTo[RemoveAck].onComplete {
-        case Success(ack) => commander ! Success(entityName)
-        case failure      => commander ! failure
+      val key = entityName
+
+      replicator.ask(Update(DistributedSchemaBoard.DataKey, LWWMap(), WriteLocal)(_ - key))(60.seconds).onComplete {
+        case Success(_: UpdateSuccess) =>
+          log.info("remove schemas: {}", key)
+          DistributedSchemaBoard.removeSchema(key)
+          // TODO wait for stop sharding? 
+          commander ! Success(key)
+        case Success(_: UpdateTimeout) => commander ! Failure(new RuntimeException("Update timeout"))
+        case Success(x: InvalidUsage)  => commander ! Failure(x)
+        case Success(x: ModifyFailure) => commander ! Failure(x)
+        case failure                   => commander ! failure
+      }
+
+    case Changed(DistributedSchemaBoard.DataKey, LWWMap(entries: Map[String, (String, Duration)] @unchecked)) =>
+      // check if there were newly added
+      entries.foreach {
+        case (entityName, (schemaStrx, idleTimeout)) =>
+          DistributedSchemaBoard.entityToSchema.get(entityName) match {
+            case None =>
+              parseSchema(schemaStrx) match {
+                case Success(schema) =>
+                  log.info("put schema [{}]:\n{} ", entityName, schemaStrx)
+                  DistributedSchemaBoard.putSchema(context.system, entityName, schema, idleTimeout)
+                case Failure(ex) =>
+                  log.error(ex, ex.getMessage)
+              }
+            case Some(schema) => // TODO, existed, but changed?
+          }
+      }
+
+      // check if there were removed
+      val toRemove = DistributedSchemaBoard.entityToSchema.filter(x => !entries.contains(x._1)).keys
+      if (toRemove.nonEmpty) {
+        log.info("remove schemas: {}", toRemove)
+        toRemove foreach DistributedSchemaBoard.removeSchema
       }
   }
 
-  private def parseSchema(schema: String) = {
+  private def parseSchema(schema: String) =
     try {
       val res = new Schema.Parser().parse(schema)
       Success(res)
     } catch {
       case ex: Throwable => Failure(ex)
     }
-  }
-
-  override def onPut(keys: Set[String]) {
-    for {
-      (owner, bucket) <- registry
-      (entityName, valueHolder) <- bucket.content if keys.contains(entityName)
-    } {
-      valueHolder.value match {
-        case Some((schemaStr, duration)) =>
-          log.info("put schema [{}]:\n{} ", entityName, schemaStr)
-          try {
-            val schema = new Schema.Parser().parse(schemaStr)
-            DistributedSchemaBoard.putSchema(context.system, entityName, schema, duration)
-          } catch {
-            case ex: Throwable => log.error(ex, ex.getMessage)
-          }
-        case None =>
-          log.info("remove schemas: {}", keys)
-          keys foreach DistributedSchemaBoard.removeSchema
-      }
-    }
-  }
-
-  override def onRemoved(keys: Set[String]) {
-    log.info("remove schemas: {}", keys)
-    keys foreach DistributedSchemaBoard.removeSchema
-  }
 
 }
 
@@ -210,14 +200,11 @@ class DistributedSchemaBoardExtension(system: ExtendedActorSystem) extends Exten
     if (isTerminated)
       system.deadLetters
     else {
-      val gossipInterval = config.getDuration("gossip-interval", MILLISECONDS).millis
-      val removedTimeToLive = config.getDuration("removed-time-to-live", MILLISECONDS).millis
-      val maxDeltaElements = config.getInt("max-delta-elements")
       val name = config.getString("name")
       system.actorOf(
-        DistributedSchemaBoard.props(role, gossipInterval, removedTimeToLive, maxDeltaElements),
+        DistributedSchemaBoard.props(),
         name)
     }
+
   }
 }
-

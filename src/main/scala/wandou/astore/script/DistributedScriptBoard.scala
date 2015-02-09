@@ -1,5 +1,7 @@
 package wandou.astore.script
 
+import akka.actor.Actor
+import akka.actor.ActorLogging
 import akka.actor.ActorRef
 import akka.actor.ActorSystem
 import akka.actor.ExtendedActorSystem
@@ -7,6 +9,8 @@ import akka.actor.Extension
 import akka.actor.ExtensionId
 import akka.actor.ExtensionIdProvider
 import akka.actor.Props
+import akka.contrib.datareplication.DataReplication
+import akka.contrib.datareplication.LWWMap
 import akka.pattern.ask
 import akka.cluster.Cluster
 import java.util.concurrent.locks.ReentrantReadWriteLock
@@ -18,11 +22,6 @@ import scala.concurrent.duration._
 import scala.util.Failure
 import scala.util.Success
 import wandou.astore
-import wandou.astore.DistributedStatusBoard
-import wandou.astore.DistributedStatusBoard.Put
-import wandou.astore.DistributedStatusBoard.PutAck
-import wandou.astore.DistributedStatusBoard.Remove
-import wandou.astore.DistributedStatusBoard.RemoveAck
 
 /**
  * Extension that starts a [[DistributedScriptBoard]] actor
@@ -38,31 +37,7 @@ object DistributedScriptBoard extends ExtensionId[DistributedScriptBoardExtensio
   /**
    * Scala API: Factory method for `DistributedStatusBoard` [[akka.actor.Props]].
    */
-  def props(
-    role: Option[String],
-    gossipInterval: FiniteDuration = 1.second,
-    removedTimeToLive: FiniteDuration = 2.minutes,
-    maxDeltaElements: Int = 3000): Props = Props(classOf[DistributedScriptBoard], role, gossipInterval, removedTimeToLive, maxDeltaElements)
-
-  /**
-   * Java API: Factory method for `DistributedScriptBoard` [[akka.actor.Props]].
-   */
-  def props(
-    role: String,
-    gossipInterval: FiniteDuration,
-    removedTimeToLive: FiniteDuration,
-    maxDeltaElements: Int): Props = props(roleOption(role), gossipInterval, removedTimeToLive, maxDeltaElements)
-
-  /**
-   * Java API: Factory method for `DistributedScriptBoard` [[akka.actor.Props]]
-   * with default values.
-   */
-  def defaultProps(role: String): Props = props(roleOption(role))
-
-  def roleOption(role: String): Option[String] = role match {
-    case null | "" => None
-    case _         => Some(role)
-  }
+  def props(): Props = Props(classOf[DistributedScriptBoard])
 
   /**
    * There is a sbt issue related to classloader, anyway, use new ScriptEngineManager(null),
@@ -75,7 +50,7 @@ object DistributedScriptBoard extends ExtensionId[DistributedScriptBoardExtensio
   private val keyToScript = new mutable.HashMap[String, CompiledScript]()
   private val entityFieldToScripts = new mutable.HashMap[String, Map[String, CompiledScript]].withDefaultValue(Map.empty)
   private val scriptsLock = new ReentrantReadWriteLock()
-  private def keyOf(entity: String, field: String, id: String) = entity + "/" + "field" + "/" + id
+  private def keyOf(entity: String, field: String, id: String) = entity + "/" + field + "/" + id
 
   private def putScript(key: String, compiledScript: CompiledScript): Unit = key.split('/') match {
     case Array(entity, field, id) => putScript(entity, field, id, compiledScript)
@@ -117,59 +92,88 @@ object DistributedScriptBoard extends ExtensionId[DistributedScriptBoardExtensio
       scriptsLock.readLock.unlock
     }
 
+  val DataKey = "astore-scripts"
+
 }
 
-class DistributedScriptBoard(
-    val role: Option[String],
-    val gossipInterval: FiniteDuration,
-    val removedTimeToLive: FiniteDuration,
-    val maxDeltaElements: Int) extends DistributedStatusBoard[String] {
+class DistributedScriptBoard extends Actor with ActorLogging {
+  import akka.contrib.datareplication.Replicator._
 
+  val replicator = DataReplication(context.system).replicator
+
+  implicit val cluster = Cluster(context.system)
   import context.dispatcher
 
-  def receive = businessReceive orElse generalReceive
+  replicator ! Subscribe(DistributedScriptBoard.DataKey, self)
 
-  def businessReceive: Receive = {
+  def receive = {
     case astore.PutScript(entity, field, id, script) =>
       val commander = sender()
-      self.ask(Put(entity + "/" + field + "/" + id, script))(5.seconds).mapTo[PutAck].onComplete {
-        case Success(ack)  => commander ! Success(id)
-        case x: Failure[_] => commander ! x
-      }
+      compileScript(script) match {
+        case Success(compiledScript) =>
+          val key = DistributedScriptBoard.keyOf(entity, field, id)
 
+          replicator.ask(Update(DistributedScriptBoard.DataKey, LWWMap(), WriteLocal)(_ + (key -> script)))(60.seconds).onComplete {
+            case Success(_: UpdateSuccess) =>
+              DistributedScriptBoard.putScript(key, compiledScript)
+              log.info("put script [{}]:\n{} ", key, script)
+              commander ! Success(key)
+            case Success(_: UpdateTimeout) => commander ! Failure(new RuntimeException("Update timeout"))
+            case Success(x: InvalidUsage)  => commander ! Failure(x)
+            case Success(x: ModifyFailure) => commander ! Failure(x)
+            case failure                   => commander ! failure
+          }
+
+        case Failure(ex) =>
+          log.error(ex, ex.getMessage)
+      }
     case astore.RemoveScript(entity, field, id) =>
       val commander = sender()
-      self.ask(Remove(entity + "/" + field + "/" + id))(5.seconds).mapTo[RemoveAck].onComplete {
-        case Success(ack)  => commander ! Success(id)
-        case x: Failure[_] => commander ! x
-      }
-  }
+      val key = DistributedScriptBoard.keyOf(entity, field, id)
 
-  override def onPut(keys: Set[String]) {
-    for {
-      (owner, bucket) <- registry
-      (key, valueHolder) <- bucket.content if keys.contains(key)
-    } {
-      valueHolder.value match {
-        case Some(script) =>
-          log.info("put script [{}]:\n{} ", key, script)
-          try {
-            val compiledScript = DistributedScriptBoard.engine.compile(script)
-            DistributedScriptBoard.putScript(key, compiledScript)
-          } catch {
-            case ex: Throwable => log.error(ex, ex.getMessage)
+      replicator.ask(Update(DistributedScriptBoard.DataKey, LWWMap(), WriteLocal)(_ - key))(60.seconds).onComplete {
+        case Success(_: UpdateSuccess) =>
+          log.info("remove scripts: {}", key)
+          DistributedScriptBoard.removeScript(key)
+          commander ! Success(key)
+        case Success(_: UpdateTimeout) => commander ! Failure(new RuntimeException("Update timeout"))
+        case Success(x: InvalidUsage)  => commander ! Failure(x)
+        case Success(x: ModifyFailure) => commander ! Failure(x)
+        case failure                   => commander ! failure
+      }
+
+    case Changed(DistributedScriptBoard.DataKey, LWWMap(entries: Map[String, String] @unchecked)) =>
+      // check if there were newly added
+      entries.foreach {
+        case (key, script) =>
+          DistributedScriptBoard.keyToScript.get(key) match {
+            case None =>
+              compileScript(script) match {
+                case Success(compiledScript) =>
+                  DistributedScriptBoard.putScript(key, compiledScript)
+                  log.info("put script [{}]:\n{} ", key, script)
+                case Failure(ex) =>
+                  log.error(ex, ex.getMessage)
+              }
+            case Some(script) => // TODO, existed, but changed?
           }
-        case None =>
-          log.info("remove scripts: {}", keys)
-          keys foreach DistributedScriptBoard.removeScript
       }
-    }
+
+      // check if there were removed
+      val toRemove = DistributedScriptBoard.keyToScript.filter(x => !entries.contains(x._1)).keys
+      if (toRemove.nonEmpty) {
+        log.info("remove scripts: {}", toRemove)
+        toRemove foreach DistributedScriptBoard.removeScript
+      }
   }
 
-  override def onRemoved(keys: Set[String]) {
-    log.info("remove scripts: {}", keys)
-    keys foreach DistributedScriptBoard.removeScript
-  }
+  private def compileScript(script: String) =
+    try {
+      val compiledScript = DistributedScriptBoard.engine.compile(script)
+      Success(compiledScript)
+    } catch {
+      case ex: Throwable => Failure(ex)
+    }
 
 }
 
@@ -194,12 +198,9 @@ class DistributedScriptBoardExtension(system: ExtendedActorSystem) extends Exten
     if (isTerminated)
       system.deadLetters
     else {
-      val gossipInterval = config.getDuration("gossip-interval", MILLISECONDS).millis
-      val removedTimeToLive = config.getDuration("removed-time-to-live", MILLISECONDS).millis
-      val maxDeltaElements = config.getInt("max-delta-elements")
       val name = config.getString("name")
       system.actorOf(
-        DistributedScriptBoard.props(role, gossipInterval, removedTimeToLive, maxDeltaElements),
+        DistributedScriptBoard.props(),
         name)
     }
   }

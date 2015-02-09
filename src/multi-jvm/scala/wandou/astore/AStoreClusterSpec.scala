@@ -6,6 +6,8 @@ import akka.actor._
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent._
 import akka.cluster.MemberStatus
+import akka.contrib.datareplication.DataReplication
+import akka.contrib.datareplication.LWWMap
 import akka.contrib.pattern.ClusterSharding
 import akka.io.{Tcp, IO}
 import akka.persistence.journal.leveldb.{ SharedLeveldbJournal, SharedLeveldbStore }
@@ -84,8 +86,6 @@ object AStoreClusterSpecConfig extends MultiNodeConfig {
           "wandou.astore.schema.DistributedSchemaBoard",
           "wandou.astore.script.DistributedScriptBoard"
         ]
-        wandou.astore.schema-board.removed-time-to-live = 4s
-        wandou.astore.script-board.removed-time-to-live = 4s
 
         akka.contrib.cluster.sharding.role = "entity"
         akka.cluster.roles = ["entity"]
@@ -102,8 +102,6 @@ object AStoreClusterSpecConfig extends MultiNodeConfig {
           "wandou.astore.schema.DistributedSchemaBoard",
           "wandou.astore.script.DistributedScriptBoard"
         ]
-        wandou.astore.schema-board.removed-time-to-live = 4s
-        wandou.astore.script-board.removed-time-to-live = 4s
 
         akka.contrib.cluster.sharding.role = "entity"
         akka.cluster.roles = ["entity"]
@@ -328,10 +326,15 @@ class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMu
         IO(Http) ! Post(baseUrl1 + "/personinfo/putscript/name/SCRIPT_NO_1", script)
         expectStr("OK")
 
-        IO(Http) ! Post(baseUrl1 + "/personinfo/update/1", ".\n{'name':'James Bond1','age':60}")
+        IO(Http) ! Post(baseUrl1 + "/personinfo/update/1", ".\n{'name':'James Not Bond','age':60}")
         expectStr("OK")
 
-        // awaitAssert script's http_post.apply("http://localhost:8081/personinfo/put/2/age", "888");
+        awaitAssert {
+          IO(Http) ! Get(baseUrl1 + "/personinfo/get/1/name")
+          expectStr("\"James Not Bond\"")
+        }
+
+        // awaitAssert script's http_post.apply("http://localhost:8081/personinfo/put/2/age", "888"), which was triggered by name updated.
         awaitAssert {
           IO(Http) ! Get(baseUrl1 + "/personinfo/get/2/age")
           expectStr("888")
@@ -353,9 +356,14 @@ class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMu
       runOn(entity1, entity2) {
         enterBarrier("script-done")
 
+        import akka.contrib.datareplication.Replicator._
+        val replicator = DataReplication(system).replicator
         awaitAssert {
-          DistributedScriptBoard(system).board ! DistributedStatusBoard.Count
-          expectMsg(0)
+          replicator ! Get(DistributedScriptBoard.DataKey, ReadQuorum(3.seconds), None)
+          expectMsgPF(5.seconds) {
+            case GetSuccess(DistributedScriptBoard.DataKey, data: LWWMap[String] @unchecked, _) =>
+              data.entries.values.toSet should be(Set())
+          }
         }
       }
 

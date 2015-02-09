@@ -31,7 +31,8 @@ object Build extends sbt.Build {
       "Spray repo" at "http://repo.spray.io",
       "Sonatype OSS Releases" at "https://oss.sonatype.org/content/repositories/releases",
       "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
-      "Typesafe repo" at "http://repo.typesafe.com/typesafe/releases/"))
+      "Typesafe repo" at "http://repo.typesafe.com/typesafe/releases/",
+      "patriknw at bintray" at "http://dl.bintray.com/patriknw/maven"))
 
   lazy val releaseSettings = Seq(
     publishTo := {
@@ -112,6 +113,10 @@ object Dependencies {
     "com.typesafe.akka" %% "akka-http-spray-json-experimental" % AKKA_STREAM_VERSION
   )
 
+  val akka_data_replication = Seq(
+    "com.github.patriknw" %% "akka-data-replication" % "0.10"
+  )
+
   val avro = Seq(
     "org.apache.avro" % "avro" % "1.7.7")
 
@@ -133,7 +138,7 @@ object Dependencies {
     "org.scalamock" %% "scalamock-scalatest-support" % "3.2-RC1" % "test",
     "org.scalatest" %% "scalatest" % "2.1.3" % "test")
 
-  val basic: Seq[sbt.ModuleID] = akka ++ akka_http ++ avro ++ avpath ++ spray ++ log ++ test
+  val basic: Seq[sbt.ModuleID] = akka ++ akka_http ++ akka_data_replication ++ avro ++ avpath ++ spray ++ log ++ test
 
   val all = basic
 }
