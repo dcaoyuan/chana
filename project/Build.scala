@@ -32,7 +32,8 @@ object Build extends sbt.Build {
       "Sonatype OSS Releases" at "https://oss.sonatype.org/content/repositories/releases",
       "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
       "Typesafe repo" at "http://repo.typesafe.com/typesafe/releases/",
-      "patriknw at bintray" at "http://dl.bintray.com/patriknw/maven"))
+      "patriknw at bintray" at "http://dl.bintray.com/patriknw/maven",
+      "krasserm at bintray" at "http://dl.bintray.com/krasserm/maven"))
 
   lazy val releaseSettings = Seq(
     publishTo := {
@@ -109,7 +110,8 @@ object Dependencies {
     "com.typesafe.akka" %% "akka-persistence-experimental" % AKKA_VERSION,
     "com.typesafe.akka" %% "akka-slf4j" % AKKA_VERSION,
     "com.typesafe.akka" %% "akka-testkit" % AKKA_VERSION % "test",
-    "com.typesafe.akka" %% "akka-multi-node-testkit" % AKKA_VERSION % "test")
+    "com.typesafe.akka" %% "akka-multi-node-testkit" % AKKA_VERSION % "test",
+    "com.github.krasserm" %% "akka-persistence-cassandra" % "0.3.6")
 
   val akka_http = Seq(
     "com.typesafe.akka" %% "akka-stream-experimental" % AKKA_STREAM_VERSION,
@@ -130,6 +132,7 @@ object Dependencies {
     "io.spray" %% "spray-can" % SPRAY_VERSION,
     "io.spray" %% "spray-routing-shapeless2" % SPRAY_VERSION,
     "io.spray" %% "spray-testkit" % SPRAY_VERSION % "test")
+   
 
   val log = Seq(
     "org.slf4j" % "slf4j-api" % SLF4J_VERSION,
