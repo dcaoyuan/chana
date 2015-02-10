@@ -107,11 +107,12 @@ object Dependencies {
   val akka = Seq(
     "com.typesafe.akka" %% "akka-actor" % AKKA_VERSION,
     "com.typesafe.akka" %% "akka-contrib" % AKKA_VERSION,
-    "com.typesafe.akka" %% "akka-persistence-experimental" % AKKA_VERSION,
+    "com.typesafe.akka" %% "akka-persistence-experimental" % AKKA_VERSION exclude ("org.iq80.leveldb", "leveldb"),
     "com.typesafe.akka" %% "akka-slf4j" % AKKA_VERSION,
-    "com.typesafe.akka" %% "akka-testkit" % AKKA_VERSION % "test",
-    "com.typesafe.akka" %% "akka-multi-node-testkit" % AKKA_VERSION % "test",
-    "com.github.krasserm" %% "akka-persistence-cassandra" % "0.3.6")
+    "com.typesafe.akka" %% "akka-testkit" % AKKA_VERSION % Test,
+    "com.typesafe.akka" %% "akka-multi-node-testkit" % AKKA_VERSION % Test,
+    "org.iq80.leveldb" % "leveldb" % "0.7" % Runtime,
+    "com.github.krasserm" %% "akka-persistence-cassandra" % "0.3.6" % Runtime)
 
   val akka_http = Seq(
     "com.typesafe.akka" %% "akka-stream-experimental" % AKKA_STREAM_VERSION,
@@ -132,7 +133,6 @@ object Dependencies {
     "io.spray" %% "spray-can" % SPRAY_VERSION,
     "io.spray" %% "spray-routing-shapeless2" % SPRAY_VERSION,
     "io.spray" %% "spray-testkit" % SPRAY_VERSION % "test")
-   
 
   val log = Seq(
     "org.slf4j" % "slf4j-api" % SLF4J_VERSION,
