@@ -1,35 +1,25 @@
 package wandou.astore
 
-import akka.actor.ActorIdentity
-import akka.actor.Identify
-import akka.actor._
-import akka.cluster.Cluster
-import akka.cluster.ClusterEvent._
-import akka.cluster.MemberStatus
-import akka.contrib.datareplication.DataReplication
-import akka.contrib.datareplication.LWWMap
-import akka.contrib.pattern.ClusterSharding
-import akka.io.{Tcp, IO}
-import akka.persistence.journal.leveldb.{ SharedLeveldbJournal, SharedLeveldbStore }
-import akka.persistence.Persistence
-import akka.pattern.ask
-import akka.remote.testconductor.RoleName
-import akka.remote.testkit.{ MultiNodeSpec, MultiNodeConfig }
-import akka.testkit.ImplicitSender
-import akka.testkit.TestProbe
-import com.typesafe.config.ConfigFactory
 import java.io.File
+
+import akka.actor.{ActorIdentity, Identify, _}
+import akka.cluster.{Cluster, MemberStatus}
+import akka.contrib.datareplication.{DataReplication, LWWMap}
+import akka.io.{IO, Tcp}
+import akka.persistence.Persistence
+import akka.persistence.journal.leveldb.{SharedLeveldbJournal, SharedLeveldbStore}
+import akka.remote.testconductor.RoleName
+import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
+import akka.testkit.ImplicitSender
+import com.typesafe.config.ConfigFactory
 import org.iq80.leveldb.util.FileUtils
-import scala.concurrent.Await
-import scala.concurrent.Promise
-import scala.concurrent.duration._
 import spray.can.Http
-import spray.http._
 import spray.http.HttpHeaders.RawHeader
-import spray.http.HttpMethods._
+import spray.http._
 import spray.routing.Directives
-import wandou.astore.schema.DistributedSchemaBoard
 import wandou.astore.script.DistributedScriptBoard
+
+import scala.concurrent.duration._
 
 /**
  * Note:
@@ -66,9 +56,13 @@ object AStoreClusterSpecConfig extends MultiNodeConfig {
       akka.actor {
         serializers {
           avro = "wandou.astore.serializer.AvroSerializer"
+          event = "wandou.astore.serializer.EventSerializer"
+          writemessages = "akka.persistence.serialization.WriteMessagesSerializer"
         }
         serialization-bindings {
-          "org.apache.avro.generic.IndexedRecord" = avro
+          "org.apache.avro.generic.GenericContainer" = avro
+          "wandou.astore.package$UpdatedFields" = event
+          "akka.persistence.journal.AsyncWriteTarget$WriteMessages" = writemessages
         }
       }
       akka.actor.provider = "akka.cluster.ClusterActorRefProvider"
@@ -161,8 +155,8 @@ object AStoreClusterSpec {
 
 class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMultiNodeSpec with ImplicitSender {
 
-  import AStoreClusterSpec._
-  import AStoreClusterSpecConfig._
+  import wandou.astore.AStoreClusterSpec._
+  import wandou.astore.AStoreClusterSpecConfig._
 
   override def initialParticipants: Int = roles.size
 
@@ -252,7 +246,7 @@ class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMu
 
     "do rest calling" in within(30.seconds) {
       runOn(client1) {
-        import spray.httpx.RequestBuilding._ 
+        import spray.httpx.RequestBuilding._
 
         IO(Http) ! Get(baseUrl1 + "/ping")
         expectStr("pong")
@@ -299,7 +293,7 @@ class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMu
 
     "do script on updated" in within(30.seconds) {
       runOn(client1) {
-        import spray.httpx.RequestBuilding._ 
+        import spray.httpx.RequestBuilding._
 
         val script = 
   """

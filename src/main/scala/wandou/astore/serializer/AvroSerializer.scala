@@ -1,14 +1,15 @@
 package wandou.astore.serializer
 
+import java.nio.ByteOrder
+
 import akka.actor.ExtendedActorSystem
 import akka.serialization.Serializer
 import akka.util.ByteString
-import java.nio.ByteOrder
-import org.apache.avro.generic.GenericRecord
-import org.apache.avro.generic.IndexedRecord
-import scala.util.Failure
-import wandou.astore.schema.DistributedSchemaBoard
+import org.apache.avro.Schema
+import org.apache.avro.generic.{ GenericContainer, GenericRecord }
 import wandou.avro
+
+import scala.util.Failure
 
 class AvroSerializer(val system: ExtendedActorSystem) extends Serializer {
   implicit val byteOrder = ByteOrder.BIG_ENDIAN
@@ -18,11 +19,12 @@ class AvroSerializer(val system: ExtendedActorSystem) extends Serializer {
   override def includeManifest: Boolean = true
 
   override def toBinary(obj: AnyRef): Array[Byte] = obj match {
-    case record: IndexedRecord =>
+    case record: GenericContainer =>
       val r = avro.avroEncode(record, record.getSchema)
       if (r.isSuccess) {
         val builder = ByteString.newBuilder
-        StringSerializer.appendToBuilder(builder, record.getSchema.getFullName)
+        // FIXME: how to avoid serializing the schema json string
+        StringSerializer.appendToBuilder(builder, record.getSchema.toString)
         builder.putBytes(r.get)
         builder.result.toArray
       } else throw r.asInstanceOf[Failure[Array[Byte]]].exception
@@ -35,9 +37,9 @@ class AvroSerializer(val system: ExtendedActorSystem) extends Serializer {
 
   override def fromBinary(bytes: Array[Byte], manifest: Option[Class[_]]): AnyRef = {
     val data = ByteString(bytes).iterator
-    val name = StringSerializer.fromByteIterator(data)
+    val schemaJson = StringSerializer.fromByteIterator(data)
 
-    val schema = DistributedSchemaBoard.schemaOf(name).get
+    val schema = new Schema.Parser().parse(schemaJson)
     val payload = Array.ofDim[Byte](data.len)
     data.getBytes(payload)
     val r = avro.avroDecode[GenericRecord](payload, schema)

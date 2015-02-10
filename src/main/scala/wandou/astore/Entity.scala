@@ -1,30 +1,19 @@
 package wandou.astore
 
-import akka.actor.Actor
-import akka.actor.ActorLogging
-import akka.actor.ActorRef
-import akka.actor.ActorSystem
-import akka.actor.Cancellable
-import akka.actor.PoisonPill
-import akka.actor.Props
-import akka.actor.Stash
-import akka.contrib.pattern.ClusterSharding
-import akka.contrib.pattern.ShardRegion
+import akka.actor.{ Actor, ActorLogging, ActorRef, ActorSystem, Cancellable, PoisonPill, Props, Stash }
+import akka.contrib.pattern.{ ClusterSharding, ShardRegion }
 import akka.event.LoggingAdapter
-import akka.persistence.PersistenceFailure
+import akka.persistence._
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData
 import org.apache.avro.generic.GenericData.Record
-import scala.concurrent.Future
-import scala.concurrent.duration._
-import scala.util.Failure
-import scala.util.Success
-import scala.util.Try
 import wandou.astore.script.Scriptable
-import wandou.avpath
 import wandou.avpath.Evaluator.Ctx
-import wandou.avro
 import wandou.avro.RecordBuilder
+import wandou.{ avpath, avro }
+
+import scala.concurrent.duration._
+import scala.util.{ Failure, Success, Try }
 
 object Entity {
   def props(entityName: String, schema: Schema, builder: RecordBuilder, idleTimeout: Duration) =
@@ -55,7 +44,7 @@ object Entity {
   final case class SetIdleTimeout(milliseconds: Long)
 
   final case class Bootstrap(record: Record)
-  final case class OnUpdated(id: String, fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record)
+  final case class OnUpdated(id: String, fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record) extends Command
 }
 
 class AEntity(val entityName: String, val schema: Schema, val builder: RecordBuilder, idleTimeout: Duration)
@@ -71,10 +60,10 @@ class AEntity(val entityName: String, val schema: Schema, val builder: RecordBui
     case _ =>
   }
 
-  override def ready = accessBehavior orElse scriptableBehavior
+  override def receiveCommand: Receive = super.receiveCommand orElse scriptableBehavior
 }
 
-trait Entity extends Actor with Stash {
+trait Entity extends Actor with Stash with PersistentActor {
   import context.dispatcher
 
   def log: LoggingAdapter
@@ -89,7 +78,6 @@ trait Entity extends Actor with Stash {
 
   protected var record: Record = _
   protected def loadRecord() = {
-    // TODO load persistented data
     builder.build()
   }
 
@@ -116,24 +104,26 @@ trait Entity extends Actor with Stash {
     }
   }
 
+  override def persistenceId: String = id
+
   override def preStart {
     super[Actor].preStart
     log.debug("Starting: {} ", id)
-    self ! Entity.Bootstrap(loadRecord())
+    record = loadRecord()
+    self ! Recover()
   }
 
-  override def receive: Receive = initial
-
-  def initial: Receive = {
-    case Entity.Bootstrap(r) =>
-      record = r
-      context.become(ready)
-      unstashAll()
-    case _ =>
-      stash()
+  override def receiveRecover: Receive = {
+    case SnapshotOffer(metadata, offeredSnapshot) => record = offeredSnapshot.asInstanceOf[Record]
+    case RecoveryFailure(cause)                   => log.error("", cause)
+    case RecoveryCompleted                        => log.debug("Recovery complete: {}", id)
+    case event: Event                             => updateRecord(event)
   }
 
-  def ready = accessBehavior
+  override def receiveCommand: Receive = accessBehavior orElse {
+    case f: PersistenceFailure  => log.error("", f.cause)
+    case f: SaveSnapshotFailure => log.error("", f.cause)
+  }
 
   def accessBehavior: Receive = {
     case GetRecord(_) =>
@@ -381,22 +371,6 @@ trait Entity extends Actor with Stash {
       context.parent ! ShardRegion.Passivate(stopMessage = PoisonPill)
   }
 
-  def persistingBehavior: Receive = {
-    case Success(_) =>
-      log.debug("{}: {} persistence success: {}", entityName, id)
-      context.become(ready)
-      unstashAll()
-
-    case PersistenceFailure(payload, sequenceNr, cause) =>
-      log.error(cause, cause.getMessage)
-      context.become(ready)
-      unstashAll()
-
-    case x =>
-      log.debug("{} got {}", entityName, x)
-      stash()
-  }
-
   private def commitRecord(id: String, toBe: Record, commander: ActorRef, doLimitSize: Boolean) {
     val fields = schema.getFields.iterator
     var updatedFields = List[(Schema.Field, Any)]()
@@ -443,34 +417,34 @@ trait Entity extends Actor with Stash {
     }
   }
 
+  private def updateRecord(event: Event): Unit =
+    event match {
+      case UpdatedFields(updatedFields) =>
+        updatedFields foreach (t => record.put(t._1, t._2))
+    }
+
   private def commit2(id: String, updatedFields: List[(Schema.Field, Any)], commander: ActorRef) {
     // TODO enabling persistingBehavior will bring bad performance. 
     //context.become(persistingBehavior)
-    persist(id, updatedFields).onComplete {
-      case Success(_) =>
-        val data = GenericData.get
-        val size = updatedFields.size
-        val fieldsBefore = Array.ofDim[(Schema.Field, Any)](size)
-        var i = 0
-        var fields = updatedFields
-        while (i < size) {
-          val (field, value) = fields.head
-          fieldsBefore(i) = (field, data.deepCopy(field.schema, record.get(field.pos)))
-          record.put(field.pos, value)
-          fields = fields.tail
-          i += 1
-        }
+    val data = GenericData.get
+    val size = updatedFields.size
+    val fieldsBefore = Array.ofDim[(Schema.Field, Any)](size)
+    var i = 0
+    var fields = updatedFields
+    while (i < size) {
+      val (field, value) = fields.head
+      fieldsBefore(i) = (field, data.deepCopy(field.schema, record.get(field.pos)))
+      fields = fields.tail
+      i += 1
+    }
+    val event = UpdatedFields(updatedFields map (f => (f._1.pos, f._2)))
+
+    persist(event) {
+      case e: Event =>
+        updateRecord(e)
 
         commander ! Success(id)
-        self ! Success(id)
         self ! Entity.OnUpdated(id, fieldsBefore, record)
-
-      case Failure(ex) =>
-        commander ! Failure(ex)
-        self ! PersistenceFailure(null, 0, ex) // TODO
     }
   }
-
-  def persist(id: String, updatedFields: List[(Schema.Field, Any)]): Future[Unit] = Future.successful(())
-
 }
