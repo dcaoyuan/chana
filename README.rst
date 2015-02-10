@@ -31,13 +31,13 @@ Or
 
     $ sbt clean compile dist
     $ ls target/universal/
-    tmp  astore-0.1.1-SNAPSHOT.zip 
+    tmp  astore-0.1.3-SNAPSHOT.zip 
 
-Then, copy astore-0.1.1.-SNAPSHOT.zip to somewhere and unzip it
+Then, copy astore-0.1.3-SNAPSHOT.zip to somewhere and unzip it
 
 .. code:: shell
 
-    $ cd astore-0.1.1-SNAPSHOT/bin
+    $ cd astore-0.1.3-SNAPSHOT/bin
     $ ./astore
 
 Access astore
