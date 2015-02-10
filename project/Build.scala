@@ -60,13 +60,18 @@ object Build extends sbt.Build {
        <url>git@github.com:wandoulabs/astore.git</url>
        <connection>scm:git:git@github.com:wandoulabs/astore.git</connection>
      </scm>
-      <developers>
-        <developer>
-          <id>dcaoyuan</id>
-          <name>Caoyuan DENG</name>
-          <email>dcaoyuan@gmail.com</email>
-        </developer>
-      </developers>)
+     <developers>
+       <developer>
+         <id>dcaoyuan</id>
+         <name>Caoyuan DENG</name>
+         <email>dcaoyuan@gmail.com</email>
+       </developer>
+       <developer>
+         <id>cowboy129</id>
+         <name>Xingrun CHEN</name>
+         <email>cowboy129@gmail.com</email>
+       </developer>
+     </developers>)
 
   def multiJvmSettings = Seq(
     compile in MultiJvm <<= (compile in MultiJvm) triggeredBy (compile in Test),
@@ -110,12 +115,10 @@ object Dependencies {
     "com.typesafe.akka" %% "akka-stream-experimental" % AKKA_STREAM_VERSION,
     "com.typesafe.akka" %% "akka-http-experimental" % AKKA_STREAM_VERSION,
     "com.typesafe.akka" %% "akka-http-core-experimental" % AKKA_STREAM_VERSION,
-    "com.typesafe.akka" %% "akka-http-spray-json-experimental" % AKKA_STREAM_VERSION
-  )
+    "com.typesafe.akka" %% "akka-http-spray-json-experimental" % AKKA_STREAM_VERSION)
 
   val akka_data_replication = Seq(
-    "com.github.patriknw" %% "akka-data-replication" % "0.10"
-  )
+    "com.github.patriknw" %% "akka-data-replication" % "0.10")
 
   val avro = Seq(
     "org.apache.avro" % "avro" % "1.7.7")
