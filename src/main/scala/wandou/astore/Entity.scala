@@ -32,8 +32,7 @@ object Entity {
       typeName = shardName,
       entryProps = entryProps,
       idExtractor = idExtractor,
-      shardResolver = shardResolver
-    )
+      shardResolver = shardResolver)
 
   private final val emptyCancellable: Cancellable = new Cancellable {
     def isCancelled: Boolean = false

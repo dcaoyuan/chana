@@ -73,10 +73,10 @@ trait RestRoute extends Directives {
           }
         } ~ path(Segment ~ Slash.?) { id =>
           get {
-            parameters('benchmark_only.as[String].?) {
+            parameters('benchmark_only.as[Int].?) {
               case Some(benchmark_num) =>
                 // Only for benchmark test purpose
-                val shiftedId = nextRandomId(1, benchmark_num.toInt).toString
+                val shiftedId = nextRandomId(1, benchmark_num).toString
                 complete {
                   withJson {
                     resolver(entityName).ask(astore.GetRecordJson(shiftedId))(readTimeout)
@@ -95,31 +95,31 @@ trait RestRoute extends Directives {
         path(Segment / Segment ~ Slash.?) { (id, fieldName) =>
           post {
             entity(as[String]) { json =>
-              // Only for benchmark test purpose
-              parameters('benchmark_only.as[String].?) {
-                case Some(benchmark_num) =>
-                  val shiftedId = nextRandomId(1, benchmark_num.toInt).toString
-                  complete {
-                    withStatusCode {
-                      resolver(entityName).ask(astore.PutFieldJson(id, fieldName, json))(writeTimeout)
-                    }
-                  }
-                case _ =>
-                  complete {
-                    withStatusCode {
-                      resolver(entityName).ask(astore.PutFieldJson(id, fieldName, json))(writeTimeout)
-                    }
-                  }
+              complete {
+                withStatusCode {
+                  resolver(entityName).ask(astore.PutFieldJson(id, fieldName, json))(writeTimeout)
+                }
               }
             }
           }
         } ~ path(Segment ~ Slash.?) { id =>
           post {
             entity(as[String]) { json =>
-              complete {
-                withStatusCode {
-                  resolver(entityName).ask(astore.PutRecordJson(id, json))(writeTimeout)
-                }
+              // Only for benchmark test purpose
+              parameters('benchmark_only.as[Int].?) {
+                case Some(benchmark_num) =>
+                  val shiftedId = nextRandomId(1, benchmark_num).toString
+                  complete {
+                    withStatusCode {
+                      resolver(entityName).ask(astore.PutRecordJson(shiftedId, json))(writeTimeout)
+                    }
+                  }
+                case _ =>
+                  complete {
+                    withStatusCode {
+                      resolver(entityName).ask(astore.PutRecordJson(id, json))(writeTimeout)
+                    }
+                  }
               }
             }
           }
