@@ -1,7 +1,7 @@
 astore
 ======
 
-Avro Data Store based on Akka (TODO persistence)
+Avro Data Store based on Akka (persistence in progressing)
 
 .. image:: https://travis-ci.org/wandoulabs/astore.png
    :target: https://travis-ci.org/wandoulabs/astore

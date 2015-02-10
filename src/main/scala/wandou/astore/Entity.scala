@@ -32,7 +32,8 @@ object Entity {
       typeName = shardName,
       entryProps = entryProps,
       idExtractor = idExtractor,
-      shardResolver = shardResolver)
+      shardResolver = shardResolver
+    )
 
   private final val emptyCancellable: Cancellable = new Cancellable {
     def isCancelled: Boolean = false
@@ -416,15 +417,7 @@ trait Entity extends Actor with Stash with PersistentActor {
     }
   }
 
-  private def updateRecord(event: Event): Unit =
-    event match {
-      case UpdatedFields(updatedFields) =>
-        updatedFields foreach (t => record.put(t._1, t._2))
-    }
-
   private def commit2(id: String, updatedFields: List[(Schema.Field, Any)], commander: ActorRef) {
-    // TODO enabling persistingBehavior will bring bad performance. 
-    //context.become(persistingBehavior)
     val data = GenericData.get
     val size = updatedFields.size
     val fieldsBefore = Array.ofDim[(Schema.Field, Any)](size)
@@ -438,6 +431,7 @@ trait Entity extends Actor with Stash with PersistentActor {
     }
     val event = UpdatedFields(updatedFields map (f => (f._1.pos, f._2)))
 
+    // TODO options to turn-off, persistAsync etc.
     persist(event) { e =>
       updateRecord(e)
 
@@ -445,6 +439,12 @@ trait Entity extends Actor with Stash with PersistentActor {
       self ! Entity.OnUpdated(id, fieldsBefore, record)
     }
   }
+
+  private def updateRecord(event: Event): Unit =
+    event match {
+      case UpdatedFields(updatedFields) =>
+        updatedFields foreach { f => record.put(f._1, f._2) }
+    }
 
   /** for test only */
   def dummyPersist[A](event: A)(handler: A => Unit): Unit = handler(event)
