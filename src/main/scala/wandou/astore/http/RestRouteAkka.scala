@@ -6,7 +6,7 @@ import akka.http.model.StatusCode
 import akka.http.model.StatusCodes
 import akka.http.server.Directives
 import akka.pattern.ask
-import akka.stream.FlowMaterializer
+import akka.stream.ActorFlowMaterializer
 import akka.util.Timeout
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -20,7 +20,7 @@ import wandou.astore.script.DistributedScriptBoard
 
 trait RestRouteAkka extends Directives {
   implicit val system: ActorSystem
-  implicit val materializer = FlowMaterializer()
+  implicit val materializer = ActorFlowMaterializer()
   import system.dispatcher
 
   def readTimeout: Timeout

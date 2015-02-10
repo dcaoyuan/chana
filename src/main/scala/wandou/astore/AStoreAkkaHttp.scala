@@ -4,7 +4,7 @@ import akka.actor.ActorSystem
 import akka.http.Http
 import akka.http.model.headers.RawHeader
 import akka.http.server.Directives
-import akka.stream.FlowMaterializer
+import akka.stream.ActorFlowMaterializer
 import akka.util.Timeout
 import scala.concurrent.duration._
 import wandou.astore.http.RestRouteAkka
@@ -14,7 +14,7 @@ import wandou.astore.http.RestRouteAkka
  */
 object AStoreAkkaHttp extends scala.App {
   implicit val system = ActorSystem("AStoreSystem")
-  implicit val materializer = FlowMaterializer()
+  implicit val materializer = ActorFlowMaterializer()
   implicit val dispatcher = system.dispatcher
 
   val route = Directives.respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
@@ -23,7 +23,7 @@ object AStoreAkkaHttp extends scala.App {
 
   val webConfig = system.settings.config.getConfig("wandou.astore.web")
   val binding = Http().bind(interface = webConfig.getString("interface"), port = webConfig.getInt("port"))
-  binding.connections.foreach { conn =>
+  binding.connections.runForeach { conn =>
     conn.handleWith(route)
   }
 }
