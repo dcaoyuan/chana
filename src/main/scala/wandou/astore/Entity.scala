@@ -75,6 +75,7 @@ trait Entity extends Actor with Stash with PersistentActor {
   protected val id = self.path.name
   protected val parser = new avpath.Parser()
   protected val encoderDecoder = new avro.EncoderDecoder()
+  val persistenceId: String = entityName + "_" + id
 
   protected var record: Record = _
   protected def loadRecord() = {
@@ -103,8 +104,6 @@ trait Entity extends Actor with Stash with PersistentActor {
       idleTimeoutData = (idleTimeoutData._1, Entity.emptyCancellable)
     }
   }
-
-  override def persistenceId: String = id
 
   override def preStart {
     super[Actor].preStart
@@ -439,12 +438,14 @@ trait Entity extends Actor with Stash with PersistentActor {
     }
     val event = UpdatedFields(updatedFields map (f => (f._1.pos, f._2)))
 
-    persist(event) {
-      case e: Event =>
-        updateRecord(e)
+    persist(event) { e =>
+      updateRecord(e)
 
-        commander ! Success(id)
-        self ! Entity.OnUpdated(id, fieldsBefore, record)
+      commander ! Success(id)
+      self ! Entity.OnUpdated(id, fieldsBefore, record)
     }
   }
+
+  /** for test only */
+  def dummyPersist[A](event: A)(handler: A => Unit): Unit = handler(event)
 }
