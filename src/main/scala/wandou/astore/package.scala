@@ -9,6 +9,8 @@ package object astore {
     def id: String
   }
 
+  trait Event extends Serializable
+
   final case class GetRecord(id: String) extends Command
   final case class GetRecordAvro(id: String) extends Command
   final case class GetRecordJson(id: String) extends Command
@@ -47,4 +49,5 @@ package object astore {
   final case class PutScript(entity: String, field: String, id: String, script: String)
   final case class RemoveScript(entity: String, field: String, id: String)
 
+  final case class UpdatedFields(updatedFields: List[(Int, Any)]) extends Event
 }

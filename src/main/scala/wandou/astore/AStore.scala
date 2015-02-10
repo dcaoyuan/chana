@@ -1,18 +1,15 @@
 package wandou.astore
 
-import akka.actor.Actor
-import akka.actor.ActorLogging
-import akka.actor.ActorSystem
-import akka.actor.Props
+import akka.actor._
 import akka.io.IO
+import akka.persistence.Persistence
 import akka.util.Timeout
-import scala.concurrent.duration._
 import spray.can.Http
 import spray.http.HttpHeaders.RawHeader
-import spray.routing.Directives
-import spray.routing.HttpServiceActor
-import spray.routing.Route
+import spray.routing.{ Directives, HttpServiceActor, Route }
 import wandou.astore.http.RestRoute
+
+import scala.concurrent.duration._
 
 /**
  * Start REST astore service
@@ -26,6 +23,7 @@ object AStore extends scala.App {
 
   val server = system.actorOf(RestServer.props(route), "astore-web")
   val webConfig = system.settings.config.getConfig("wandou.astore.web")
+  Persistence(system)
   IO(Http) ! Http.Bind(server, webConfig.getString("interface"), port = webConfig.getInt("port"))
 
 }
