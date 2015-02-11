@@ -118,7 +118,7 @@ class DistributedScriptBoard extends Actor with ActorLogging {
               DistributedScriptBoard.putScript(key, compiledScript)
               log.info("put script [{}]:\n{} ", key, script)
               commander ! Success(key)
-            case Success(_: UpdateTimeout) => commander ! Failure(new RuntimeException("Update timeout"))
+            case Success(_: UpdateTimeout) => commander ! Failure(astore.UpdateTimeoutException)
             case Success(x: InvalidUsage)  => commander ! Failure(x)
             case Success(x: ModifyFailure) => commander ! Failure(x)
             case failure                   => commander ! failure
@@ -136,7 +136,7 @@ class DistributedScriptBoard extends Actor with ActorLogging {
           log.info("remove scripts: {}", key)
           DistributedScriptBoard.removeScript(key)
           commander ! Success(key)
-        case Success(_: UpdateTimeout) => commander ! Failure(new RuntimeException("Update timeout"))
+        case Success(_: UpdateTimeout) => commander ! Failure(astore.UpdateTimeoutException)
         case Success(x: InvalidUsage)  => commander ! Failure(x)
         case Success(x: ModifyFailure) => commander ! Failure(x)
         case failure                   => commander ! failure

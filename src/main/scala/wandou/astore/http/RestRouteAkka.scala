@@ -138,8 +138,8 @@ trait RestRouteAkka extends Directives {
               case List(avpathExpr, _*) =>
                 complete {
                   resolver(entityName).ask(astore.SelectJson(id, avpathExpr))(readTimeout).collect {
-                    case Success(jsons: List[_]) => jsons.asInstanceOf[List[Array[Byte]]].map(new String(_)).mkString("[", ",", "]")
-                    case Failure(ex)             => "[]"
+                    case Success(jsons: List[Array[Byte]] @unchecked) => jsons.map(new String(_)).mkString("[", ",", "]")
+                    case Failure(ex)                                  => "[]"
                   }
                 }
               case _ =>

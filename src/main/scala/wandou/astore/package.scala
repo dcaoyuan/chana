@@ -50,4 +50,6 @@ package object astore {
   final case class RemoveScript(entity: String, field: String, id: String)
 
   final case class UpdatedFields(updatedFields: List[(Int, Any)]) extends Event
+
+  object UpdateTimeoutException extends RuntimeException("Update timeout")
 }

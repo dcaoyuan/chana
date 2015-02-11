@@ -118,7 +118,7 @@ class DistributedSchemaBoard extends Actor with ActorLogging {
                   DistributedSchemaBoard.putSchema(context.system, key, schema, idleTimeout)
                   // TODO wait for sharding ready
                   commander ! Success(key)
-                case Success(_: UpdateTimeout) => commander ! Failure(new RuntimeException("Update timeout"))
+                case Success(_: UpdateTimeout) => commander ! Failure(astore.UpdateTimeoutException)
                 case Success(x: InvalidUsage)  => commander ! Failure(x)
                 case Success(x: ModifyFailure) => commander ! Failure(x)
                 case failure                   => commander ! failure
@@ -138,7 +138,7 @@ class DistributedSchemaBoard extends Actor with ActorLogging {
           DistributedSchemaBoard.removeSchema(key)
           // TODO wait for stop sharding? 
           commander ! Success(key)
-        case Success(_: UpdateTimeout) => commander ! Failure(new RuntimeException("Update timeout"))
+        case Success(_: UpdateTimeout) => commander ! Failure(astore.UpdateTimeoutException)
         case Success(x: InvalidUsage)  => commander ! Failure(x)
         case Success(x: ModifyFailure) => commander ! Failure(x)
         case failure                   => commander ! failure
