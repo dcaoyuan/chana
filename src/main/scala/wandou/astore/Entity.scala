@@ -83,10 +83,12 @@ trait Entity extends Actor with Stash with PersistentActor {
   }
 
   protected var limitedSize = Int.MaxValue // TODO
+  protected var persistParams = 200
+  protected var persistCount = 0
+
   private var idleTimeoutData: (Duration, Cancellable) = Entity.emptyIdleTimeoutData
   final def idleTimeout: Duration = idleTimeoutData._1
   final def setIdleTimeout(timeout: Duration): Unit = idleTimeoutData = idleTimeoutData.copy(_1 = timeout)
-
   final def resetIdleTimeout() {
     val idletimeout = idleTimeoutData
     idletimeout._1 match {
@@ -97,7 +99,6 @@ trait Entity extends Actor with Stash with PersistentActor {
       case _ => cancelIdleTimeout()
     }
   }
-
   final def cancelIdleTimeout() {
     if (idleTimeoutData._2 ne Entity.emptyCancellable) {
       idleTimeoutData._2.cancel()
@@ -113,10 +114,11 @@ trait Entity extends Actor with Stash with PersistentActor {
   }
 
   override def receiveRecover: Receive = {
-    case SnapshotOffer(metadata, offeredSnapshot) => record = offeredSnapshot.asInstanceOf[Record]
-    case RecoveryFailure(cause)                   => log.error("", cause)
-    case RecoveryCompleted                        => log.debug("Recovery complete: {}", id)
-    case event: Event                             => updateRecord(event)
+    case SnapshotOffer(metadata, offeredSnapshot: Record) => record = offeredSnapshot
+    case x: SnapshotOffer                                 => log.warning("Recovery received unknown: {}", x)
+    case event: Event                                     => updateRecord(event)
+    case RecoveryFailure(cause)                           => log.error("Recovery failure: {}", cause)
+    case RecoveryCompleted                                => log.debug("Recovery completed: {}", id)
   }
 
   override def receiveCommand: Receive = accessBehavior orElse {
@@ -433,6 +435,14 @@ trait Entity extends Actor with Stash with PersistentActor {
     // TODO options to turn-off, persistAsync etc.
     persist(event) { e =>
       updateRecord(e)
+      if (persistCount >= persistParams) {
+        saveSnapshot(record)
+        // if saveSnapshot failed, we don't care about it, since we've got 
+        // events persisted. Anyway, we'll try saveSnapshot at next round
+        persistCount = 0
+      } else {
+        persistCount += 1
+      }
 
       commander ! Success(id)
       self ! Entity.OnUpdated(id, fieldsBefore, record)
