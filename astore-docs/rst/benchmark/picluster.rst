@@ -37,3 +37,42 @@ Component
 |                        |                                      |                 |       |        |                 |       |   4,343.36 |                                                                                |
 +------------------------+--------------------------------------+-----------------+-------+--------+-----------------+-------+------------+-----------+--------------------------------------------------------------------+
 
+
+:math:`\tau = 100 \left(\frac{1}{0.06}\right)`.
+
+设 c 为连接数，\ :math:`\tau` 为平均响应时间，则单节点时 qps 为：
+
+:math:`qps = c \left(\frac{1}{\tau}\right)`
+
+当节点数为 n 时，数据有 \ :math:`\frac{1}{n}` 的概率在本节点，而 \ :math:`\frac{n-1}{n}` 的概率在其它节点。假设在本节点的平均响应时间仍然为 \ :math:`\tau_1`，在其它节点则为 \ :math:`\tau_2`，则总体的平均响应时间为：
+
+:math:`\tau=\frac{\tau_1 + (n-1)\tau_2}{n}`
+
+这时，qps 为：
+
+:math:`qps 
+= cn \left(\frac{1}{\tau}\right)
+= cn \left(\frac{1}\frac{\tau_1 + (n-1)\tau_2}{n}\right)
+= cn \left(\frac{n}{\tau_1 + (n-1)\tau_2}\right)
+= cn \left(\frac{n}{\tau_2n - (\tau_2-\tau_1)}\right)`
+
+
+当 \ :math:`(\tau_2-\tau_1)` 渐渐小于 \ :math:`\tau_2n` 时，
+
+:math:`qps 
+\propto cn\left(\frac{n}{\tau_2n}\right)
+\propto cn\left(\frac{1}{\tau_2}\right)
+\propto n`
+
+下面我们看看几个测试中实际的数据：
+
+连接数 \ :math:`c=100`
+
+单节点时，平均响应时间 \ :math:`\tau=0.06s`，则：
+
+:math:`qps = 100 \left(\frac{1}{0.06}\right) = 1667`
+
+多节点情况下，假设 \ :math:`\tau_1=0.06s` 不变，根据测试数据可以估算出 \ :math:`\tau_2=0.180s` 左右，则：
+
+:math:`qps=100n \left(\frac{n}{0.18n - 0.12}\right)`
+
