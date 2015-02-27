@@ -61,7 +61,7 @@ Akka 分片集群水平扩展能力分析
 
 :math:`qps 
 = cn \left(\frac{1}{\tau}\right)
-= cn \left(\frac{1}\frac{\tau_1 + (n-1)\tau_2}{n}\right)
+= cn \left(\frac{1}{\frac{\tau_1 + (n-1)\tau_2}{n}}\right)
 = cn \left(\frac{n}{\tau_1 + (n-1)\tau_2}\right)
 = cn \left(\frac{n}{\tau_2n - (\tau_2-\tau_1)}\right)`
 
