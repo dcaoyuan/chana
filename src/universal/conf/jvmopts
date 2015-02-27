@@ -1,19 +1,19 @@
 # HEAP
--Xms1024M 
--Xmx1024M 
--Xss1M 
+-J-Xms1024M 
+-J-Xmx1024M 
+-J-Xss1M 
 
 # FLAGS
--server 
--XX:+UseNUMA 
--XX:+UseCondCardMark 
--XX:-UseBiasedLocking 
+-J-server 
+-J-XX:+UseNUMA 
+-J-XX:+UseCondCardMark 
+-J-XX:-UseBiasedLocking 
 
 # GC
--XX:+UseParallelGC
+-J-XX:+UseParallelGC
 
 # Add additional jvm parameters
--Dfile.encoding=UTF8
+-J-Dfile.encoding=UTF8
 
 # Referencing a custom config file
 #-Dconfig.file=${app_home}/../conf/application.conf
