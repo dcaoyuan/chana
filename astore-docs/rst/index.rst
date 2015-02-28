@@ -10,5 +10,5 @@ Scala 语言概览
    :maxdepth: 2
    :numbered: 
 
-   benchmark/picluster 
+   benchmark/AkkaShardingClusterBenchmark
 
