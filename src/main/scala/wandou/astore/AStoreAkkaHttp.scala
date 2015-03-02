@@ -22,8 +22,8 @@ object AStoreAkkaHttp extends scala.App {
   }
 
   val webConfig = system.settings.config.getConfig("wandou.astore.web")
-  val binding = Http().bind(interface = webConfig.getString("interface"), port = webConfig.getInt("port"))
-  binding.connections.runForeach { conn =>
+  val source = Http().bind(interface = webConfig.getString("interface"), port = webConfig.getInt("port"))
+  source.runForeach { conn =>
     conn.handleWith(route)
   }
 }
