@@ -7,7 +7,7 @@ import akka.serialization.{ SerializationExtension, Serializer }
 import akka.util.{ ByteIterator, ByteString, ByteStringBuilder }
 import wandou.astore.UpdatedFields
 
-class EventSerializer(val system: ExtendedActorSystem) extends Serializer {
+class RecordEventSerializer(val system: ExtendedActorSystem) extends Serializer {
   implicit val byteOrder = ByteOrder.BIG_ENDIAN
 
   override def identifier: Int = 302668162
