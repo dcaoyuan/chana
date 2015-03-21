@@ -1,16 +1,16 @@
 package wandou.astore.script
 
+import javax.script.SimpleBindings
+
 import akka.actor.Actor
-import akka.actor.Actor.Receive
 import akka.event.LoggingAdapter
 import akka.io.IO
 import akka.pattern.ask
-import javax.script.SimpleBindings
-import scala.collection
-import scala.concurrent.duration._
 import spray.can.Http
 import spray.httpx.RequestBuilding._
 import wandou.astore.Entity
+
+import scala.concurrent.duration._
 
 trait Scriptable extends Actor {
 
