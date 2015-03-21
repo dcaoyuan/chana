@@ -122,8 +122,8 @@ trait Entity extends Actor with Stash with PersistentActor {
   }
 
   override def receiveCommand: Receive = accessBehavior orElse {
-    case f: PersistenceFailure  => log.error("", f.cause)
-    case f: SaveSnapshotFailure => log.error("", f.cause)
+    case f: PersistenceFailure  => log.error("persist failed: {}", f.cause)
+    case f: SaveSnapshotFailure => log.error("saving snapshot failed: {}", f.cause)
   }
 
   def accessBehavior: Receive = {
