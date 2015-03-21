@@ -129,7 +129,7 @@ trait Entity extends Actor with Stash with PersistentActor {
   def accessBehavior: Receive = {
     case GetRecord(_) =>
       resetIdleTimeout()
-      sender() ! Success(Ctx(record, schema, null))
+      sender() ! Success(Ctx(new Record(record, true), schema, null))
 
     case GetRecordAvro(_) =>
       resetIdleTimeout()
@@ -144,7 +144,7 @@ trait Entity extends Actor with Stash with PersistentActor {
       val commander = sender()
       val field = schema.getField(fieldName)
       if (field != null) {
-        commander ! Success(Ctx(record.get(field.pos), field.schema, field))
+        commander ! Success(Ctx(GenericData.get().deepCopy(field.schema(), record.get(field.pos)), field.schema, field))
       } else {
         val ex = new RuntimeException("Field does not exist: " + fieldName)
         log.error(ex, ex.getMessage)
@@ -228,8 +228,10 @@ trait Entity extends Actor with Stash with PersistentActor {
       resetIdleTimeout()
       val commander = sender()
       avpath.select(parser)(record, path) match {
-        case x: Success[_] =>
-          commander ! x
+        case x @ Success(ctxList: List[Ctx]) =>
+          commander ! Success(ctxList.map { ctx =>
+            Ctx(GenericData.get().deepCopy(ctx.schema, ctx.value), ctx.schema, ctx.topLevelField, ctx.target)
+          })
         case x @ Failure(ex) =>
           log.error(ex, ex.getMessage)
           commander ! x
