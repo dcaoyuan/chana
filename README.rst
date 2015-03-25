@@ -397,7 +397,6 @@ Select
 
     BODY:
     $avpath
-    <JSON_STRING>
 
 Update
 ~~~~~~
