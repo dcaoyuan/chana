@@ -582,8 +582,8 @@ Where,
 -  ``id``: the id of this entity 
 -  ``record``: the entity record after updated 
 -  ``fields``: array of tuple (Schema.Field, valueBeforeUpdated) during this updating action 
--  ``fields(i)._1``:`org.apache.avro.Schema.Field <https://avro.apache.org/docs/1.7.7/api/java/org/apache/avro/Schema.Field.html>`__
--  ``fields(i)._2``: value
+-  ``fields[i]._1``: `org.apache.avro.Schema.Field <https://avro.apache.org/docs/1.7.7/api/java/org/apache/avro/Schema.Field.html>`__
+-  ``fields[i]._2``: value
 
 -  The JavaScript code should do what ever operation via function only.
    You can define local variables in function, and transfer these local
