@@ -1,50 +1,27 @@
 package wandou.astore.serializer
 
-import java.nio.ByteOrder
-
 import akka.actor.ExtendedActorSystem
-import akka.serialization.{ SerializationExtension, Serializer }
-import akka.util.{ ByteIterator, ByteString, ByteStringBuilder }
+import akka.serialization.{ Serializer }
+import akka.util.ByteString
+import java.nio.ByteOrder
+import java.util.concurrent.TimeUnit
 import org.apache.avro.Schema
+import scala.concurrent.duration.FiniteDuration
 import wandou.astore.AddSchema
 
-import scala.concurrent.duration.Duration
-
-class AddSchemaEventSerializer(val system: ExtendedActorSystem) extends Serializer {
+final class AddSchemaEventSerializer(system: ExtendedActorSystem) extends Serializer {
   implicit val byteOrder = ByteOrder.BIG_ENDIAN
 
   override def identifier: Int = 238710283
 
-  override def includeManifest: Boolean = true
-
-  private lazy val serialization = SerializationExtension(system)
-
-  final def fromAnyRef(builder: ByteStringBuilder, value: AnyRef): Unit = {
-    val valueSerializer = serialization.findSerializerFor(value)
-    StringSerializer.appendToBuilder(builder, valueSerializer.getClass.getName)
-    val bin = valueSerializer.toBinary(value)
-    builder.putInt(bin.length)
-    builder.putBytes(bin)
-  }
-
-  final def toAnyRef(data: ByteIterator): AnyRef = {
-    val clazz = StringSerializer.fromByteIterator(data)
-    val payloadSize = data.getInt
-    val payload = Array.ofDim[Byte](payloadSize)
-    data.getBytes(payload)
-    val valueSerializer = serialization.serializerOf(clazz)
-    val value = if (valueSerializer.isSuccess) {
-      valueSerializer.get.fromBinary(payload)
-    } else null
-    value
-  }
+  override def includeManifest: Boolean = false
 
   override def toBinary(obj: AnyRef): Array[Byte] = obj match {
-    case schemaEvent: AddSchema =>
+    case AddSchema(entityName, schema, idleTimeout) =>
       val builder = ByteString.newBuilder
-      fromAnyRef(builder, schemaEvent.entityName.asInstanceOf[AnyRef])
-      fromAnyRef(builder, schemaEvent.schema.asInstanceOf[AnyRef])
-      fromAnyRef(builder, schemaEvent.idleTimeout.asInstanceOf[AnyRef])
+      StringSerializer.appendToByteString(builder, entityName)
+      StringSerializer.appendToByteString(builder, schema.toString)
+      builder.putLong(idleTimeout.toMillis)
       builder.result.toArray
 
     case _ => {
@@ -55,6 +32,10 @@ class AddSchemaEventSerializer(val system: ExtendedActorSystem) extends Serializ
 
   override def fromBinary(bytes: Array[Byte], manifest: Option[Class[_]]): AnyRef = {
     val data = ByteString(bytes).iterator
-    AddSchema(toAnyRef(data).asInstanceOf[String], toAnyRef(data).asInstanceOf[Schema], toAnyRef(data).asInstanceOf[Duration])
+    val entityName = StringSerializer.fromByteIterator(data)
+    val schemaJson = StringSerializer.fromByteIterator(data)
+    val schema = new Schema.Parser().parse(schemaJson)
+    val idleTimeout = FiniteDuration(data.getLong, TimeUnit.MILLISECONDS)
+    AddSchema(entityName, schema, idleTimeout)
   }
 }

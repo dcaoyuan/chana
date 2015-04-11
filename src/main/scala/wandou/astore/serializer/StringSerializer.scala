@@ -1,12 +1,12 @@
 package wandou.astore.serializer
 
-import java.nio.ByteOrder
 import akka.util.{ ByteIterator, ByteStringBuilder }
+import java.nio.ByteOrder
 
 object StringSerializer {
   implicit val byteOrder = ByteOrder.BIG_ENDIAN
 
-  def appendToBuilder(builder: ByteStringBuilder, str: String) {
+  def appendToByteString(builder: ByteStringBuilder, str: String) {
     if (str != null) {
       val bytes = str.getBytes
       builder.putInt(bytes.length)

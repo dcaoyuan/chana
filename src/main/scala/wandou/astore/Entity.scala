@@ -367,7 +367,9 @@ trait Entity extends Actor with Stash with PersistentActor {
           commander ! x
       }
 
-    case Entity.SetIdleTimeout(milliseconds) => setIdleTimeout(milliseconds.milliseconds)
+    case Entity.SetIdleTimeout(milliseconds) =>
+      setIdleTimeout(milliseconds.milliseconds)
+
     case Entity.IdleTimeout =>
       log.info("{}: {} idle timeout", entityName, id)
       cancelIdleTimeout()
@@ -432,9 +434,9 @@ trait Entity extends Actor with Stash with PersistentActor {
       fields = fields.tail
       i += 1
     }
-    val event = UpdatedFields(updatedFields map (f => (f._1.pos, f._2)))
+    val event = UpdatedFields(updatedFields map { case (field, value) => (field.pos, value) })
 
-    // TODO options to turn-off, persistAsync etc.
+    // TODO options to turn-off and persistAsync etc.
     persist(event) { e =>
       updateRecord(e)
       if (persistCount >= persistParams) {
@@ -454,7 +456,7 @@ trait Entity extends Actor with Stash with PersistentActor {
   private def updateRecord(event: Event): Unit =
     event match {
       case UpdatedFields(updatedFields) =>
-        updatedFields foreach { f => record.put(f._1, f._2) }
+        updatedFields foreach { case (pos, value) => record.put(pos, value) }
     }
 
   /** for test only */

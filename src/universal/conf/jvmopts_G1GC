@@ -1,0 +1,25 @@
+# HEAP
+-J-Xms1024M 
+-J-Xmx1024M 
+-J-Xss1M 
+
+# FLAGS
+-J-server 
+
+# GC 
+-J-XX:+UseG1GC
+-J-XX:MaxGCPauseMillis=200
+
+# GCLOG
+-J-Xloggc:gc.log 
+-J-XX:+PrintGCDetails 
+-J-XX:+PrintGCDateStamps 
+-J-XX:+UseGCLogFileRotation 
+-J-XX:NumberOfGCLogFiles=3 
+-J-XX:GCLogFileSize=100M
+
+# Add additional jvm parameters
+-J-Dfile.encoding=UTF8
+
+# Referencing a custom config file
+#-Dconfig.file=${app_home}/../conf/application.conf
