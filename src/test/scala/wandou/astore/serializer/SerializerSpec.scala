@@ -15,9 +15,55 @@ import wandou.astore.AddSchema
 import wandou.astore.UpdatedFields
 import wandou.avro.RecordBuilder
 
-class SerializerSpec(_system: ActorSystem) extends TestKit(_system) with ImplicitSender with WordSpecLike with Matchers with BeforeAndAfterAll {
+object SerializerSpec {
+  val config = ConfigFactory.parseString("""
 
-  def this() = this(ActorSystem("MySpec", ConfigFactory.parseString(SerializerData.testConfig)))
+akka.actor {
+  serializers {
+    avro = "wandou.astore.serializer.AvroSerializer"
+    schema = "wandou.astore.serializer.SchemaSerializer"
+    record-event= "wandou.astore.serializer.RecordEventSerializer"
+    addschema-event= "wandou.astore.serializer.AddSchemaEventSerializer"
+    writemessages = "akka.persistence.serialization.WriteMessagesSerializer"
+  }
+  serialization-bindings {
+    "org.apache.avro.generic.GenericContainer" = avro
+    "org.apache.avro.Schema" = schema
+    "wandou.astore.package$UpdatedFields" = record-event
+    "wandou.astore.package$AddSchema" = addschema-event
+    "akka.persistence.journal.AsyncWriteTarget$WriteMessages" = writemessages
+  }
+
+  provider = "akka.cluster.ClusterActorRefProvider"
+}
+
+akka.remote.netty.tcp.hostname = "127.0.0.1"
+akka.remote.netty.tcp.port = 2550
+
+""")
+
+  private val classLoader = this.getClass.getClassLoader
+
+  val schema = new Parser().parse(classLoader.getResourceAsStream("avsc/PersonInfo.avsc"))
+  val recordBuilder = RecordBuilder(schema)
+  val emails = {
+    val xs = new GenericData.Array[Utf8](0, schema.getField("emails").schema)
+    // Utf8 with same string is not equils to String, we use Utf8 for test spec 
+    xs.add(new Utf8("abc@abc.com"))
+    xs.add(new Utf8("def@abc.com"))
+    xs
+  }
+  val record = {
+    val rec = recordBuilder.build()
+    rec.put("emails", emails)
+    rec
+  }
+}
+
+class SerializerSpec(_system: ActorSystem) extends TestKit(_system) with ImplicitSender with WordSpecLike with Matchers with BeforeAndAfterAll {
+  import SerializerSpec._
+
+  def this() = this(ActorSystem("MySpec", SerializerSpec.config))
 
   override def afterAll {
     TestKit.shutdownActorSystem(system)
@@ -33,8 +79,6 @@ class SerializerSpec(_system: ActorSystem) extends TestKit(_system) with Implici
     val resById = serialization.deserialize(bytes, serializer.identifier, Some(obj.getClass)).get
     assertResult(obj)(resById)
   }
-
-  import SerializerData._
 
   "Serializer" must {
     "handle Avro record" in {
@@ -62,49 +106,5 @@ class SerializerSpec(_system: ActorSystem) extends TestKit(_system) with Implici
         (3, emails)))
       test(obj)
     }
-  }
-}
-
-object SerializerData {
-  val testConfig = """
-akka.actor {
-  serializers {
-    avro = "wandou.astore.serializer.AvroSerializer"
-    schema = "wandou.astore.serializer.SchemaSerializer"
-    record-event= "wandou.astore.serializer.RecordEventSerializer"
-    addschema-event= "wandou.astore.serializer.AddSchemaEventSerializer"
-    writemessages = "akka.persistence.serialization.WriteMessagesSerializer"
-  }
-  serialization-bindings {
-    "org.apache.avro.generic.GenericContainer" = avro
-    "org.apache.avro.Schema" = schema
-    "wandou.astore.package$UpdatedFields" = record-event
-    "wandou.astore.package$AddSchema" = addschema-event
-    "akka.persistence.journal.AsyncWriteTarget$WriteMessages" = writemessages
-  }
-
-  provider = "akka.cluster.ClusterActorRefProvider"
-}
-
-akka.remote.netty.tcp.hostname = "127.0.0.1"
-akka.remote.netty.tcp.port = 2550
-
-"""
-
-  private val classLoader = this.getClass.getClassLoader
-
-  val schema = new Parser().parse(classLoader.getResourceAsStream("avsc/PersonInfo.avsc"))
-  val recordBuilder = RecordBuilder(schema)
-  val emails = {
-    val xs = new GenericData.Array[Utf8](0, schema.getField("emails").schema)
-    // Utf8 with same string is not equils to String, we use Utf8 for test spec 
-    xs.add(new Utf8("abc@abc.com"))
-    xs.add(new Utf8("def@abc.com"))
-    xs
-  }
-  val record = {
-    val rec = recordBuilder.build()
-    rec.put("emails", emails)
-    rec
   }
 }

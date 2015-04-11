@@ -6,12 +6,18 @@ import akka.testkit.{ ImplicitSender, TestKit }
 import akka.persistence.PersistentRepr
 import akka.persistence.journal.AsyncWriteTarget.WriteMessages
 import akka.serialization.SerializationExtension
-import com.typesafe.config.ConfigFactory
 import scala.collection.immutable
+
+object SerializerSpec {
+  val schema = wandou.astore.serializer.SerializerSpec.schema
+  val record = wandou.astore.serializer.SerializerSpec.record
+  val repr = PersistentRepr(record)
+  val writeMessages = WriteMessages(List(repr))
+}
 
 class SerializerSpec(_system: ActorSystem) extends TestKit(_system) with ImplicitSender with WordSpecLike with Matchers with BeforeAndAfterAll {
 
-  def this() = this(ActorSystem("MySpec", ConfigFactory.parseString(wandou.astore.serializer.SerializerData.testConfig)))
+  def this() = this(ActorSystem("MySpec", wandou.astore.serializer.SerializerSpec.config))
 
   override def afterAll {
     TestKit.shutdownActorSystem(system)
@@ -31,14 +37,7 @@ class SerializerSpec(_system: ActorSystem) extends TestKit(_system) with Implici
 
   "Serializer" must {
     "handle Avro Record" in {
-      test(SerializerData.writeMessages)
+      test(SerializerSpec.writeMessages)
     }
   }
-}
-
-object SerializerData {
-  val schema = wandou.astore.serializer.SerializerData.schema
-  val record = wandou.astore.serializer.SerializerData.record
-  val repr = PersistentRepr(record)
-  val writeMessages = WriteMessages(List(repr))
 }
