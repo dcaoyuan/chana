@@ -4,8 +4,9 @@ import akka.actor.ExtendedActorSystem
 import akka.persistence.PersistentRepr
 import akka.persistence.journal.AsyncWriteTarget.WriteMessages
 import akka.serialization.{ SerializationExtension, Serializer }
-import akka.util.{ ByteIterator, ByteString, ByteStringBuilder }
+import akka.util.ByteString
 import java.nio.ByteOrder
+import wandou.astore.serializer.AnyRefSerializer
 
 final class WriteMessagesSerializer(system: ExtendedActorSystem) extends Serializer {
   implicit val byteOrder = ByteOrder.BIG_ENDIAN
@@ -16,31 +17,12 @@ final class WriteMessagesSerializer(system: ExtendedActorSystem) extends Seriali
 
   private lazy val serialization = SerializationExtension(system)
 
-  def fromAnyRef(builder: ByteStringBuilder, value: AnyRef): Unit = {
-    val valueSerializer = serialization.findSerializerFor(value)
-    builder.putInt(valueSerializer.identifier)
-    val bin = valueSerializer.toBinary(value)
-    builder.putInt(bin.length)
-    builder.putBytes(bin)
-  }
-
-  def toAnyRef(data: ByteIterator): AnyRef = {
-    val serializerId = data.getInt
-    val payloadSize = data.getInt
-    val payload = Array.ofDim[Byte](payloadSize)
-    data.getBytes(payload)
-    serialization.serializerByIdentity.get(serializerId) match {
-      case Some(valueSerializer) => valueSerializer.fromBinary(payload)
-      case None                  => null
-    }
-  }
-
   override def toBinary(o: AnyRef): Array[Byte] = o match {
     case w: WriteMessages =>
       val builder = ByteString.newBuilder
       val size = w.messages.size
       builder.putInt(size)
-      w.messages.foreach(r => fromAnyRef(builder, r))
+      w.messages.foreach(r => AnyRefSerializer.fromAnyRef(serialization, builder, r))
       builder.result.toArray
 
     case _ =>
@@ -54,7 +36,7 @@ final class WriteMessagesSerializer(system: ExtendedActorSystem) extends Seriali
     val messages = Array.ofDim[PersistentRepr](size)
     var i = 0
     while (i < size) {
-      messages(i) = toAnyRef(data).asInstanceOf[PersistentRepr]
+      messages(i) = AnyRefSerializer.toAnyRef(serialization, data).asInstanceOf[PersistentRepr]
       i += 1
     }
     WriteMessages(messages.to[collection.immutable.Seq])

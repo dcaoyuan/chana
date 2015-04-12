@@ -22,16 +22,19 @@ akka.actor {
   serializers {
     avro = "wandou.astore.serializer.AvroSerializer"
     schema = "wandou.astore.serializer.SchemaSerializer"
+    java-map = "wandou.astore.serializer.JavaMapSerializer"
     record-event= "wandou.astore.serializer.RecordEventSerializer"
     addschema-event= "wandou.astore.serializer.AddSchemaEventSerializer"
     writemessages = "akka.persistence.serialization.WriteMessagesSerializer"
   }
+                                         
   serialization-bindings {
     "org.apache.avro.generic.GenericContainer" = avro
     "org.apache.avro.Schema" = schema
     "wandou.astore.package$UpdatedFields" = record-event
     "wandou.astore.package$AddSchema" = addschema-event
     "akka.persistence.journal.AsyncWriteTarget$WriteMessages" = writemessages
+    "java.util.HashMap" = java-map
   }
 
   provider = "akka.cluster.ClusterActorRefProvider"
@@ -104,6 +107,15 @@ class SerializerSpec(_system: ActorSystem) extends TestKit(_system) with Implici
         (0, "James Bond"),
         (1, 30),
         (3, emails)))
+
+      test(obj)
+    }
+
+    "handle java.util.Map" in {
+      val obj = new java.util.HashMap[String, GenericData.Record]()
+      obj.put("key1", record)
+      obj.put("key2", record)
+
       test(obj)
     }
   }

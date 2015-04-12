@@ -1,31 +1,31 @@
 package wandou.astore.serializer
 
 import akka.actor.ExtendedActorSystem
-import akka.serialization.{ SerializationExtension, Serializer }
+import akka.serialization.SerializationExtension
+import akka.serialization.Serializer
 import akka.util.ByteString
 import java.nio.ByteOrder
-import wandou.astore.UpdatedFields
 
-final class RecordEventSerializer(system: ExtendedActorSystem) extends Serializer {
+final class JavaMapSerializer(system: ExtendedActorSystem) extends Serializer {
   implicit val byteOrder = ByteOrder.BIG_ENDIAN
 
-  override def identifier: Int = 302668162
+  override def identifier: Int = 302668172
 
   override def includeManifest: Boolean = false
 
   private lazy val serialization = SerializationExtension(system)
 
   override def toBinary(obj: AnyRef): Array[Byte] = obj match {
-    case record: UpdatedFields =>
+    case map: java.util.Map[_, _] =>
       val builder = ByteString.newBuilder
 
-      val size = record.updatedFields.size
+      val size = map.size
       builder.putInt(size)
-      var i = 0
-      while (i < size) {
-        builder.putInt(record.updatedFields(i)._1)
-        AnyRefSerializer.fromAnyRef(serialization, builder, record.updatedFields(i)._2.asInstanceOf[AnyRef])
-        i += 1
+      val entries = map.entrySet.iterator
+      while (entries.hasNext) {
+        val entry = entries.next
+        AnyRefSerializer.fromAnyRef(serialization, builder, entry.getKey.asInstanceOf[AnyRef])
+        AnyRefSerializer.fromAnyRef(serialization, builder, entry.getValue.asInstanceOf[AnyRef])
       }
       builder.result.toArray
 
@@ -39,13 +39,13 @@ final class RecordEventSerializer(system: ExtendedActorSystem) extends Serialize
     val data = ByteString(bytes).iterator
 
     val size = data.getInt
-    val result = Array.ofDim[(Int, Any)](size)
+    val result = new java.util.HashMap[AnyRef, AnyRef]()
     var i = 0
     while (i < size) {
-      result(i) = (data.getInt, AnyRefSerializer.toAnyRef(serialization, data))
+      result.put(AnyRefSerializer.toAnyRef(serialization, data), AnyRefSerializer.toAnyRef(serialization, data))
       i += 1
     }
-    UpdatedFields(result.toList)
+    result
   }
 
 }
