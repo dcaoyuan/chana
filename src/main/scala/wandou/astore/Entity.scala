@@ -83,7 +83,8 @@ trait Entity extends Actor with Stash with PersistentActor {
   }
 
   protected var limitedSize = Int.MaxValue // TODO
-  protected var persistParams = 200
+  protected val persistent = context.system.settings.config.getBoolean("wandou.astore.persistence.persistent")
+  protected var persistParams = context.system.settings.config.getInt("wandou.astore.persistence.nrOfEventsBetweenSnapshots")
   protected var persistCount = 0
 
   private var idleTimeoutData: (Duration, Cancellable) = Entity.emptyIdleTimeoutData
@@ -390,14 +391,14 @@ trait Entity extends Actor with Stash with PersistentActor {
         updatedFields ::= (field, toBe.get(field.pos))
       }
     }
-    commit2(id, updatedFields, commander)
+    commitUpdatedFields(id, updatedFields, commander)
   }
 
   private def commitField(id: String, value: Any, field: Schema.Field, commander: ActorRef, doLimitSize: Boolean) {
     val fields = schema.getFields.iterator
     //TODO if (doLimitSize) avro.limitToSize(rec, field, limitedSize)
     var updatedFields = List((field, value))
-    commit2(id, updatedFields, commander)
+    commitUpdatedFields(id, updatedFields, commander)
   }
 
   private def commit(id: String, toBe: Record, ctxs: List[Ctx], commander: ActorRef, doLimitSize: Boolean = true) {
@@ -418,11 +419,11 @@ trait Entity extends Actor with Stash with PersistentActor {
     if (updatedFields.isEmpty) {
       commitRecord(id, toBe, commander, doLimitSize = false)
     } else {
-      commit2(id, updatedFields, commander)
+      commitUpdatedFields(id, updatedFields, commander)
     }
   }
 
-  private def commit2(id: String, updatedFields: List[(Schema.Field, Any)], commander: ActorRef) {
+  private def commitUpdatedFields(id: String, updatedFields: List[(Schema.Field, Any)], commander: ActorRef) {
     val data = GenericData.get
     val size = updatedFields.size
     val fieldsBefore = Array.ofDim[(Schema.Field, Any)](size)
@@ -436,21 +437,27 @@ trait Entity extends Actor with Stash with PersistentActor {
     }
     val event = UpdatedFields(updatedFields map { case (field, value) => (field.pos, value) })
 
-    // TODO options to turn-off and persistAsync etc.
-    persist(event) { e =>
-      updateRecord(e)
-      if (persistCount >= persistParams) {
-        saveSnapshot(record)
-        // if saveSnapshot failed, we don't care about it, since we've got 
-        // events persisted. Anyway, we'll try saveSnapshot at next round
-        persistCount = 0
-      } else {
-        persistCount += 1
-      }
-
-      commander ! Success(id)
-      self ! Entity.OnUpdated(id, fieldsBefore, record)
+    // TODO options to persistAsync etc.
+    if (persistent) {
+      persist(event)(commitUpdatedEvent(fieldsBefore, commander))
+    } else {
+      commitUpdatedEvent(fieldsBefore, commander)(event)
     }
+  }
+
+  private def commitUpdatedEvent(fieldsBefore: Array[(Schema.Field, Any)], commander: ActorRef)(event: Event): Unit = {
+    updateRecord(event)
+    if (persistCount >= persistParams) {
+      saveSnapshot(record)
+      // if saveSnapshot failed, we don't care about it, since we've got 
+      // events persisted. Anyway, we'll try saveSnapshot at next round
+      persistCount = 0
+    } else {
+      persistCount += 1
+    }
+
+    commander ! Success(id)
+    self ! Entity.OnUpdated(id, fieldsBefore, record)
   }
 
   private def updateRecord(event: Event): Unit =

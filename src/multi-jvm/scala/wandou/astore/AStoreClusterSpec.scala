@@ -75,6 +75,7 @@ object AStoreClusterSpecConfig extends MultiNodeConfig {
       akka.persistence.journal.leveldb-shared.store.native = off
       akka.persistence.journal.leveldb-shared.store.dir = "target/test-shared-journal"
       akka.persistence.snapshot-store.local.dir = "target/test-snapshots"
+      wandou.astore.persistence.persistent = on
     """))
 
   nodeConfig(entity1) {
