@@ -1,18 +1,21 @@
 package wandou.astore.script
 
-import javax.script.SimpleBindings
-
 import akka.actor.Actor
+import akka.actor.Stash
 import akka.event.LoggingAdapter
 import akka.io.IO
 import akka.pattern.ask
+import javax.script.SimpleBindings
+import scala.concurrent.duration._
 import spray.can.Http
 import spray.httpx.RequestBuilding._
 import wandou.astore.Entity
 
-import scala.concurrent.duration._
-
-trait Scriptable extends Actor {
+object Scriptable {
+  private case object ScriptFinished
+  private case object ScriptTimeout
+}
+trait Scriptable extends Actor with Stash {
 
   def log: LoggingAdapter
   def entityName: String
@@ -23,32 +26,52 @@ trait Scriptable extends Actor {
     case x @ Entity.OnUpdated(id, fieldsBefore, recordAfter) =>
       for {
         (field, _) <- fieldsBefore
-        (id, script) <- DistributedScriptBoard.scriptsOf(entityName, field.name)
+        (_, script) <- DistributedScriptBoard.scriptsOf(entityName, field.name)
       } {
+        // going to wait for scripting finished
+        context.become {
+          case Scriptable.ScriptFinished | Scriptable.ScriptTimeout =>
+            unstashAll()
+            context.unbecome()
+          case _ =>
+            stash()
+        }
+        context.system.scheduler.scheduleOnce(5.seconds, self, Scriptable.ScriptTimeout)
+
         try {
           script.eval(prepareBindings(x))
         } catch {
-          case ex: Throwable => log.error(ex, ex.getMessage)
+          case ex: Throwable =>
+            self ! Scriptable.ScriptFinished
+            log.error(ex, ex.getMessage)
         }
       }
   }
 
+  /**
+   * Note: jdk.nashorn.internal.runtime.ConsString is CharSequence instead of String
+   */
   val http_get = {
-    (url: String) =>
-      IO(Http)(context.system).ask(Get(url))(1.seconds).onComplete {
+    (url: CharSequence) =>
+      IO(Http)(context.system).ask(Get(url.toString))(5.seconds).onComplete {
         case x => log.debug("Response of http_get: {}", x)
       }
   }
 
   val http_post = {
-    (url: String, body: String) =>
-      IO(Http)(context.system).ask(Post(url, body))(1.seconds).onComplete {
+    (url: CharSequence, body: CharSequence) =>
+      IO(Http)(context.system).ask(Post(url.toString, body.toString))(5.seconds).onComplete {
         case x => log.debug("Response of http_post: {}", x)
       }
   }
 
+  val notify_finished = {
+    () => self ! Scriptable.ScriptFinished
+  }
+
   def prepareBindings(onUpdated: Entity.OnUpdated) = {
-    val bindings = new SimpleBindings
+    val bindings = new SimpleBindings()
+    bindings.put("notify_finished", notify_finished)
     bindings.put("http_get", http_get)
     bindings.put("http_post", http_post)
     bindings.put("id", onUpdated.id)
