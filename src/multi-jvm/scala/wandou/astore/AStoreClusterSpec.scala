@@ -250,6 +250,8 @@ class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMu
     val baseUrl2 = "http://localhost:8082"
 
     "do rest calling" in within(30.seconds) {
+      enterBarrier("start-cluster")
+
       runOn(client1) {
         import spray.httpx.RequestBuilding._
 
@@ -297,6 +299,8 @@ class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMu
     }
 
     "do script on updated" in within(30.seconds) {
+      enterBarrier("rest-called")
+
       runOn(client1) {
         import spray.httpx.RequestBuilding._
 

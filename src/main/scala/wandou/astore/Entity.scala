@@ -73,8 +73,9 @@ trait Entity extends Actor with Stash with PersistentActor {
   def builder: RecordBuilder
 
   protected val id = self.path.name
-  protected val parser = new avpath.Parser()
   protected val encoderDecoder = new avro.EncoderDecoder()
+  protected def parser = new avpath.Parser()
+
   val persistenceId: String = entityName + "_" + id
 
   protected var record: Record = _
