@@ -6,6 +6,7 @@ import akka.util.ByteString
 import java.nio.ByteOrder
 import java.util.concurrent.TimeUnit
 import org.apache.avro.Schema
+import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
 import wandou.astore.AddSchema
 
@@ -21,7 +22,11 @@ final class AddSchemaEventSerializer(system: ExtendedActorSystem) extends Serial
       val builder = ByteString.newBuilder
       StringSerializer.appendToByteString(builder, entityName)
       StringSerializer.appendToByteString(builder, schema.toString)
-      builder.putLong(idleTimeout.toMillis)
+      if (idleTimeout.isFinite) {
+        builder.putLong(idleTimeout.toMillis)
+      } else {
+        builder.putLong(-1)
+      }
       builder.result.toArray
 
     case _ => {
@@ -35,7 +40,12 @@ final class AddSchemaEventSerializer(system: ExtendedActorSystem) extends Serial
     val entityName = StringSerializer.fromByteIterator(data)
     val schemaJson = StringSerializer.fromByteIterator(data)
     val schema = new Schema.Parser().parse(schemaJson)
-    val idleTimeout = FiniteDuration(data.getLong, TimeUnit.MILLISECONDS)
+    val duration = data.getLong
+    val idleTimeout = if (duration >= 0) {
+      FiniteDuration(duration, TimeUnit.MILLISECONDS)
+    } else {
+      Duration.Undefined
+    }
     AddSchema(entityName, schema, idleTimeout)
   }
 }
