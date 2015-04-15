@@ -448,7 +448,9 @@ trait Entity extends Actor with Stash with PersistentActor {
   private def commitUpdatedEvent(fieldsBefore: Array[(Schema.Field, Any)], commander: ActorRef)(event: Event): Unit = {
     updateRecord(event)
     if (persistCount >= persistParams) {
-      saveSnapshot(record)
+      if (persistent) {
+        saveSnapshot(record)
+      }
       // if saveSnapshot failed, we don't care about it, since we've got 
       // events persisted. Anyway, we'll try saveSnapshot at next round
       persistCount = 0
