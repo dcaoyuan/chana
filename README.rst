@@ -111,9 +111,17 @@ PersionInfo.name was updated: on\_name.js:
     function onNameUpdated() {
         var age = record.get("age");
         what_is(age);
+
         what_is(http_get);
-        http_get.apply("http://localhost:8080/ping");
-        http_post.apply("http://localhost:8080/personinfo/put/2/age", "888");
+        var http_get_result = http_get.apply("http://localhost:8080/ping");
+        java.lang.Thread.sleep(1000);
+        what_is(http_get_result.value());
+
+        what_is(http_post);
+        var http_post_result = http_post.apply("http://localhost:8080/personinfo/put/2/age", "888");
+        java.lang.Thread.sleep(1000);
+        what_is(http_post_result.value());
+
         for (i = 0; i < fields.length; i++) {
             var field = fields[i];
             what_is(field._1);
@@ -126,6 +134,7 @@ PersionInfo.name was updated: on\_name.js:
     }
 
     onNameUpdated();
+    notify_finished.apply();
 
 Try it:
 
@@ -567,6 +576,7 @@ The bindings that could be accessed in script:
 
       def prepareBindings(onUpdated: OnUpdated) = {
         val bindings = new SimpleBindings
+        bindings.put("notify_finished", notify_finished)
         bindings.put("http_get", http_get)
         bindings.put("http_post", http_post)
         bindings.put("id", onUpdated.id)
@@ -577,12 +587,13 @@ The bindings that could be accessed in script:
 
 Where, 
 
--  ``http_get``: a function could be invoked via ``http_get.apply(url: String)`` 
--  ``http_post``: a function could be invoked via ``http_post.apply(url: String, body: String)`` 
+-  ``notify_finished``: a function could be invoked via ``notify_finished.apply()`` 
+-  ``http_get``: a function could be invoked via ``http_get.apply(url: CharSequence)``, returns `scala.concurrent.Future[Any] <http://www.scala-lang.org/api/2.11.4/index.html#scala.concurrent.Future>`_
+-  ``http_post``: a function could be invoked via ``http_post.apply(url: CharSequence, body: CharSequence)`` returns `scala.concurrent.Future[Any] <http://www.scala-lang.org/api/2.11.4/index.html#scala.concurrent.Future>`_
 -  ``id``: the id of this entity 
 -  ``record``: the entity record after updated 
 -  ``fields``: array of tuple (Schema.Field, valueBeforeUpdated) during this updating action 
--  ``fields[i]._1``: `org.apache.avro.Schema.Field <https://avro.apache.org/docs/1.7.7/api/java/org/apache/avro/Schema.Field.html>`__
+-  ``fields[i]._1``: `org.apache.avro.Schema.Field <https://avro.apache.org/docs/1.7.7/api/java/org/apache/avro/Schema.Field.html>`_
 -  ``fields[i]._2``: value
 
 -  The JavaScript code should do what ever operation via function only.

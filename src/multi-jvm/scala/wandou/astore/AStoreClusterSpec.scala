@@ -302,20 +302,28 @@ class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMu
         val script = 
   """
     function calc() {
-      var a = record.get("age");
-      notify(a);
-      notify(http_get);
-      http_get.apply("http://localhost:8081/ping");
-      http_post.apply("http://localhost:8081/personinfo/put/2/age", "888");
-      for (i = 0; i < fields.length; i++) {
-        var field = fields[i];
-        notify(field._1);
-        notify(field._2);
-      }
+        var a = record.get("age");
+        print_me(a);
+        print_me(http_get);
+        var http_get_result = http_get.apply("http://localhost:8081/ping");
+        print_me(http_get_result);
+        java.lang.Thread.sleep(1000);
+        print_me(http_get_result.value());
+
+        var http_post_result = http_post.apply("http://localhost:8081/personinfo/put/2/age", "888");
+        print_me(http_post_result);
+        java.lang.Thread.sleep(1000);
+        print_me(http_post_result.value());
+
+        for (i = 0; i < fields.length; i++) {
+            var field = fields[i];
+            print_me(field._1);
+            print_me(field._2);
+        }
     }
 
-    function notify(value) {
-      print(id + ":" + value);
+    function print_me(value) {
+        print(id + ":" + value);
     }
 
     calc();

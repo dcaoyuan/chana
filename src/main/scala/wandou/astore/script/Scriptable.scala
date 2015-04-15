@@ -53,20 +53,17 @@ trait Scriptable extends Actor with Stash {
    */
   val http_get = {
     (url: CharSequence) =>
-      IO(Http)(context.system).ask(Get(url.toString))(5.seconds).onComplete {
-        case x => log.debug("Response of http_get: {}", x)
-      }
+      IO(Http)(context.system).ask(Get(url.toString))(5.seconds)
   }
 
   val http_post = {
     (url: CharSequence, body: CharSequence) =>
-      IO(Http)(context.system).ask(Post(url.toString, body.toString))(5.seconds).onComplete {
-        case x => log.debug("Response of http_post: {}", x)
-      }
+      IO(Http)(context.system).ask(Post(url.toString, body.toString))(5.seconds)
   }
 
   val notify_finished = {
-    () => self ! Scriptable.ScriptFinished
+    () =>
+      self ! Scriptable.ScriptFinished
   }
 
   def prepareBindings(onUpdated: Entity.OnUpdated) = {
