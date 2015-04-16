@@ -332,7 +332,7 @@ class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMu
     }
 
     calc();
-    notify_finished.apply();
+    print("Current thread id: " + java.lang.Thread.currentThread().getId())
   """
 
         IO(Http) ! Post(baseUrl1 + "/personinfo/putscript/name/SCRIPT_NO_1", script)

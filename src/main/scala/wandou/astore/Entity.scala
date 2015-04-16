@@ -44,7 +44,6 @@ object Entity {
   final case class SetIdleTimeout(milliseconds: Long)
 
   final case class Bootstrap(record: Record)
-  final case class OnUpdated(id: String, fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record) extends Command
 }
 
 class AEntity(val entityName: String, val schema: Schema, val builder: RecordBuilder, idleTimeout: Duration)
@@ -60,7 +59,7 @@ class AEntity(val entityName: String, val schema: Schema, val builder: RecordBui
     case _ =>
   }
 
-  override def receiveCommand: Receive = super.receiveCommand orElse scriptableBehavior
+  override def receiveCommand: Receive = super.receiveCommand
 }
 
 trait Entity extends Actor with Stash with PersistentActor {
@@ -71,6 +70,7 @@ trait Entity extends Actor with Stash with PersistentActor {
   def entityName: String
   def schema: Schema
   def builder: RecordBuilder
+  def onUpdated(id: String, fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record)
 
   protected val id = self.path.name
   protected val encoderDecoder = new avro.EncoderDecoder()
@@ -118,7 +118,7 @@ trait Entity extends Actor with Stash with PersistentActor {
   override def receiveRecover: Receive = {
     case SnapshotOffer(metadata, offeredSnapshot: Record) => record = offeredSnapshot
     case x: SnapshotOffer                                 => log.warning("Recovery received unknown: {}", x)
-    case event: Event                                     => updateRecord(event)
+    case event: Event                                     => doUpdateRecord(event)
     case RecoveryFailure(cause)                           => log.error("Recovery failure: {}", cause)
     case RecoveryCompleted                                => log.debug("Recovery completed: {}", id)
   }
@@ -447,7 +447,7 @@ trait Entity extends Actor with Stash with PersistentActor {
   }
 
   private def commitUpdatedEvent(fieldsBefore: Array[(Schema.Field, Any)], commander: ActorRef)(event: Event): Unit = {
-    updateRecord(event)
+    doUpdateRecord(event)
     if (persistCount >= persistParams) {
       if (persistent) {
         saveSnapshot(record)
@@ -460,10 +460,10 @@ trait Entity extends Actor with Stash with PersistentActor {
     }
 
     commander ! Success(id)
-    self ! Entity.OnUpdated(id, fieldsBefore, record)
+    onUpdated(id, fieldsBefore, record)
   }
 
-  private def updateRecord(event: Event): Unit =
+  private def doUpdateRecord(event: Event): Unit =
     event match {
       case UpdatedFields(updatedFields) =>
         updatedFields foreach { case (pos, value) => record.put(pos, value) }

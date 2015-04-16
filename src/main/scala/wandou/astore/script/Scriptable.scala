@@ -1,51 +1,42 @@
 package wandou.astore.script
 
 import akka.actor.Actor
-import akka.actor.Stash
 import akka.event.LoggingAdapter
 import akka.io.IO
 import akka.pattern.ask
 import javax.script.SimpleBindings
+import org.apache.avro.Schema
+import org.apache.avro.generic.GenericData.Record
 import scala.concurrent.duration._
 import spray.can.Http
 import spray.httpx.RequestBuilding._
-import wandou.astore.Entity
 
-object Scriptable {
-  private case object ScriptFinished
-  private case object ScriptTimeout
-}
-trait Scriptable extends Actor with Stash {
+trait Scriptable extends Actor {
 
   def log: LoggingAdapter
   def entityName: String
 
   import context.dispatcher
 
-  def scriptableBehavior: Receive = {
-    case x @ Entity.OnUpdated(id, fieldsBefore, recordAfter) =>
-      for {
-        (field, _) <- fieldsBefore
-        (_, script) <- DistributedScriptBoard.scriptsOf(entityName, field.name)
-      } {
-        // going to wait for scripting finished
-        context.become {
-          case Scriptable.ScriptFinished | Scriptable.ScriptTimeout =>
-            unstashAll()
-            context.unbecome()
-          case _ =>
-            stash()
-        }
-        context.system.scheduler.scheduleOnce(5.seconds, self, Scriptable.ScriptTimeout)
+  def onUpdated(id: String, fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record) {
+    val scripts = for {
+      (field, _) <- fieldsBefore
+      (_, script) <- DistributedScriptBoard.scriptsOf(entityName, field.name)
+    } yield script
 
+    val n = scripts.length
+    if (n > 0) {
+      var i = 0
+      while (i < n) {
         try {
-          script.eval(prepareBindings(x))
+          log.debug("Current thread id [{}]", Thread.currentThread.getId)
+          scripts(i).eval(prepareBindings(id, fieldsBefore, recordAfter))
         } catch {
-          case ex: Throwable =>
-            self ! Scriptable.ScriptFinished
-            log.error(ex, ex.getMessage)
+          case ex: Throwable => log.error(ex, ex.getMessage)
         }
+        i += 1
       }
+    }
   }
 
   /**
@@ -61,19 +52,13 @@ trait Scriptable extends Actor with Stash {
       IO(Http)(context.system).ask(Post(url.toString, body.toString))(5.seconds)
   }
 
-  val notify_finished = {
-    () =>
-      self ! Scriptable.ScriptFinished
-  }
-
-  def prepareBindings(onUpdated: Entity.OnUpdated) = {
+  def prepareBindings(id: String, fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record) = {
     val bindings = new SimpleBindings()
-    bindings.put("notify_finished", notify_finished)
     bindings.put("http_get", http_get)
     bindings.put("http_post", http_post)
-    bindings.put("id", onUpdated.id)
-    bindings.put("record", onUpdated.recordAfter)
-    bindings.put("fields", onUpdated.fieldsBefore)
+    bindings.put("id", id)
+    bindings.put("record", recordAfter)
+    bindings.put("fields", fieldsBefore)
     bindings
   }
 }
