@@ -134,7 +134,6 @@ PersionInfo.name was updated: on\_name.js:
     }
 
     onNameUpdated();
-    notify_finished.apply();
 
 Try it:
 
@@ -587,7 +586,6 @@ The bindings that could be accessed in script:
 
 Where, 
 
--  ``notify_finished``: a function could be invoked via ``notify_finished.apply()`` 
 -  ``http_get``: a function could be invoked via ``http_get.apply(url: CharSequence)``, returns `scala.concurrent.Future[Any] <http://www.scala-lang.org/api/2.11.4/index.html#scala.concurrent.Future>`_
 -  ``http_post``: a function could be invoked via ``http_post.apply(url: CharSequence, body: CharSequence)`` returns `scala.concurrent.Future[Any] <http://www.scala-lang.org/api/2.11.4/index.html#scala.concurrent.Future>`_
 -  ``id``: the id of this entity 
