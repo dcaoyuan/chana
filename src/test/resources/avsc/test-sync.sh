@@ -35,5 +35,5 @@ sleep 5s
 
 echo
 echo ":: check ::"
-curl "http://localhost:8080/a/get/$1"
+curl "http://localhost:8080/a/get/$ITEM"
 echo
