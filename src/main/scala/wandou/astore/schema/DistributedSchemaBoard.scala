@@ -85,6 +85,8 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
 
   replicator ! Subscribe(DistributedSchemaBoard.DataKey, self)
 
+  val persistent = context.system.settings.config.getBoolean("wandou.astore.persistence.persistent")
+
   override def receiveRecover: Receive = {
     case SnapshotOffer(metadata, offeredSnapshot: Map[String, (String, Duration)] @unchecked) =>
       offeredSnapshot foreach {
@@ -173,10 +175,13 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
         log.info("put schema [{}]:\n{} ", key, schema)
         DistributedSchemaBoard.putSchema(context.system, entityName, schema, idleTimeout)
         // for schema, just save snapshot
-        doSnapshot()
+        if (persistent) {
+          doSnapshot()
+        }
 
         // TODO wait for sharding ready
         commander.foreach(_ ! Success(key))
+
       case Success(_: UpdateTimeout) => commander.foreach(_ ! Failure(astore.UpdateTimeoutException))
       case Success(x: InvalidUsage)  => commander.foreach(_ ! Failure(x))
       case Success(x: ModifyFailure) => commander.foreach(_ ! Failure(x))
@@ -191,10 +196,13 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
         log.info("remove schemas: {}", key)
         DistributedSchemaBoard.removeSchema(entityName)
         // for schema, just save snapshot
-        doSnapshot()
+        if (persistent) {
+          doSnapshot()
+        }
 
         // TODO wait for sharding stopped?
         commander.foreach(_ ! Success(key))
+
       case Success(_: UpdateTimeout) => commander.foreach(_ ! Failure(astore.UpdateTimeoutException))
       case Success(x: InvalidUsage)  => commander.foreach(_ ! Failure(x))
       case Success(x: ModifyFailure) => commander.foreach(_ ! Failure(x))
