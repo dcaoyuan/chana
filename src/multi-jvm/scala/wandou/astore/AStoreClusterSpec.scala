@@ -58,14 +58,14 @@ object AStoreClusterSpecConfig extends MultiNodeConfig {
           avro = "wandou.astore.serializer.AvroSerializer"
           schema = "wandou.astore.serializer.SchemaSerializer"
           record-event= "wandou.astore.serializer.RecordEventSerializer"
-          addschema-event= "wandou.astore.serializer.AddSchemaEventSerializer"
+          schema-event= "wandou.astore.serializer.SchemaEventSerializer"
           writemessages = "akka.persistence.serialization.WriteMessagesSerializer"
         }
         serialization-bindings {
           "org.apache.avro.generic.GenericContainer" = avro
           "org.apache.avro.Schema" = schema
           "wandou.astore.package$UpdatedFields" = record-event
-          "wandou.astore.package$AddSchema" = addschema-event
+          "wandou.astore.package$PutSchema" = schema-event
           "akka.persistence.journal.AsyncWriteTarget$WriteMessages" = writemessages
         }
       }

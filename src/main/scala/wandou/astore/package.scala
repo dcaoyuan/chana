@@ -1,6 +1,5 @@
 package wandou
 
-import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData.Record
 import scala.concurrent.duration.Duration
 
@@ -39,8 +38,8 @@ package object astore {
    * @param   entity name
    * @param   schema of entity
    */
-  final case class PutSchema(entityName: String, schema: String, entityFullName: Option[String], idleTimeout: Duration)
-  final case class RemoveSchema(entityName: String)
+  final case class PutSchema(entityName: String, schema: String, entityFullName: Option[String], idleTimeout: Duration) extends Event
+  final case class RemoveSchema(entityName: String) extends Event
 
   /**
    * @param   entity name
@@ -51,8 +50,6 @@ package object astore {
   final case class RemoveScript(entity: String, field: String, id: String)
 
   final case class UpdatedFields(updatedFields: List[(Int, Any)]) extends Event
-  final case class AddSchema(entityName: String, schema: Schema, idleTimeout: Duration) extends Event
-  final case class DelSchema(entityName: String) extends Event
 
   object UpdateTimeoutException extends RuntimeException("Update timeout")
 }

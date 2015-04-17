@@ -11,7 +11,7 @@ import org.apache.avro.util.Utf8
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpecLike }
 import scala.collection.immutable
 import scala.concurrent.duration.FiniteDuration
-import wandou.astore.AddSchema
+import wandou.astore.PutSchema
 import wandou.astore.UpdatedFields
 import wandou.avro.RecordBuilder
 
@@ -24,7 +24,7 @@ akka.actor {
     schema = "wandou.astore.serializer.SchemaSerializer"
     java-map = "wandou.astore.serializer.JavaMapSerializer"
     record-event= "wandou.astore.serializer.RecordEventSerializer"
-    addschema-event= "wandou.astore.serializer.AddSchemaEventSerializer"
+    schema-event= "wandou.astore.serializer.SchemaEventSerializer"
     writemessages = "akka.persistence.serialization.WriteMessagesSerializer"
   }
                                          
@@ -32,7 +32,7 @@ akka.actor {
     "org.apache.avro.generic.GenericContainer" = avro
     "org.apache.avro.Schema" = schema
     "wandou.astore.package$UpdatedFields" = record-event
-    "wandou.astore.package$AddSchema" = addschema-event
+    "wandou.astore.package$PutSchema" = schema-event
     "akka.persistence.journal.AsyncWriteTarget$WriteMessages" = writemessages
     "java.util.HashMap" = java-map
   }
@@ -96,10 +96,10 @@ class SerializerSpec(_system: ActorSystem) extends TestKit(_system) with Implici
       test(schema)
     }
 
-    "handle AddSchema" in {
+    "handle PutSchema" in {
       val duration = FiniteDuration(100L, TimeUnit.SECONDS)
-      val addSchema = AddSchema("entityName", schema, duration)
-      test(addSchema)
+      val putSchema = PutSchema("entityName", schema.toString, None, duration)
+      test(putSchema)
     }
 
     "handle UpdatedFields" in {
