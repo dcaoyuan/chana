@@ -88,8 +88,8 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
   replicator ! Subscribe(DistributedSchemaBoard.DataKey, self)
 
   override def receiveRecover: Receive = {
-    case SnapshotOffer(metadata, offeredSnapshot) =>
-      DistributedSchemaBoard.entityToSchema ++= offeredSnapshot.asInstanceOf[Map[String, (String, Duration)]].map {
+    case SnapshotOffer(metadata, offeredSnapshot: Map[String, (String, Duration)] @unchecked) =>
+      DistributedSchemaBoard.entityToSchema ++= offeredSnapshot.map {
         case (entityName, (schemaStr, timeout)) =>
           val schema = parseSchema(schemaStr) match {
             case Success(parsedSchema) => parsedSchema
@@ -113,77 +113,40 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
       val commander = sender()
       parseSchema(schemaStr) match {
         case Success(parsedSchema) =>
-          val aschema = entityFullName match {
+          val trySchema = entityFullName match {
             case Some(fullName) =>
               if (parsedSchema.getType == Schema.Type.UNION) {
                 val x = parsedSchema.getTypes.get(parsedSchema.getIndexNamed(fullName))
                 if (x != null) {
-                  Left(x)
+                  Success(x)
                 } else {
-                  Right("Schema with full name [" + fullName + "] cannot be found")
+                  Failure(new RuntimeException("Schema with full name [" + fullName + "] cannot be found"))
                 }
               } else {
-                Right("Schema with full name [" + fullName + "] should be Union type")
+                Failure(new RuntimeException("Schema with full name [" + fullName + "] should be Union type"))
               }
-            case None => Left(parsedSchema)
+            case None => Success(parsedSchema)
           }
-          aschema match {
-            case Left(schema) =>
-              val key = entityName
-
-              replicator.ask(Update(DistributedSchemaBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ + (key -> (schema.toString, idleTimeout))))(60.seconds).onComplete {
-                case Success(_: UpdateSuccess) =>
-                  log.info("put schema [{}]:\n{} ", key, schemaStr)
-                  val event = astore.AddSchema(entityName, schema, idleTimeout)
-                  persist(event) { e =>
-                    DistributedSchemaBoard.putSchema(context.system, e.entityName, e.schema, e.idleTimeout)
-                    // TODO: snapshot here may cause inconsistency
-                    doSnapshot()
-                  }
-
-                  // TODO wait for sharding ready
-                  commander ! Success(key)
-                case Success(_: UpdateTimeout) => commander ! Failure(astore.UpdateTimeoutException)
-                case Success(x: InvalidUsage)  => commander ! Failure(x)
-                case Success(x: ModifyFailure) => commander ! Failure(x)
-                case failure                   => commander ! failure
-              }
-            case Right(reason) => commander ! Failure(new RuntimeException(reason))
+          trySchema match {
+            case Success(schema) => putSchema(entityName, schema, idleTimeout, commander)
+            case failure         => commander ! failure
           }
         case failure => commander ! failure
       }
 
     case astore.RemoveSchema(entityName) =>
       val commander = sender()
-      val key = entityName
-
-      replicator.ask(Update(DistributedSchemaBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ - key))(60.seconds).onComplete {
-        case Success(_: UpdateSuccess) =>
-          log.info("remove schemas: {}", key)
-          val event = astore.DelSchema(entityName)
-          persist(event) { e =>
-            DistributedSchemaBoard.removeSchema(e.entityName)
-            // TODO: snapshot here may cause inconsistency
-            doSnapshot()
-          }
-
-          // TODO wait for stop sharding?
-          commander ! Success(key)
-        case Success(_: UpdateTimeout) => commander ! Failure(astore.UpdateTimeoutException)
-        case Success(x: InvalidUsage)  => commander ! Failure(x)
-        case Success(x: ModifyFailure) => commander ! Failure(x)
-        case failure                   => commander ! failure
-      }
+      removeSchema(entityName, commander)
 
     case Changed(DistributedSchemaBoard.DataKey, LWWMap(entries: Map[String, (String, Duration)] @unchecked)) =>
       // check if there were newly added
       entries.foreach {
-        case (entityName, (schemaStrx, idleTimeout)) =>
+        case (entityName, (schemaStr, idleTimeout)) =>
           DistributedSchemaBoard.entityToSchema.get(entityName) match {
             case None =>
-              parseSchema(schemaStrx) match {
+              parseSchema(schemaStr) match {
                 case Success(schema) =>
-                  log.info("put schema [{}]:\n{} ", entityName, schemaStrx)
+                  log.info("put schema [{}]:\n{} ", entityName, schemaStr)
                   DistributedSchemaBoard.putSchema(context.system, entityName, schema, idleTimeout)
                 case Failure(ex) =>
                   log.error(ex, ex.getMessage)
@@ -210,6 +173,48 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
     } catch {
       case ex: Throwable => Failure(ex)
     }
+
+  private def putSchema(entityName: String, schema: Schema, idleTimeout: Duration, commander: ActorRef): Unit = {
+    val key = entityName
+    replicator.ask(Update(DistributedSchemaBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ + (key -> (schema.toString, idleTimeout))))(60.seconds).onComplete {
+      case Success(_: UpdateSuccess) =>
+        log.info("put schema [{}]:\n{} ", key, schema)
+        val event = astore.AddSchema(entityName, schema, idleTimeout)
+        persist(event) { e =>
+          DistributedSchemaBoard.putSchema(context.system, e.entityName, e.schema, e.idleTimeout)
+          // TODO: snapshot here may cause inconsistency
+          doSnapshot()
+        }
+
+        // TODO wait for sharding ready
+        commander ! Success(key)
+      case Success(_: UpdateTimeout) => commander ! Failure(astore.UpdateTimeoutException)
+      case Success(x: InvalidUsage)  => commander ! Failure(x)
+      case Success(x: ModifyFailure) => commander ! Failure(x)
+      case failure                   => commander ! failure
+    }
+  }
+
+  private def removeSchema(entityName: String, commander: ActorRef): Unit = {
+    val key = entityName
+    replicator.ask(Update(DistributedSchemaBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ - key))(60.seconds).onComplete {
+      case Success(_: UpdateSuccess) =>
+        log.info("remove schemas: {}", key)
+        val event = astore.DelSchema(entityName)
+        persist(event) { e =>
+          DistributedSchemaBoard.removeSchema(e.entityName)
+          // TODO: snapshot here may cause inconsistency
+          doSnapshot()
+        }
+
+        // TODO wait for stop sharding?
+        commander ! Success(key)
+      case Success(_: UpdateTimeout) => commander ! Failure(astore.UpdateTimeoutException)
+      case Success(x: InvalidUsage)  => commander ! Failure(x)
+      case Success(x: ModifyFailure) => commander ! Failure(x)
+      case failure                   => commander ! failure
+    }
+  }
 
   private def updateSchema(ev: Event): Unit = {
     ev match {
