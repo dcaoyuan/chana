@@ -76,28 +76,30 @@ object DistributedSchemaBoard extends ExtensionId[DistributedSchemaBoardExtensio
 class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActor {
   import akka.contrib.datareplication.Replicator._
 
-  override def persistenceId: String = self.path.name
-
-  val replicator = DataReplication(context.system).replicator
+  override def persistenceId: String = "distributed_schema_board"
 
   implicit val cluster = Cluster(context.system)
   import context.dispatcher
 
+  val replicator = DataReplication(context.system).replicator
   replicator ! Subscribe(DistributedSchemaBoard.DataKey, self)
 
   val persistent = context.system.settings.config.getBoolean("wandou.astore.persistence.persistent")
 
   override def receiveRecover: Receive = {
     case SnapshotOffer(metadata, offeredSnapshot: Map[String, (String, Duration)] @unchecked) =>
+      // TODO leveldb plugin does not provide the lastest timestamped snapshot, why?
+      log.debug("SnapshotOffer: {}", offeredSnapshot)
       offeredSnapshot foreach {
         case (entityName, (schemaStr, idleTimeout)) =>
           parseSchema(schemaStr) match {
-            case Success(schema) =>
-              putSchema(entityName, schema, idleTimeout, None)
-            case failure => log.error("Snapshot offer failed to parse")
+            case Success(schema) => putSchema(entityName, schema, idleTimeout, commander = None, alsoSave = false)
+            case Failure(ex)     => log.error("Snapshot offer failed to parse: {}", ex)
           }
       }
     case event: Event           => updateSchema(event)
+
+    case x: SnapshotOffer       => log.warning("Got unknown SnapshotOffer: {}", x)
     case RecoveryFailure(cause) => log.error("Recovery failure: {}", cause)
     case RecoveryCompleted      => log.debug("Recovery completed: {}", persistenceId)
   }
@@ -109,20 +111,20 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
         case Success(parsedSchema) =>
           val trySchema = entityFullName match {
             case Some(fullName) =>
-              if (parsedSchema.getType == Schema.Type.UNION) {
-                val x = parsedSchema.getTypes.get(parsedSchema.getIndexNamed(fullName))
-                if (x != null) {
-                  Success(x)
-                } else {
-                  Failure(new RuntimeException("Schema with full name [" + fullName + "] cannot be found"))
-                }
-              } else {
-                Failure(new RuntimeException("Schema with full name [" + fullName + "] should be Union type"))
+              parsedSchema.getType match {
+                case Schema.Type.UNION =>
+                  val entrySchema = parsedSchema.getTypes.get(parsedSchema.getIndexNamed(fullName))
+                  if (entrySchema != null) {
+                    Success(entrySchema)
+                  } else {
+                    Failure(new RuntimeException("Schema with full name [" + fullName + "] cannot be found"))
+                  }
+                case _ => Failure(new RuntimeException("Schema with full name [" + fullName + "] should be Union type"))
               }
             case None => Success(parsedSchema)
           }
           trySchema match {
-            case Success(schema) => putSchema(entityName, schema, idleTimeout, Some(commander))
+            case Success(schema) => putSchema(entityName, schema, idleTimeout, Some(commander), alsoSave = true)
             case failure         => commander ! failure
           }
         case failure => commander ! failure
@@ -130,7 +132,7 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
 
     case astore.RemoveSchema(entityName) =>
       val commander = sender()
-      removeSchema(entityName, Some(commander))
+      removeSchema(entityName, Some(commander), alsoSave = true)
 
     case Changed(DistributedSchemaBoard.DataKey, LWWMap(entries: Map[String, (String, Duration)] @unchecked)) =>
       // check if there were newly added
@@ -140,7 +142,7 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
             case None =>
               parseSchema(schemaStr) match {
                 case Success(schema) =>
-                  log.info("put schema [{}]:\n{} ", entityName, schemaStr)
+                  log.info("put schema (Changed) [{}]:\n{} ", entityName, schemaStr)
                   DistributedSchemaBoard.putSchema(context.system, entityName, schema, idleTimeout)
                 case Failure(ex) =>
                   log.error(ex, ex.getMessage)
@@ -152,12 +154,13 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
       // check if there were removed
       val toRemove = DistributedSchemaBoard.entityToSchema.filter(x => !entries.contains(x._1)).keys
       if (toRemove.nonEmpty) {
-        log.info("remove schemas: {}", toRemove)
+        log.info("remove schemas (Changed) [{}]", toRemove)
         toRemove foreach DistributedSchemaBoard.removeSchema
       }
 
-    case f: PersistenceFailure  => log.error("{}", f)
-    case f: SaveSnapshotFailure => log.error("{}", f)
+    case f: PersistenceFailure                 => log.error("{}", f)
+    case SaveSnapshotSuccess(metadata)         => log.debug("success saved {}", metadata)
+    case SaveSnapshotFailure(metadata, reason) => log.error("Failed to save snapshot {}: {}", metadata, reason)
   }
 
   private def parseSchema(schema: String) =
@@ -168,14 +171,14 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
       case ex: Throwable => Failure(ex)
     }
 
-  private def putSchema(entityName: String, schema: Schema, idleTimeout: Duration, commander: Option[ActorRef]): Unit = {
+  private def putSchema(entityName: String, schema: Schema, idleTimeout: Duration, commander: Option[ActorRef], alsoSave: Boolean): Unit = {
     val key = entityName
     replicator.ask(Update(DistributedSchemaBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ + (key -> (schema.toString, idleTimeout))))(60.seconds).onComplete {
       case Success(_: UpdateSuccess) =>
         log.info("put schema [{}]:\n{} ", key, schema)
         DistributedSchemaBoard.putSchema(context.system, entityName, schema, idleTimeout)
         // for schema, just save snapshot
-        if (persistent) {
+        if (persistent && alsoSave) {
           doSnapshot()
         }
 
@@ -189,14 +192,14 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
     }
   }
 
-  private def removeSchema(entityName: String, commander: Option[ActorRef]): Unit = {
+  private def removeSchema(entityName: String, commander: Option[ActorRef], alsoSave: Boolean): Unit = {
     val key = entityName
     replicator.ask(Update(DistributedSchemaBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ - key))(60.seconds).onComplete {
       case Success(_: UpdateSuccess) =>
         log.info("remove schemas: {}", key)
         DistributedSchemaBoard.removeSchema(entityName)
         // for schema, just save snapshot
-        if (persistent) {
+        if (persistent && alsoSave) {
           doSnapshot()
         }
 
@@ -214,18 +217,19 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
     ev match {
       case PutSchema(entityName, schemaStr, _, idleTimeout) =>
         parseSchema(schemaStr) match {
-          case Success(schema) => putSchema(entityName, schema, idleTimeout, None)
+          case Success(schema) => putSchema(entityName, schema, idleTimeout, commander = None, alsoSave = false)
           case Failure(ex)     => log.error("{}", ex.getCause)
         }
-      case RemoveSchema(entityName) => removeSchema(entityName, None)
+      case RemoveSchema(entityName) => removeSchema(entityName, commander = None, alsoSave = false)
       case _                        => log.error("unknown schema persistence event")
     }
   }
 
   private def doSnapshot(): Unit = {
-    saveSnapshot(DistributedSchemaBoard.entityToSchema.map {
+    val schemas = DistributedSchemaBoard.entityToSchema.map {
       case (entityName, (schema, timeout)) => (entityName, (schema.toString, timeout))
-    }.toMap)
+    }.toMap
+    saveSnapshot(schemas)
   }
 }
 

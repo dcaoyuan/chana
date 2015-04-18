@@ -99,11 +99,10 @@ object DistributedScriptBoard extends ExtensionId[DistributedScriptBoardExtensio
 class DistributedScriptBoard extends Actor with ActorLogging {
   import akka.contrib.datareplication.Replicator._
 
-  val replicator = DataReplication(context.system).replicator
-
   implicit val cluster = Cluster(context.system)
   import context.dispatcher
 
+  val replicator = DataReplication(context.system).replicator
   replicator ! Subscribe(DistributedScriptBoard.DataKey, self)
 
   def receive = {

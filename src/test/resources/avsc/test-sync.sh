@@ -11,7 +11,7 @@ NUM=${2-10}
 # put schema
 curl 'http://localhost:8080/putschema/a'\
 	--data '{"name":"RecordA", "type":"record", "fields":[{ "name": "steps", "type": { "type": "map", "values": "int" } }]}'
-sleep 5s
+#sleep 5s
 curl 'http://localhost:8080/putschema/b'\
 	--data '{"name":"RecordB", "type":"record", "fields":[{ "name": "status", "type": "string" }]}'
 sleep 5s
