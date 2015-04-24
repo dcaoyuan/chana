@@ -8,6 +8,7 @@ import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData
 import org.apache.avro.generic.GenericData.Record
 import wandou.astore.script.Scriptable
+import wandou.astore.serializer.AvroMarshaler
 import wandou.avpath.Evaluator.Ctx
 import wandou.avro.RecordBuilder
 import wandou.{ avpath, avro }
@@ -72,6 +73,8 @@ trait Entity extends Actor with Stash with PersistentActor {
   def builder: RecordBuilder
   def onUpdated(id: String, fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record)
 
+  lazy val avroMarshaler = new AvroMarshaler(schema)
+
   protected val id = self.path.name
   protected val encoderDecoder = new avro.EncoderDecoder()
   protected def parser = new avpath.Parser()
@@ -116,11 +119,11 @@ trait Entity extends Actor with Stash with PersistentActor {
   }
 
   override def receiveRecover: Receive = {
-    case SnapshotOffer(metadata, offeredSnapshot: Record) => record = offeredSnapshot
-    case x: SnapshotOffer                                 => log.warning("Recovery received unknown: {}", x)
-    case event: Event                                     => doUpdateRecord(event)
-    case RecoveryFailure(cause)                           => log.error("Recovery failure: {}", cause)
-    case RecoveryCompleted                                => log.debug("Recovery completed: {}", id)
+    case SnapshotOffer(metadata, offeredSnapshot: Array[Byte]) => record = avroMarshaler.unmarshal(offeredSnapshot).asInstanceOf[Record]
+    case x: SnapshotOffer                                      => log.warning("Recovery received unknown: {}", x)
+    case event: Event                                          => doUpdateRecord(event)
+    case RecoveryFailure(cause)                                => log.error("Recovery failure: {}", cause)
+    case RecoveryCompleted                                     => log.debug("Recovery completed: {}", id)
   }
 
   override def receiveCommand: Receive = accessBehavior orElse {
@@ -450,7 +453,7 @@ trait Entity extends Actor with Stash with PersistentActor {
     doUpdateRecord(event)
     if (persistCount >= persistParams) {
       if (persistent) {
-        saveSnapshot(record)
+        saveSnapshot(avroMarshaler.marshal(record))
       }
       // if saveSnapshot failed, we don't care about it, since we've got 
       // events persisted. Anyway, we'll try saveSnapshot at next round

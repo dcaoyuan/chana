@@ -1,21 +1,22 @@
 package wandou.astore.schema
 
-import java.util.concurrent.locks.ReentrantReadWriteLock
+import java.net.URLEncoder
+import java.util.concurrent.ConcurrentHashMap
 
-import akka.actor.{ Actor, ActorLogging, ActorRef, ActorSystem, ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider, Props }
+import akka.actor._
 import akka.cluster.Cluster
-import akka.contrib.datareplication.{ DataReplication, LWWMap }
+import akka.contrib.datareplication.{DataReplication, LWWMap}
+import akka.contrib.pattern.ClusterSharding
 import akka.pattern.ask
 import akka.persistence._
 import org.apache.avro.Schema
-import scala.collection.mutable
-import scala.concurrent.duration._
-import scala.util.{ Failure, Success }
 import wandou.astore
-import wandou.astore.{ Entity, Event }
-import wandou.astore.RemoveSchema
-import wandou.astore.PutSchema
+import wandou.astore.{Entity, Event, PutSchema, RemoveSchema}
 import wandou.avro.RecordBuilder
+
+import scala.collection.JavaConversions._
+import scala.concurrent.duration._
+import scala.util.{Failure, Success}
 
 /**
  * Extension that starts a [[DistributedSchemaBoard]] actor
@@ -33,41 +34,41 @@ object DistributedSchemaBoard extends ExtensionId[DistributedSchemaBoardExtensio
    */
   def props(): Props = Props(classOf[DistributedSchemaBoard])
 
-  private val entityToSchema = new mutable.HashMap[String, (Schema, Duration)]()
-  private val schemasLock = new ReentrantReadWriteLock()
+  private val entityToSchema = new ConcurrentHashMap[String, (Schema, Duration)]()
 
   /**
    * TODO support multiple versions of schema
    */
-  private def putSchema(system: ActorSystem, entityName: String, schema: Schema, idleTimeout: Duration = Duration.Undefined): Unit =
-    try {
-      schemasLock.writeLock.lock
-      entityToSchema.get(entityName) match {
-        case Some(`schema`) => // existed, do nothing, or upgrade to new schema ? TODO
-        case _ =>
-          entityToSchema(entityName) = (schema, idleTimeout)
-          Entity.startSharding(system, entityName, Some(Entity.props(entityName, schema, RecordBuilder(schema), idleTimeout)))
-      }
-    } finally {
-      schemasLock.writeLock.unlock
+  private def putSchema(system: ActorSystem, entityName: String, schema: Schema, idleTimeout: Duration = Duration.Undefined): Unit = {
+    // If existed, do nothing, or upgrade to new schema ? TODO
+    val old = entityToSchema.putIfAbsent(entityName, (schema, idleTimeout))
+    if (old == null) {
+      Entity.startSharding(system, entityName, Some(Entity.props(entityName, schema, RecordBuilder(schema), idleTimeout)))
     }
+  }
 
-  private def removeSchema(entityName: String): Unit =
-    try {
-      schemasLock.writeLock.lock
-      entityToSchema -= entityName
-      // TODO stop sharding, remove all actor instances of the entity
-    } finally {
-      schemasLock.writeLock.unlock
-    }
+  private def removeSchema(system: ActorSystem, entityName: String): Unit = {
+    entityToSchema -= entityName
+    removeClusterShardActor(system, entityName)
+  }
 
-  def schemaOf(entityName: String): Option[Schema] =
+  private def removeClusterShardActor(system: ActorSystem, entityName: String): Unit = {
     try {
-      schemasLock.readLock.lock
-      entityToSchema.get(entityName).map(_._1)
+      val regionRef = ClusterSharding(system).shardRegion(entityName)
+      regionRef ! Kill
+
+      val encName = URLEncoder.encode(entityName, "utf-8")
+      val coordinatorSingletonManagerName = encName + "Coordinator"
+      val coordinatorPath = (regionRef.path.parent / coordinatorSingletonManagerName / "singleton" / "coordinator").toStringWithoutAddress
+      val coordRef = system.actorSelection(coordinatorPath)
+      coordRef ! Kill
     } finally {
-      schemasLock.readLock.unlock
     }
+  }
+
+  def schemaOf(entityName: String): Option[Schema] = {
+    Option(entityToSchema.get(entityName)).map(_._1)
+  }
 
   val DataKey = "astore-schemas"
 
@@ -139,7 +140,7 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
       entries.foreach {
         case (entityName, (schemaStr, idleTimeout)) =>
           DistributedSchemaBoard.entityToSchema.get(entityName) match {
-            case None =>
+            case null =>
               parseSchema(schemaStr) match {
                 case Success(schema) =>
                   log.info("put schema (Changed) [{}]:\n{} ", entityName, schemaStr)
@@ -147,7 +148,7 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
                 case Failure(ex) =>
                   log.error(ex, ex.getMessage)
               }
-            case Some(schema) => // TODO, existed, but changed? should we remove all records according to the obsolete schema?
+            case _ => // TODO, existed, but changed? should we remove all records according to the obsolete schema?
           }
       }
 
@@ -155,7 +156,7 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
       val toRemove = DistributedSchemaBoard.entityToSchema.filter(x => !entries.contains(x._1)).keys
       if (toRemove.nonEmpty) {
         log.info("remove schemas (Changed) [{}]", toRemove)
-        toRemove foreach DistributedSchemaBoard.removeSchema
+        toRemove.foreach(DistributedSchemaBoard.removeSchema(context.system, _))
       }
 
     case f: PersistenceFailure                 => log.error("{}", f)
@@ -197,7 +198,7 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
     replicator.ask(Update(DistributedSchemaBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ - key))(60.seconds).onComplete {
       case Success(_: UpdateSuccess) =>
         log.info("remove schemas: {}", key)
-        DistributedSchemaBoard.removeSchema(entityName)
+        DistributedSchemaBoard.removeSchema(context.system, entityName)
         // for schema, just save snapshot
         if (persistent && alsoSave) {
           doSnapshot()
