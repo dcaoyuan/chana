@@ -1,5 +1,6 @@
 package wandou
 
+import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData.Record
 import scala.concurrent.duration.Duration
 
