@@ -5,18 +5,18 @@ import java.util.concurrent.ConcurrentHashMap
 
 import akka.actor._
 import akka.cluster.Cluster
-import akka.contrib.datareplication.{DataReplication, LWWMap}
+import akka.contrib.datareplication.{ DataReplication, LWWMap }
 import akka.contrib.pattern.ClusterSharding
 import akka.pattern.ask
 import akka.persistence._
 import org.apache.avro.Schema
 import wandou.astore
-import wandou.astore.{Entity, Event, PutSchema, RemoveSchema}
+import wandou.astore.{ Entity, Event, PutSchema, RemoveSchema }
 import wandou.avro.RecordBuilder
 
 import scala.collection.JavaConversions._
 import scala.concurrent.duration._
-import scala.util.{Failure, Success}
+import scala.util.{ Failure, Success }
 
 /**
  * Extension that starts a [[DistributedSchemaBoard]] actor

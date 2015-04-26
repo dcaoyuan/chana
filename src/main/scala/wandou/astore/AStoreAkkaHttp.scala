@@ -1,9 +1,9 @@
 package wandou.astore
 
 import akka.actor.ActorSystem
-import akka.http.Http
-import akka.http.model.headers.RawHeader
-import akka.http.server.Directives
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.headers.RawHeader
+import akka.http.scaladsl.server.Directives
 import akka.stream.ActorFlowMaterializer
 import akka.util.Timeout
 import scala.concurrent.duration._

@@ -100,8 +100,8 @@ object Build extends sbt.Build {
 
 object Dependencies {
   val SLF4J_VERSION = "1.7.7"
-  val AKKA_VERSION = "2.3.9"
-  val AKKA_STREAM_VERSION = "1.0-M5"
+  val AKKA_VERSION = "2.3.10"
+  val AKKA_STREAM_VERSION = "1.0-RC1"
   val SPRAY_VERSION = "1.3.3"
 
   val akka = Seq(
@@ -116,7 +116,7 @@ object Dependencies {
 
   val akka_http = Seq(
     "com.typesafe.akka" %% "akka-stream-experimental" % AKKA_STREAM_VERSION,
-    "com.typesafe.akka" %% "akka-http-experimental" % AKKA_STREAM_VERSION,
+    "com.typesafe.akka" %% "akka-http-scala-experimental" % AKKA_STREAM_VERSION,
     "com.typesafe.akka" %% "akka-http-core-experimental" % AKKA_STREAM_VERSION,
     "com.typesafe.akka" %% "akka-http-spray-json-experimental" % AKKA_STREAM_VERSION)
 

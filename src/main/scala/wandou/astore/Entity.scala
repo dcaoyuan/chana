@@ -120,10 +120,10 @@ trait Entity extends Actor with Stash with PersistentActor {
 
   override def receiveRecover: Receive = {
     case SnapshotOffer(metadata, offeredSnapshot: Array[Byte]) => record = avroMarshaler.unmarshal(offeredSnapshot).asInstanceOf[Record]
-    case x: SnapshotOffer                                      => log.warning("Recovery received unknown: {}", x)
-    case event: Event                                          => doUpdateRecord(event)
-    case RecoveryFailure(cause)                                => log.error("Recovery failure: {}", cause)
-    case RecoveryCompleted                                     => log.debug("Recovery completed: {}", id)
+    case x: SnapshotOffer => log.warning("Recovery received unknown: {}", x)
+    case event: Event => doUpdateRecord(event)
+    case RecoveryFailure(cause) => log.error("Recovery failure: {}", cause)
+    case RecoveryCompleted => log.debug("Recovery completed: {}", id)
   }
 
   override def receiveCommand: Receive = accessBehavior orElse {

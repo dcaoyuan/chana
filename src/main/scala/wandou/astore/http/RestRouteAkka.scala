@@ -2,9 +2,9 @@ package wandou.astore.http
 
 import akka.actor.ActorSystem
 import akka.contrib.pattern.ClusterSharding
-import akka.http.model.StatusCode
-import akka.http.model.StatusCodes
-import akka.http.server.Directives
+import akka.http.scaladsl.model.StatusCode
+import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.server.Directives
 import akka.pattern.ask
 import akka.stream.ActorFlowMaterializer
 import akka.util.Timeout
