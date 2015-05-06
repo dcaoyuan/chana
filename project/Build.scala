@@ -101,7 +101,7 @@ object Build extends sbt.Build {
 object Dependencies {
   val SLF4J_VERSION = "1.7.7"
   val AKKA_VERSION = "2.3.10"
-  val AKKA_STREAM_VERSION = "1.0-RC1"
+  val AKKA_STREAM_VERSION = "1.0-RC2"
   val SPRAY_VERSION = "1.3.3"
 
   val akka = Seq(
