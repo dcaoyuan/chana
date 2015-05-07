@@ -171,12 +171,6 @@ class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMu
     }
   }
 
-  def expectStr(expected: String) = {
-    expectMsgPF(5.seconds) {
-      case x: HttpResponse => x.entity.asString should be(expected)
-    }
-  }
-
   val storageLocations = List(
     "akka.persistence.journal.leveldb.dir",
     "akka.persistence.journal.leveldb-shared.store.dir",
@@ -256,10 +250,10 @@ class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMu
         import spray.httpx.RequestBuilding._
 
         IO(Http) ! Get(baseUrl1 + "/ping")
-        expectStr("pong")
+        expectMsgType[HttpResponse](5.seconds).entity.asString should be("pong")
 
         IO(Http) ! Post(baseUrl1 + "/putschema/personinfo", avsc)
-        expectStr("OK")
+        expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
 
         // Waiting for sharding singleton manager actor ready, which need to identify the oldest node. 
         // 
@@ -274,24 +268,24 @@ class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMu
         expectNoMsg(12.seconds)
 
         IO(Http) ! Get(baseUrl1 + "/personinfo/get/1")
-        expectStr("""{"name":"","age":0,"gender":"Unknown","emails":[]}""")
+        expectMsgType[HttpResponse](5.seconds).entity.asString should be("""{"name":"","age":0,"gender":"Unknown","emails":[]}""")
         
         IO(Http) ! Get(baseUrl2 + "/personinfo/get/101")
-        expectStr("""{"name":"","age":0,"gender":"Unknown","emails":[]}""")
+        expectMsgType[HttpResponse](5.seconds).entity.asString should be("""{"name":"","age":0,"gender":"Unknown","emails":[]}""")
 
         IO(Http) ! Post(baseUrl1 + "/personinfo/update/1", ".\n{'name':'James Bond','age':60}")
-        expectStr("OK")
+        expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
 
         IO(Http) ! Get(baseUrl2 + "/personinfo/get/1")
-        expectStr("""{"name":"James Bond","age":60,"gender":"Unknown","emails":[]}""")
+        expectMsgType[HttpResponse](5.seconds).entity.asString should be("""{"name":"James Bond","age":60,"gender":"Unknown","emails":[]}""")
 
         IO(Http) ! Get(baseUrl1 + "/personinfo/get/1/age")
-        expectStr("60")
+        expectMsgType[HttpResponse](5.seconds).entity.asString should be("60")
         IO(Http) ! Get(baseUrl2 + "/personinfo/get/1/age")
-        expectStr("60")
+        expectMsgType[HttpResponse](5.seconds).entity.asString should be("60")
 
         IO(Http) ! Post(baseUrl1 + "/personinfo/select/1", ".name")
-        expectStr("[\"James Bond\"]")
+        expectMsgType[HttpResponse](5.seconds).entity.asString should be("[\"James Bond\"]")
 
       }
 
@@ -336,31 +330,31 @@ class AStoreClusterSpec extends MultiNodeSpec(AStoreClusterSpecConfig) with STMu
   """
 
         IO(Http) ! Post(baseUrl1 + "/personinfo/putscript/name/SCRIPT_NO_1", script)
-        expectStr("OK")
+        expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
 
         IO(Http) ! Post(baseUrl1 + "/personinfo/update/1", ".\n{'name':'James Not Bond','age':60}")
-        expectStr("OK")
+        expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
 
         awaitAssert {
           IO(Http) ! Get(baseUrl1 + "/personinfo/get/1/name")
-          expectStr("\"James Not Bond\"")
+          expectMsgType[HttpResponse](5.seconds).entity.asString should be("\"James Not Bond\"")
         }
 
         // awaitAssert script's http_post.apply("http://localhost:8081/personinfo/put/2/age", "888"), which was triggered by name updated.
         awaitAssert {
           IO(Http) ! Get(baseUrl1 + "/personinfo/get/2/age")
-          expectStr("888")
+          expectMsgType[HttpResponse](5.seconds).entity.asString should be("888")
         }
         awaitAssert {
           IO(Http) ! Get(baseUrl2 + "/personinfo/get/2/age")
-          expectStr("888")
+          expectMsgType[HttpResponse](5.seconds).entity.asString should be("888")
         }
 
         IO(Http) ! Post(baseUrl2 + "/personinfo/put/1/age", "100")
-        expectStr("OK")
+        expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
 
         IO(Http) ! Get(baseUrl1 + "/personinfo/delscript/name/SCRIPT_NO_1")
-        expectStr("OK")
+        expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
 
         enterBarrier("script-done")
       }
