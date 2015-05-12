@@ -5,12 +5,13 @@
 
 # FLAGS
 -J-server 
--J-XX:+UseNUMA 
--J-XX:+UseCondCardMark 
--J-XX:-UseBiasedLocking 
 
 # GC
--J-XX:+UseParallelGC
+-J-XX:+UseG1GC
+-J-XX:MaxGCPauseMillis=200
+-J-XX:GCPauseIntervalMillis=3000
+-J-XX:NewRatio=2  #young:old = 1:2, default is 1:8 for client jvm, 1:2 for server jvm
+-J-XX:SurvivorRatio=2   #(2*Survivor):Eden = 2:2, default is 2:8
 
 # Add additional jvm parameters
 -J-Dfile.encoding=UTF8
