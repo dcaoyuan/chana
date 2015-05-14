@@ -9,15 +9,15 @@ import akka.serialization.SerializationExtension
 import scala.collection.immutable
 
 object SerializerSpec {
-  val schema = wandou.astore.serializer.SerializerSpec.schema
-  val record = wandou.astore.serializer.SerializerSpec.record
+  val schema = chana.serializer.SerializerSpec.schema
+  val record = chana.serializer.SerializerSpec.record
   val repr = PersistentRepr(record)
   val writeMessages = WriteMessages(List(repr))
 }
 
 class SerializerSpec(_system: ActorSystem) extends TestKit(_system) with ImplicitSender with WordSpecLike with Matchers with BeforeAndAfterAll {
 
-  def this() = this(ActorSystem("MySpec", wandou.astore.serializer.SerializerSpec.config))
+  def this() = this(ActorSystem("MySpec", chana.serializer.SerializerSpec.config))
 
   override def afterAll {
     TestKit.shutdownActorSystem(system)

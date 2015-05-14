@@ -5,8 +5,8 @@ import akka.persistence.PersistentRepr
 import akka.persistence.journal.AsyncWriteTarget.WriteMessages
 import akka.serialization.{ SerializationExtension, Serializer }
 import akka.util.ByteString
+import chana.serializer.AnyRefSerializer
 import java.nio.ByteOrder
-import wandou.astore.serializer.AnyRefSerializer
 
 final class WriteMessagesSerializer(system: ExtendedActorSystem) extends Serializer {
   implicit val byteOrder = ByteOrder.BIG_ENDIAN

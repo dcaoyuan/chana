@@ -7,7 +7,7 @@ import scoverage.ScoverageSbtPlugin._
 
 object Build extends sbt.Build {
 
-  lazy val avpath = Project("wandou-astore", file("."))
+  lazy val chana = Project("chana", file("."))
     .settings(basicSettings: _*)
     .settings(Formatting.settings: _*)
     .settings(Formatting.buildFileSettings: _*)
@@ -22,8 +22,8 @@ object Build extends sbt.Build {
     .configs(MultiJvm)
 
   lazy val basicSettings = Seq(
-    organization := "com.wandoulabs.avro",
-    version := "0.1.4-SNAPSHOT",
+    organization := "com.wandoulabs.chana",
+    version := "0.2.0-SNAPSHOT",
     scalaVersion := "2.11.6",
     scalacOptions ++= Seq("-unchecked", "-deprecation"),
     javacOptions ++= Seq("-source", "1.6", "-target", "1.6"),
@@ -49,7 +49,7 @@ object Build extends sbt.Build {
     pomExtra := pomXml)
 
   lazy val pomXml =
-    (<url>https://github.com/wandoulabs/astore</url>
+    (<url>https://github.com/wandoulabs/chana</url>
      <licenses>
        <license>
          <name>Apache License 2.0</name>
@@ -58,8 +58,8 @@ object Build extends sbt.Build {
        </license>
      </licenses>
      <scm>
-       <url>git@github.com:wandoulabs/astore.git</url>
-       <connection>scm:git:git@github.com:wandoulabs/astore.git</connection>
+       <url>git@github.com:wandoulabs/chana.git</url>
+       <connection>scm:git:git@github.com:wandoulabs/chana.git</connection>
      </scm>
      <developers>
        <developer>
@@ -194,9 +194,9 @@ object Packaging {
 
   val settings = packagerSettings ++ deploymentSettings ++
     packageArchetype.java_application ++ Seq(
-      mainClass in Compile := Some("wandou.astore.AStore"),
-      name := "astore",
-      NativePackagerKeys.packageName := "astore",
+      mainClass in Compile := Some("chana.Chana"),
+      name := "chana",
+      NativePackagerKeys.packageName := "chana",
       bashScriptConfigLocation := Some("${app_home}/../conf/jvmopts"),
       bashScriptExtraDefines += """addJava "-Dconfig.file=${app_home}/../conf/application.conf"""")
 }

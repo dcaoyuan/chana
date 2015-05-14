@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "hatInventory",
-  "namespace": "astore",
+  "namespace": "chana",
   "fields": [
     {
       "name": "sku",

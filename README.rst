@@ -1,11 +1,11 @@
-astore
+chana
 ======
 
 Avro Data Store based on Akka (persistence in progressing)
 
-.. image:: https://travis-ci.org/wandoulabs/astore.png
-   :target: https://travis-ci.org/wandoulabs/astore
-   :alt: astore build status
+.. image:: https://travis-ci.org/wandoulabs/chana.png
+   :target: https://travis-ci.org/wandoulabs/chana
+   :alt: chana build status
 
 Core Design
 ^^^^^^^^^^^
@@ -18,7 +18,7 @@ Core Design
    -
    `Nashorn <http://docs.oracle.com/javase/8/docs/technotes/guides/scripting/nashorn/>`__)
 
-Run astore
+Run chana
 ^^^^^^^^^^
 
 .. code:: shell
@@ -31,16 +31,16 @@ Or
 
     $ sbt clean compile dist
     $ ls target/universal/
-    tmp  astore-0.1.3-SNAPSHOT.zip 
+    tmp  chana-0.2.0-SNAPSHOT.zip 
 
-Then, copy astore-0.1.3-SNAPSHOT.zip to somewhere and unzip it
+Then, copy chana-0.2.0-SNAPSHOT.zip to somewhere and unzip it
 
 .. code:: shell
 
-    $ cd astore-0.1.3-SNAPSHOT/bin
-    $ ./astore
+    $ cd chana-0.2.0-SNAPSHOT/bin
+    $ ./chana
 
-Access astore
+Access chana
 ^^^^^^^^^^^^^
 
 Example 1: Simple Record
@@ -53,7 +53,7 @@ Schema: PersonInfo.avsc
     {
       "type" : "record",
       "name" : "PersonInfo",
-      "namespace" : "astore",
+      "namespace" : "chana",
       "fields" : [ {
         "name" : "name",
         "type" : "string"
@@ -159,7 +159,7 @@ Schema: hatInventory.avsc
     {
       "type" : "record",
       "name" : "hatInventory",
-      "namespace" : "astore",
+      "namespace" : "chana",
       "fields" : [ {
         "name" : "sku",
         "type" : "string",
@@ -237,8 +237,8 @@ Simple GET/PET REST-JSON Result:
 
 Details: 
 
-- `Benchmark <https://github.com/wandoulabs/astore/blob/master/astore-docs/rst/benchmark/benchmark.rst>`__
-- `Benchmark through multiple-core <https://github.com/wandoulabs/astore/blob/master/astore-docs/rst/benchmark/ht-concurrency.rst>`__
+- `Benchmark <https://github.com/wandoulabs/chana/blob/master/chana-docs/rst/benchmark/benchmark.rst>`__
+- `Benchmark through multiple-core <https://github.com/wandoulabs/chana/blob/master/chana-docs/rst/benchmark/ht-concurrency.rst>`__
 
 To run:
        
@@ -253,7 +253,7 @@ To run:
 Preface
 -------
 
-astore stores Avro record, with two groups of APIs:
+chana stores Avro record, with two groups of APIs:
 
 -  Primitive API (Scala/Java)
 -  RESTful API
