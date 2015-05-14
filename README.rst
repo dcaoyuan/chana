@@ -578,7 +578,6 @@ The bindings that could be accessed in script:
 
       def prepareBindings(onUpdated: OnUpdated) = {
         val bindings = new SimpleBindings
-        bindings.put("notify_finished", notify_finished)
         bindings.put("http_get", http_get)
         bindings.put("http_post", http_post)
         bindings.put("id", onUpdated.id)
