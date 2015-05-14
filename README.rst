@@ -1,7 +1,10 @@
-chana
+Chana
 ======
 
 Avro Data Store based on Akka (persistence in progressing)
+
+This project is named from Chinese word 刹那, which is a transliteration
+of the word "Kasna" from Sanskrit, means "instant; split second". 
 
 .. image:: https://travis-ci.org/wandoulabs/chana.png
    :target: https://travis-ci.org/wandoulabs/chana
