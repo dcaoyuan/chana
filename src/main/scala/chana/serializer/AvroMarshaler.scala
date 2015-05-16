@@ -1,10 +1,10 @@
 package chana.serializer
 
 import akka.util.ByteString
+import chana.avro
 import chana.UpdatedFields
 import java.nio.ByteOrder
 import org.apache.avro.Schema
-import wandou.avro
 
 import scala.collection.JavaConversions._
 import scala.util.{ Failure, Success }

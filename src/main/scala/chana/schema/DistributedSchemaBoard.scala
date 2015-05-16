@@ -7,13 +7,13 @@ import akka.contrib.pattern.ClusterSharding
 import akka.pattern.ask
 import akka.persistence._
 import chana.{ Entity, Event, PutSchema, RemoveSchema }
+import chana.avro.RecordBuilder
 import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
 import org.apache.avro.Schema
 import scala.collection.JavaConversions._
 import scala.concurrent.duration._
 import scala.util.{ Failure, Success }
-import wandou.avro.RecordBuilder
 
 /**
  * Extension that starts a [[DistributedSchemaBoard]] actor

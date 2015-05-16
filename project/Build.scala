@@ -8,9 +8,10 @@ import scoverage.ScoverageSbtPlugin._
 object Build extends sbt.Build {
 
   lazy val chana = Project("chana", file("."))
+    .aggregate(avpath)
+    .dependsOn(avpath)
     .settings(basicSettings: _*)
     .settings(Formatting.settings: _*)
-    .settings(Formatting.buildFileSettings: _*)
     .settings(releaseSettings: _*)
     .settings(sbtrelease.ReleasePlugin.releaseSettings: _*)
     .settings(libraryDependencies ++= Dependencies.basic)
@@ -20,6 +21,16 @@ object Build extends sbt.Build {
     .settings(SbtMultiJvm.multiJvmSettings ++ multiJvmSettings: _*)
     .settings(unmanagedSourceDirectories in Test += baseDirectory.value / "multi-jvm/scala")
     .configs(MultiJvm)
+
+  lazy val avpath = Project("avpath", file("avpath"))
+    .settings(basicSettings: _*)
+    .settings(Formatting.settings: _*)
+    .settings(releaseSettings: _*)
+    .settings(sbtrelease.ReleasePlugin.releaseSettings: _*)
+    .settings(libraryDependencies ++= Dependencies.avro ++ Dependencies.test)
+    .settings(sbtavro.SbtAvro.avroSettings ++ avroSettingsTest: _*)
+    .settings(instrumentSettings: _*)
+    .settings(net.virtualvoid.sbt.graph.Plugin.graphSettings: _*)
 
   lazy val basicSettings = Seq(
     organization := "com.wandoulabs.chana",
@@ -34,6 +45,13 @@ object Build extends sbt.Build {
       "Typesafe repo" at "http://repo.typesafe.com/typesafe/releases/",
       "patriknw at bintray" at "http://dl.bintray.com/patriknw/maven",
       "krasserm at bintray" at "http://dl.bintray.com/krasserm/maven"))
+
+  // Todo rewrite sbt-avro to compile in Test phase.
+  lazy val avroSettingsTest = Seq(
+    sbtavro.SbtAvro.stringType in sbtavro.SbtAvro.avroConfig := "String",
+    sourceDirectory in sbtavro.SbtAvro.avroConfig <<= (resourceDirectory in Test)(_ / "avsc"),
+    javaSource in sbtavro.SbtAvro.avroConfig <<= (sourceManaged in Test)(_ / "java" / "compiled_avro"),
+    version in sbtavro.SbtAvro.avroConfig := "1.7.7")
 
   lazy val releaseSettings = Seq(
     publishTo := {
@@ -144,7 +162,7 @@ object Dependencies {
     "org.scalamock" %% "scalamock-scalatest-support" % "3.2.1" % Test,
     "org.scalatest" %% "scalatest" % "2.2.4" % "test")
 
-  val basic: Seq[sbt.ModuleID] = akka ++ akka_http ++ akka_data_replication ++ avro ++ avpath ++ spray ++ log ++ test
+  val basic: Seq[sbt.ModuleID] = akka ++ akka_http ++ akka_data_replication ++ avro ++ spray ++ log ++ test
 
   val all = basic
 }

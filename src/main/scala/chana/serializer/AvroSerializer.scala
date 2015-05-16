@@ -3,12 +3,12 @@ package chana.serializer
 import akka.actor.ExtendedActorSystem
 import akka.serialization.Serializer
 import akka.util.ByteString
+import chana.avro
 import java.nio.ByteOrder
 import org.apache.avro.Schema
 import org.apache.avro.generic.{ GenericContainer }
 import scala.util.Failure
 import scala.util.Success
-import wandou.avro
 
 final class AvroSerializer(system: ExtendedActorSystem) extends Serializer {
   implicit val byteOrder = ByteOrder.BIG_ENDIAN

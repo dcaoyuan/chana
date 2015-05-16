@@ -1,0 +1,34 @@
+[
+  {
+    "namespace": "chana.avro",
+    "type": "record",
+    "name": "OHLC",
+    "fields": [
+      {
+        "name": "resetTime",
+        "type": "long",
+        "default": 0
+      },
+      {
+        "name": "open",
+        "type": "double",
+        "default": 0.0
+      },
+      {
+        "name": "high",
+        "type": "double",
+        "default": 0.0
+      },
+      {
+        "name": "low",
+        "type": "double",
+        "default": 0.0
+      },
+      {
+        "name": "close",
+        "type": "double",
+        "default": 0.0
+      }
+    ]
+  }
+]

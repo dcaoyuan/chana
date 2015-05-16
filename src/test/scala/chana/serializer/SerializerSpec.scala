@@ -5,6 +5,7 @@ import akka.testkit.{ ImplicitSender, TestKit }
 import akka.serialization.SerializationExtension
 import chana.PutSchema
 import chana.UpdatedFields
+import chana.avro.RecordBuilder
 import com.typesafe.config.ConfigFactory
 import java.util.concurrent.TimeUnit
 import org.apache.avro.Schema.Parser
@@ -13,7 +14,6 @@ import org.apache.avro.util.Utf8
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpecLike }
 import scala.collection.immutable
 import scala.concurrent.duration.FiniteDuration
-import wandou.avro.RecordBuilder
 
 object SerializerSpec {
   val config = ConfigFactory.parseString("""

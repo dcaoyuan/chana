@@ -4,6 +4,8 @@ import akka.actor.{ Actor, ActorLogging, ActorRef, ActorSystem, Cancellable, Poi
 import akka.contrib.pattern.{ ClusterSharding, ShardRegion }
 import akka.event.LoggingAdapter
 import akka.persistence._
+import chana.avpath.Evaluator.Ctx
+import chana.avro.RecordBuilder
 import chana.script.Scriptable
 import chana.serializer.AvroMarshaler
 import org.apache.avro.Schema
@@ -11,9 +13,6 @@ import org.apache.avro.generic.GenericData
 import org.apache.avro.generic.GenericData.Record
 import scala.concurrent.duration._
 import scala.util.{ Failure, Success, Try }
-import wandou.avpath.Evaluator.Ctx
-import wandou.avro.RecordBuilder
-import wandou.{ avpath, avro }
 
 object Entity {
   def props(entityName: String, schema: Schema, builder: RecordBuilder, idleTimeout: Duration) =
