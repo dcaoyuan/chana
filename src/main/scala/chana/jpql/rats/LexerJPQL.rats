@@ -1,0 +1,28 @@
+/*
+ * Definition of JPQL lexical tokens.
+ * 
+ * @author Caoyuan Deng
+ */
+module chana.jpql.rats.LexerJPQL;
+
+import JPQLBasic;
+
+option flatten;
+
+// ----- public entrance
+public generic Token =
+  DocComment
+/ BlockComment
+/ LineComment
+/ Keyword
+/ Word
+/ Nl
+/ Ws
+/ Literal
+/ CharacterRange
+/ Action
+/ Separator
+/ Error
+/ EOF
+;
+

@@ -11,14 +11,16 @@ object Build extends sbt.Build {
     .aggregate(avpath)
     .dependsOn(avpath)
     .settings(basicSettings: _*)
+    .settings(ratsSettings: _*)
     .settings(Formatting.settings: _*)
+    .settings(Formatting.buildFileSettings: _*)
     .settings(releaseSettings: _*)
     .settings(sbtrelease.ReleasePlugin.releaseSettings: _*)
-    .settings(libraryDependencies ++= Dependencies.basic)
+    .settings(libraryDependencies ++= Dependencies.basic ++ Dependencies.rats)
     .settings(Packaging.settings: _*)
     .settings(instrumentSettings: _*)
     .settings(net.virtualvoid.sbt.graph.Plugin.graphSettings: _*)
-    .settings(SbtMultiJvm.multiJvmSettings ++ multiJvmSettings: _*)
+    .settings(multiJvmSettings: _*)
     .settings(unmanagedSourceDirectories in Test += baseDirectory.value / "multi-jvm/scala")
     .configs(MultiJvm)
 
@@ -28,7 +30,7 @@ object Build extends sbt.Build {
     .settings(releaseSettings: _*)
     .settings(sbtrelease.ReleasePlugin.releaseSettings: _*)
     .settings(libraryDependencies ++= Dependencies.avro ++ Dependencies.test)
-    .settings(sbtavro.SbtAvro.avroSettings ++ avroSettingsTest: _*)
+    .settings(avroSettings: _*)
     .settings(instrumentSettings: _*)
     .settings(net.virtualvoid.sbt.graph.Plugin.graphSettings: _*)
 
@@ -47,11 +49,39 @@ object Build extends sbt.Build {
       "krasserm at bintray" at "http://dl.bintray.com/krasserm/maven"))
 
   // Todo rewrite sbt-avro to compile in Test phase.
-  lazy val avroSettingsTest = Seq(
+  lazy val avroSettings = sbtavro.SbtAvro.avroSettings ++ Seq(
     sbtavro.SbtAvro.stringType in sbtavro.SbtAvro.avroConfig := "String",
     sourceDirectory in sbtavro.SbtAvro.avroConfig <<= (resourceDirectory in Test)(_ / "avsc"),
     javaSource in sbtavro.SbtAvro.avroConfig <<= (sourceManaged in Test)(_ / "java" / "compiled_avro"),
     version in sbtavro.SbtAvro.avroConfig := "1.7.7")
+
+  val generateRatsSources = taskKey[Seq[java.io.File]]("generate sources")
+  // Note you have to put rats file under scalaSource instead of resourceDirectory, since sbt-rats only check:
+  //   val inputFiles = (scalaSourceDir ** ("*.rats" | "*.syntax")).get.toSet 
+  // when call FileFunction.cached
+  lazy val ratsSettings = SBTRatsPluginPatched.sbtRatsSettings ++ Seq(
+    SBTRatsPluginPatched.ratsMainModule := Some((scalaSource in Compile).value / "chana" / "jpql" / "rats" / "LexerJPQL.rats"),
+    //generateRatsSources <<= (sourceGenerators in Compile) {_.join.map(_.flatten.toList)}
+    generateRatsSources <<= runRatsGenerators)
+
+  def runRatsGenerators = {
+    import SBTRatsPluginPatched._
+
+    (ratsFlags, ratsMainModule, scalaSource in Compile, target, sourceManaged in Compile, streams) map {
+      (flags, main, srcDir, tgtDir, smDir, str) =>
+        {
+          val cache = str.cacheDirectory
+          val cachedFun =
+            FileFunction.cached(cache / "sbt-rats", FilesInfo.lastModified, FilesInfo.exists) { (inFiles: Set[File]) =>
+              runGeneratorsImpl(flags, main, inFiles, srcDir, tgtDir, smDir, str)
+            }
+
+          val inputFiles = (srcDir ** ("*.rats" | "*.syntax")).get.toSet
+          cachedFun(inputFiles).toSeq
+        }
+    }
+
+  }
 
   lazy val releaseSettings = Seq(
     publishTo := {
@@ -92,7 +122,7 @@ object Build extends sbt.Build {
        </developer>
      </developers>)
 
-  def multiJvmSettings = Seq(
+  def multiJvmSettings = SbtMultiJvm.multiJvmSettings ++ Seq(
     compile in MultiJvm <<= (compile in MultiJvm) triggeredBy (compile in Test),
     parallelExecution in Test := false,
     executeTests in Test <<= (executeTests in Test, executeTests in MultiJvm) map {
@@ -151,6 +181,8 @@ object Dependencies {
     "io.spray" %% "spray-can" % SPRAY_VERSION,
     "io.spray" %% "spray-routing-shapeless2" % SPRAY_VERSION,
     "io.spray" %% "spray-testkit" % SPRAY_VERSION % "test")
+
+  val rats = Seq("xtc" % "rats-runtime" % "2.3.1")
 
   val log = Seq(
     "org.slf4j" % "slf4j-api" % SLF4J_VERSION,
