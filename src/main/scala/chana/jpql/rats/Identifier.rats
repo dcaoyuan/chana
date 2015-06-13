@@ -1,0 +1,59 @@
+/*
+ * Definition of JPQL Identifier tokens.
+ * 
+ * @author Caoyuan Deng
+ */
+module Identifier;
+
+import Character;
+import Keyword;
+import Spacing;
+import Literal;
+import Unicode;
+
+
+// ----- Identifier
+
+transient generic Id    = SKIP identifier ;
+transient generic VarId = SKIP varIdentifier ;
+
+// ----- used for "-":op etc, where needs op's SemanticValue to be String
+transient String op     = SKIP opIdentifier ;
+
+// ----- token
+transient generic Identifier = identifier ;
+
+transient String opIdentifier    = v:( opchar+ )                              &{ !contains(JPQL_KEYWORDS, toText(v).toUpperCase()) } ;
+transient String varIdentifier   = v:( ( lower / unicodeLl )        idrest? ) &{ !contains(JPQL_KEYWORDS, toText(v).toUpperCase()) } ;
+transient String upperIdentifier = v:( ( upper / unicodeLu / [$_] ) idrest? ) &{ !contains(JPQL_KEYWORDS, toText(v).toUpperCase()) } ;
+
+transient String plainid =
+  upperIdentifier
+/ varIdentifier
+/ opIdentifier
+;
+
+transient String identifier =
+  [`] ( ![`] stringChar )+ [`]
+/ plainid
+;
+
+transient String idrest = 
+  ( letter
+  / unicodeLl
+  / unicodeLu
+  / unicodeLt
+  / unicodeLo
+  / unicodeNl
+  / '$'
+  / '_' !( opchar+ )
+  / digit
+  )+ ( '_' opIdentifier )?
+/ ( '_' opchar+ )
+;
+
+transient String opchar = 
+  [!%&+\-<=>?@\\^`|~#:/*]
+/ unicodeSm
+/ unicodeSo
+;

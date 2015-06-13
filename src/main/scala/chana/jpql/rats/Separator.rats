@@ -1,0 +1,51 @@
+/*
+ * Definition of JPQL Separator tokens.
+ * 
+ * @author Caoyuan Deng
+ */
+module Separator;
+
+import Spacing;
+
+String sep = 
+  SKIP_N ",":separator SKIP_TILL_N
+/ SKIP_N ".":separator SKIP_TILL_N
+/ SKIP_N ";":separator SKIP_TILL_N
+/ SKIP_N "[":separator SKIP_TILL_N
+/ SKIP_N ")":separator 
+/ SKIP_N "]":separator 
+/ SKIP_N "}":separator 
+/ SKIP       separator SKIP_TILL_N
+;
+
+
+// ----- For lexer token
+
+generic Separator = 
+  "{":separator @LBrace
+/ "}":separator @RBrace
+/ "(":separator @LParen
+/ ")":separator @RParen
+/ "[":separator @LBracket
+/ "]":separator @RBracket
+/ ",":separator @Comma
+/ ".":separator @Dot
+/ ";":separator @Semicolon
+/ "|":separator @Bar
+;
+
+String separator = 
+  "("
+/ ")"
+/ "["
+/ "]"
+/ "{"
+/ "}"
+/ ","
+/ ";"
+/ "."
+/ "|"
+;
+
+
+

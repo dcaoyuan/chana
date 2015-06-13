@@ -1,0 +1,188 @@
+/*
+ * Definition of JPQL keyword tokens.
+ * 
+ * @author Caoyuan Deng
+ */
+module Keyword;
+
+import Identifier;
+import Spacing;
+
+body {
+  static {
+    add(JPQL_KEYWORDS, new String[] {
+      "ALL",
+      "AND",
+      "ANY",
+      "AS",
+      "ASC",
+      "AVG",
+      "BETWEEN",
+      "BIT_LENGTH",
+      "BY",
+      "CHARACTER_LENGTH",
+      "CHAR_LENGTH",
+      "COUNT",
+      "CURRENT_TIME",
+      "CURRENT_DATE",
+      "CURRENT_TIMESTAMP",
+      "DELETE",
+      "DESC",
+      "DISTINCT",
+      "EMPTY",
+      "EXISTS",
+      "FALSE",
+      "FETCH",
+      "FROM",
+      "GROUP",
+      "HAVING",
+      "IN",
+      "INNER",
+      "IS",
+      "JOIN",
+      "LEFT",
+      "LIKE",
+      "LOWER",
+      "MAX",
+      "MEMBER",
+      "MIN",
+      "MOD",
+      "NEW",
+      "NOT",
+      "NULL",
+      "OBJECT",
+      "OF",
+      "OR",
+      "ORDER",
+      "OUTER",
+      "POSITION",
+      "SELECT",
+      "SOME",
+      "SUM",
+      "TRIM",
+      "TRUE",
+      "UPDATE",
+      "UNKNOWN",
+      "UPPER",
+      "WHERE"
+    });
+  }
+}
+
+option setOfString(JPQL_KEYWORDS);
+
+// ----- Keywords
+
+ignoringCase generic Keyword =
+  "all"               :keyword @All
+/ "and"               :keyword @And
+/ "any"               :keyword @Any
+/ "as"                :keyword @As
+/ "asc"               :keyword @Asc
+/ "avg"               :keyword @Avg
+/ "between"           :keyword @Between
+/ "bit_length"        :keyword @BitLength
+/ "by"                :keyword @By
+/ "character_length"  :keyword @CharacterLength
+/ "char_length"       :keyword @CharLength
+/ "count"             :keyword @Count
+/ "current_time"      :keyword @CurrentTime
+/ "current_date"      :keyword @CurrentDate
+/ "current_timestamp" :keyword @CurrentTimestamp
+/ "delete"            :keyword @Delete
+/ "desc"              :keyword @Desc
+/ "distinct"          :keyword @Distinct
+/ "empty"             :keyword @Empty
+/ "exists"            :keyword @Exists
+/ "false"             :keyword @False
+/ "fetch"             :keyword @Fetch
+/ "from"              :keyword @From
+/ "group"             :keyword @Group
+/ "having"            :keyword @Having
+/ "in"                :keyword @In
+/ "inner"             :keyword @Inner
+/ "is"                :keyword @Is
+/ "join"              :keyword @Join
+/ "left"              :keyword @Left
+/ "like"              :keyword @Like
+/ "lower"             :keyword @Lower
+/ "max"               :keyword @Max
+/ "member"            :keyword @Member
+/ "min"               :keyword @Min
+/ "mod"               :keyword @Mod
+/ "new"               :keyword @New
+/ "not"               :keyword @Not
+/ "null"              :keyword @Null
+/ "object"            :keyword @Object
+/ "of"                :keyword @Of
+/ "or"                :keyword @Or
+/ "order"             :keyword @Order
+/ "outer"             :keyword @Outer
+/ "position"          :keyword @Position
+/ "select"            :keyword @Select
+/ "some"              :keyword @Some
+/ "sum"               :keyword @Sum
+/ "trim"              :keyword @Trim
+/ "true"              :keyword @True
+/ "update"            :keyword @update
+/ "unknown"           :keyword @Unkown
+/ "upper"             :keyword @Upper
+/ "where"             :keyword @Where
+;
+
+ignoringCase String keyword =
+  "all"               !( idrest )
+/ "and"               !( idrest )
+/ "any"               !( idrest )
+/ "as"                !( idrest )
+/ "asc"               !( idrest )
+/ "avg"               !( idrest )
+/ "between"           !( idrest )
+/ "bit_length"        !( idrest )
+/ "by"                !( idrest )
+/ "character_length"  !( idrest )
+/ "char_length"       !( idrest )
+/ "count"             !( idrest )
+/ "current_time"      !( idrest )
+/ "current_date"      !( idrest )
+/ "current_timestamp" !( idrest )
+/ "delete"            !( idrest )
+/ "desc"              !( idrest )
+/ "distinct"          !( idrest )
+/ "empty"             !( idrest )
+/ "exists"            !( idrest )
+/ "false"             !( idrest )
+/ "fetch"             !( idrest )
+/ "from"              !( idrest )
+/ "group"             !( idrest )
+/ "having"            !( idrest )
+/ "in"                !( idrest )
+/ "inner"             !( idrest )
+/ "is"                !( idrest )
+/ "join"              !( idrest )
+/ "left"              !( idrest )
+/ "like"              !( idrest )
+/ "lower"             !( idrest )
+/ "max"               !( idrest )
+/ "member"            !( idrest )
+/ "min"               !( idrest )
+/ "mod"               !( idrest )
+/ "new"               !( idrest )
+/ "not"               !( idrest )
+/ "null"              !( idrest )
+/ "object"            !( idrest )
+/ "of"                !( idrest )
+/ "or"                !( idrest )
+/ "order"             !( idrest )
+/ "outer"             !( idrest )
+/ "position"          !( idrest )
+/ "select"            !( idrest )
+/ "some"              !( idrest )
+/ "sum"               !( idrest )
+/ "trim"              !( idrest )
+/ "true"              !( idrest )
+/ "update"            !( idrest )
+/ "unknown"           !( idrest )
+/ "upper"             !( idrest )
+/ "where"             !( idrest )
+;

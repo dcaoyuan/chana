@@ -1,0 +1,89 @@
+/*
+ * Definition of JPQL Spacing tokens.
+ * 
+ * @author Caoyuan Deng
+ */
+module Spacing;
+
+import Character;
+
+transient generic DocComment =
+  DocCommentStart
+  ( DocComment / BlockComment / CommentTag / DocCommentData / Nl )*
+  DocCommentEnd
+;
+
+transient generic DocCommentStart = "/**" ;
+transient generic DocCommentEnd   = "*/" ;
+transient generic DocCommentData  = blockedCommentData ;
+
+transient generic BlockComment = 
+  BlockCommentStart
+  ( DocComment / BlockComment / CommentTag / BlockCommentData / Nl )*
+  BlockCommentEnd
+;
+
+transient generic BlockCommentStart = "/*" ![*] ;
+transient generic BlockCommentEnd   = "*/" ;
+transient generic BlockCommentData  = blockedCommentData ;
+
+/* We'll split blocked comment to lines */
+transient String blockedCommentData =
+  ( !( commentTag 
+     / "*/" 
+     / "/*" 
+     / [\r\n] 
+     ) 
+    _ 
+  )+
+;
+
+transient generic CommentTag = commentTag ;
+transient String commentTag = '@' letter+ ;
+
+transient generic LineComment = lineComment ;
+transient String lineComment = 
+  "//" ( ![\r\n] _ )*
+;
+
+// ----- Meaningful newline
+
+transient void N = ( w / DocComment / BlockComment / lineComment )* n;
+
+// ----- Skip including nl but will leave all ( w / DocComment / BlockComment / lineComment )* before latest n
+transient void SKIP_TILL_N = 
+  ( ( w / DocComment / BlockComment / lineComment )* n+ )* 
+;
+
+transient void SKIP_N = 
+  ( w / DocComment / BlockComment / lineComment / n )* 
+;
+
+// ----- Globe Skip
+
+/* @Note: should put before Keyword, Symbol, Literal and Identifier only, 
+ * don't put after above tokens. 
+ */
+transient void SKIP = 
+  &{ yyState.newlineEnable() } 
+  ( w / DocComment / BlockComment / lineComment )* 
+/ ( w / DocComment / BlockComment / lineComment / n )* 
+;
+
+
+// ------ Spacing tokens
+
+transient generic Nl = n ;
+transient generic Ws = w ;
+
+
+// ----- Spacing elements
+
+transient String n = "\r\n" / "\r" / "\n" ;
+transient String w = ( " " / "\f" / "\t" )+ ;
+
+transient generic Error = error ;
+transient String error = _+ ;
+
+transient void EOF = !_ ;
+

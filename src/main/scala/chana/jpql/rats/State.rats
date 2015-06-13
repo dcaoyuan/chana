@@ -1,0 +1,13 @@
+/*
+ * Definition of JPQL State.
+ * 
+ * @author Caoyuan Deng
+ */
+module State;
+
+option stateful(ParserState);
+
+transient void ENTER_NL_ENABLE  = { yyState.enterNewlineEnable();  } ;
+transient void EXIT_NL_ENABLE   = { yyState.exitNewlineEnable();   } ;
+transient void ENTER_NL_DISABLE = { yyState.enterNewlineDisable(); } ;
+transient void EXIT_NL_DISABLE  = { yyState.exitNewlineDisable();  } ;

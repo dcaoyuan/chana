@@ -1,0 +1,41 @@
+/*
+ * Definition of JPQL Character tokens.
+ * 
+ * @author Caoyuan Deng
+ */
+module Character;
+
+
+// ----- Common character sets
+
+transient String upper = [A-Z] ;
+transient String lower = [a-z] ;
+transient String letter = upper / lower ;
+transient String digit = [0-9] ;
+transient String hexDigit = [0-9a-fA-F] ;
+transient String octalDigit = [0-7] ;
+transient String nonZeroDigit = [1-9] ;
+transient String printableChar = [\u0020-\uFFFF] ;
+
+transient String decimalNumeral = '0' / nonZeroDigit digit* ;
+transient String hexNumeral     = '0' [xX] hexDigit+ ;
+transient String octalNumeral   = '0' octalDigit+ ;
+
+transient String characterChar = escapeSequence / !['\\] printableChar ;
+transient String stringChar    = escapeSequence / !["\\] printableChar ;
+
+transient String escapeSequence =
+  '\\' [btnfr"'\\] 
+/ unicodeEscape 
+/ octalEscape 
+;
+
+transient String octalEscape =
+  '\\' [0-3] octalDigit octalDigit
+/ '\\' octalDigit octalDigit
+/ '\\' octalDigit
+;
+
+transient String unicodeEscape  =
+  '\\' 'u' hexDigit hexDigit hexDigit hexDigit
+;

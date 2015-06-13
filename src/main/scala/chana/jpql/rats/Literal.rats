@@ -1,0 +1,60 @@
+/*
+ * Definition of JPQL literal tokens.
+ * 
+ * @author Caoyuan Deng
+ */
+module Literal;
+
+import Character;
+import Identifier;
+
+
+// ----- Integer literals
+
+transient generic IntegerLiteral = integerLiteral;
+transient String integerLiteral =
+  hexNumeral     integerTypeSuffix?     
+/ octalNumeral   integerTypeSuffix? 
+/ decimalNumeral integerTypeSuffix?
+;
+
+transient String integerTypeSuffix = [lL] ;
+
+// ----- Floating point literals
+
+transient generic FloatingPointLiteral = floatingPointLiteral ;
+transient String floatingPointLiteral =
+  digit+ '.' digit* exponent? floatTypeSuffix?
+/        '.' digit+ exponent? floatTypeSuffix?
+/ digit+            exponent  floatTypeSuffix?
+/ digit+            exponent? floatTypeSuffix
+;
+
+transient String exponent = [eE] [+\-]? digit+ ;
+
+transient String floatTypeSuffix = [fFdD] ;
+
+// ----- Character and string constants
+
+transient generic CharacterLiteral = characterLiteral ;
+// Although it should be: ['] characterChar ['], but for error recover, we change it to this
+transient String characterLiteral = ['] characterChar? ['] ;
+
+transient generic StringLiteral = stringLiteral ;
+transient String stringLiteral = 
+  ["] ["] ["] multiLineChar* ["] ["] ["]
+/ ["] stringChar* ["] 
+;
+transient String multiLineChar = ["]? ["]? !["] _ ;
+
+// ------ Symbol constant
+
+transient generic SymbolLiteral = symbolLiteral;
+transient String symbolLiteral = 
+  ['] 
+  ( opchar+
+  / lower idrest?
+  / upper idrest?
+  / [$_]  idrest?
+  )
+;

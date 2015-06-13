@@ -5,24 +5,36 @@
  */
 module chana.jpql.rats.LexerJPQL;
 
-import JPQLBasic;
+import Character;
+import Identifier;
+import Keyword;
+import Literal;
+import Spacing;
+import Separator;
 
 option flatten;
 
 // ----- public entrance
 public generic Token =
-  DocComment
-/ BlockComment
-/ LineComment
-/ Keyword
-/ Word
-/ Nl
-/ Ws
+  Keyword
+/ DocComment
+/ BlockComment   
+/ LineComment           
+/ Identifier           
+/ Nl                   
+/ Ws                  
 / Literal
-/ CharacterRange
-/ Action
 / Separator
 / Error
 / EOF
+;
+
+// ----- Literal
+
+transient generic Literal =
+  FloatingPointLiteral
+/ IntegerLiteral
+/ CharacterLiteral
+  StringLiteral
 ;
 
