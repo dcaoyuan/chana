@@ -5,6 +5,7 @@
  */
 module Character;
 
+import Spacing;
 
 // ----- Common character sets
 
@@ -39,3 +40,6 @@ transient String octalEscape =
 transient String unicodeEscape  =
   '\\' 'u' hexDigit hexDigit hexDigit hexDigit
 ;
+
+String Word                       = WordCharacters SKIP_N;
+transient String WordCharacters   = [a-zA-Z_$] [a-zA-Z0-9_$]* ;

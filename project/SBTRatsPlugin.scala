@@ -638,7 +638,7 @@ object SBTRatsPluginPatched extends Plugin {
     sourceGenerators in Compile <+= runGenerators,
 
     libraryDependencies ++= Seq(
-      "xtc" % "rats" % "2.3.1"),
+      "xtc" % "rats" % "2.4.0"),
 
     ratsMainModule := None,
 

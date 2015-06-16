@@ -5,6 +5,7 @@
  */
 module Keyword;
 
+import Character;
 import Identifier;
 import Spacing;
 
@@ -74,115 +75,59 @@ option setOfString(JPQL_KEYWORDS);
 // ----- Keywords
 
 ignoringCase generic Keyword =
-  "all"               :keyword @All
-/ "and"               :keyword @And
-/ "any"               :keyword @Any
-/ "as"                :keyword @As
-/ "asc"               :keyword @Asc
-/ "avg"               :keyword @Avg
-/ "between"           :keyword @Between
-/ "bit_length"        :keyword @BitLength
-/ "by"                :keyword @By
-/ "character_length"  :keyword @CharacterLength
-/ "char_length"       :keyword @CharLength
-/ "count"             :keyword @Count
-/ "current_time"      :keyword @CurrentTime
-/ "current_date"      :keyword @CurrentDate
-/ "current_timestamp" :keyword @CurrentTimestamp
-/ "delete"            :keyword @Delete
-/ "desc"              :keyword @Desc
-/ "distinct"          :keyword @Distinct
-/ "empty"             :keyword @Empty
-/ "exists"            :keyword @Exists
-/ "false"             :keyword @False
-/ "fetch"             :keyword @Fetch
-/ "from"              :keyword @From
-/ "group"             :keyword @Group
-/ "having"            :keyword @Having
-/ "in"                :keyword @In
-/ "inner"             :keyword @Inner
-/ "is"                :keyword @Is
-/ "join"              :keyword @Join
-/ "left"              :keyword @Left
-/ "like"              :keyword @Like
-/ "lower"             :keyword @Lower
-/ "max"               :keyword @Max
-/ "member"            :keyword @Member
-/ "min"               :keyword @Min
-/ "mod"               :keyword @Mod
-/ "new"               :keyword @New
-/ "not"               :keyword @Not
-/ "null"              :keyword @Null
-/ "object"            :keyword @Object
-/ "of"                :keyword @Of
-/ "or"                :keyword @Or
-/ "order"             :keyword @Order
-/ "outer"             :keyword @Outer
-/ "position"          :keyword @Position
-/ "select"            :keyword @Select
-/ "some"              :keyword @Some
-/ "sum"               :keyword @Sum
-/ "trim"              :keyword @Trim
-/ "true"              :keyword @True
-/ "update"            :keyword @update
-/ "unknown"           :keyword @Unkown
-/ "upper"             :keyword @Upper
-/ "where"             :keyword @Where
+  "all"               :Word @All
+/ "and"               :Word @And
+/ "any"               :Word @Any
+/ "as"                :Word @As
+/ "asc"               :Word @Asc
+/ "avg"               :Word @Avg
+/ "between"           :Word @Between
+/ "bit_length"        :Word @BitLength
+/ "by"                :Word @By
+/ "character_length"  :Word @CharacterLength
+/ "char_length"       :Word @CharLength
+/ "count"             :Word @Count
+/ "current_time"      :Word @CurrentTime
+/ "current_date"      :Word @CurrentDate
+/ "current_timestamp" :Word @CurrentTimestamp
+/ "delete"            :Word @Delete
+/ "desc"              :Word @Desc
+/ "distinct"          :Word @Distinct
+/ "empty"             :Word @Empty
+/ "exists"            :Word @Exists
+/ "false"             :Word @False
+/ "fetch"             :Word @Fetch
+/ "from"              :Word @From
+/ "group"             :Word @Group
+/ "having"            :Word @Having
+/ "in"                :Word @In
+/ "inner"             :Word @Inner
+/ "is"                :Word @Is
+/ "join"              :Word @Join
+/ "left"              :Word @Left
+/ "like"              :Word @Like
+/ "lower"             :Word @Lower
+/ "max"               :Word @Max
+/ "member"            :Word @Member
+/ "min"               :Word @Min
+/ "mod"               :Word @Mod
+/ "new"               :Word @New
+/ "not"               :Word @Not
+/ "null"              :Word @Null
+/ "object"            :Word @Object
+/ "of"                :Word @Of
+/ "or"                :Word @Or
+/ "order"             :Word @Order
+/ "outer"             :Word @Outer
+/ "position"          :Word @Position
+/ "select"            :Word @Select
+/ "some"              :Word @Some
+/ "sum"               :Word @Sum
+/ "trim"              :Word @Trim
+/ "true"              :Word @True
+/ "update"            :Word @update
+/ "unknown"           :Word @Unkown
+/ "upper"             :Word @Upper
+/ "where"             :Word @Where
 ;
 
-ignoringCase String keyword =
-  "all"               !( idrest )
-/ "and"               !( idrest )
-/ "any"               !( idrest )
-/ "as"                !( idrest )
-/ "asc"               !( idrest )
-/ "avg"               !( idrest )
-/ "between"           !( idrest )
-/ "bit_length"        !( idrest )
-/ "by"                !( idrest )
-/ "character_length"  !( idrest )
-/ "char_length"       !( idrest )
-/ "count"             !( idrest )
-/ "current_time"      !( idrest )
-/ "current_date"      !( idrest )
-/ "current_timestamp" !( idrest )
-/ "delete"            !( idrest )
-/ "desc"              !( idrest )
-/ "distinct"          !( idrest )
-/ "empty"             !( idrest )
-/ "exists"            !( idrest )
-/ "false"             !( idrest )
-/ "fetch"             !( idrest )
-/ "from"              !( idrest )
-/ "group"             !( idrest )
-/ "having"            !( idrest )
-/ "in"                !( idrest )
-/ "inner"             !( idrest )
-/ "is"                !( idrest )
-/ "join"              !( idrest )
-/ "left"              !( idrest )
-/ "like"              !( idrest )
-/ "lower"             !( idrest )
-/ "max"               !( idrest )
-/ "member"            !( idrest )
-/ "min"               !( idrest )
-/ "mod"               !( idrest )
-/ "new"               !( idrest )
-/ "not"               !( idrest )
-/ "null"              !( idrest )
-/ "object"            !( idrest )
-/ "of"                !( idrest )
-/ "or"                !( idrest )
-/ "order"             !( idrest )
-/ "outer"             !( idrest )
-/ "position"          !( idrest )
-/ "select"            !( idrest )
-/ "some"              !( idrest )
-/ "sum"               !( idrest )
-/ "trim"              !( idrest )
-/ "true"              !( idrest )
-/ "update"            !( idrest )
-/ "unknown"           !( idrest )
-/ "upper"             !( idrest )
-/ "where"             !( idrest )
-;
