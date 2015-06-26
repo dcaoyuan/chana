@@ -56,7 +56,10 @@ generic FetchJoin =
 ;
 
 generic JoinSpec = 
- ( LEFT OUTER? / INNER )? JOIN
+  JOIN
+/ LEFT JOIN
+/ LEFT OUTER JOIN
+/ INNER JOIN
 ;
 
 generic JoinCondition = 
@@ -268,11 +271,11 @@ generic ScalarExpression =
 ;
 
 generic ConditionalExpression =
-	ConditionalTerm ( OR ConditionalExpression )*
+	ConditionalTerm ( void:OR ConditionalExpression )*
 ;
 
 generic ConditionalTerm =
-	ConditionalFactor ( AND ConditionalFactor )*
+	ConditionalFactor ( void:AND ConditionalFactor )*
 ;
 
 generic ConditionalFactor =
@@ -365,11 +368,17 @@ generic ComparisonOperator =
 ;
 
 generic ArithmeticExpression = 
-  ArithmeticTerm ( ( PLUS / MINUS ) ArithmeticExpression )*
+  ArithmeticTerm ( void:( PLUS  @PlusArithmeticExpression 
+                        / MINUS @MinusArithmeticExpression 
+                        ) ArithmeticExpression 
+                 )*
 ;
 
 generic ArithmeticTerm = 
-  ArithmeticFactor ( ( TIMES / DIV ) ArithmeticTerm )*
+  ArithmeticFactor ( void:( TIMES @TimesArithmeticTerm
+                          / DIV   @DivArithmeticTerm 
+                          ) ArithmeticTerm 
+                   )*
 /	
 ;
 
@@ -471,7 +480,8 @@ generic FunctionsReturningDatetime =
 generic FunctionsReturningStrings = 
   CONCAT    LParen StringExpression COMMA StringExpression ( COMMA StringExpression )* RParen 
 / SUBSTRING LParen StringExpression COMMA ArithmeticExpression ( COMMA ArithmeticExpression )? RParen
-/ TRIM      LParen ( TrimSpecification? TrimCharacter? FROM )? StringExpression RParen 
+/ TRIM      LParen TrimSpecification? TrimCharacter? FROM StringExpression RParen 
+/ TRIM      LParen StringExpression RParen 
 / LOWER     LParen StringExpression RParen 
 / UPPER     LParen StringExpression RParen
 ;
@@ -541,7 +551,7 @@ generic DatetimeTimestampLiteral =
 ;
 
 generic EnumLiteral =
-  ( identifier '.' )+ identifier	 // 
+  ( identifier void:'.' )+ identifier
 ;
 
 generic EntityTypeLiteral =
