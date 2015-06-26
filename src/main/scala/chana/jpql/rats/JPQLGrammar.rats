@@ -28,7 +28,7 @@ generic SelectStatement =
 ;
 
 generic UpdateStatement =
-	UpdateClause WhereClause?
+  UpdateClause WhereClause?
 ;
 
 generic DeleteStatement =
@@ -36,11 +36,11 @@ generic DeleteStatement =
 ;
 
 generic FromClause =
-	FROM IdentificationVariableDeclaration ( COMMA ( IdentificationVariableDeclaration / CollectionMemberDeclaration) )*
+  FROM IdentificationVariableDeclaration ( COMMA ( IdentificationVariableDeclaration / CollectionMemberDeclaration) )*
 ;
 
 generic IdentificationVariableDeclaration =
-	RangeVariableDeclaration ( Join / FetchJoin )*
+  RangeVariableDeclaration ( Join / FetchJoin )*
 ;
 
 generic RangeVariableDeclaration = 
@@ -82,7 +82,7 @@ generic JoinSingleValuedPathExpression =
 ;
 
 generic CollectionMemberDeclaration =
-	IN LParen CollectionValuedPathExpression RParen AS? IdentificationVariable
+  IN LParen CollectionValuedPathExpression RParen AS? IdentificationVariable
 ;
 
 generic QualifiedIdentificationVariable = 
@@ -137,7 +137,7 @@ generic UpdateClause =
 ;
 
 generic UpdateItem =
- ( IdentificationVariable DOT )? ( SingleValuedEmbeddableObjectField DOT )* ( StateField / SingleValuedObjectField ) EQ NewValue
+  ( IdentificationVariable DOT )? ( SingleValuedEmbeddableObjectField DOT )* ( StateField / SingleValuedObjectField ) EQ NewValue
 ;
 
 generic NewValue =
@@ -165,7 +165,7 @@ generic SelectExpression =
 ;
 
 generic ConstructorExpression =
-	NEW ConstructorName LParen ConstructorItem ( COMMA ConstructorItem )* RParen
+  NEW ConstructorName LParen ConstructorItem ( COMMA ConstructorItem )* RParen
 ;
 
 generic ConstructorItem =
@@ -177,29 +177,29 @@ generic ConstructorItem =
 generic AggregateExpression = 
   ( AVG / MAX / MIN / SUM ) LParen DISTINCT? StateFieldPathExpression RParen
 / COUNT                     LParen DISTINCT? ( IdentificationVariable 
-                                            / StateFieldPathExpression 
-                                            / SingleValuedObjectPathExpression 
-                                            )
+                                             / StateFieldPathExpression 
+                                             / SingleValuedObjectPathExpression 
+                                             )
                             RParen
 / FunctionInvocation
 ;
 
 
 generic WhereClause =
-	WHERE ConditionalExpression 
+  WHERE ConditionalExpression 
 ;
 
 generic GroupbyClause =
-	GROUP BY GroupbyItem ( COMMA GroupbyItem )* 
+  GROUP BY GroupbyItem ( COMMA GroupbyItem )* 
 ;
 
 generic GroupbyItem =
-	SingleValuedPathExpression
+  SingleValuedPathExpression
 / IdentificationVariable
 ;
 
 generic HavingClause =
-	HAVING ConditionalExpression 
+  HAVING ConditionalExpression 
 ;
 
 generic OrderbyClause =
@@ -211,7 +211,7 @@ generic OrderbyItem =
 ;
 
 generic Subquery =
-	SimpleSelectClause SubqueryFromClause WhereClause? GroupbyClause? HavingClause?
+  SimpleSelectClause SubqueryFromClause WhereClause? GroupbyClause? HavingClause?
 ;
 
 generic SubqueryFromClause =
@@ -250,7 +250,7 @@ generic DerivedCollectionMemberDeclaration =
 ;
 
 generic SimpleSelectClause =
-	SELECT DISTINCT? SimpleSelectExpression
+  SELECT DISTINCT? SimpleSelectExpression
 ;
 
 generic SimpleSelectExpression = 
@@ -270,19 +270,19 @@ generic ScalarExpression =
 ;
 
 generic ConditionalExpression =
-	ConditionalTerm ( void:OR ConditionalExpression )*
+  ConditionalTerm ( void:OR ConditionalExpression )*
 ;
 
 generic ConditionalTerm =
-	ConditionalFactor ( void:AND ConditionalFactor )*
+  ConditionalFactor ( void:AND ConditionalFactor )*
 ;
 
 generic ConditionalFactor =
-	NOT? ConditionalPrimary
+  NOT? ConditionalPrimary
 ;
 
 generic ConditionalPrimary =
-	SimpleCondExpression
+  SimpleCondExpression
 / LParen ConditionalExpression RParen
 ;
 
@@ -298,13 +298,13 @@ generic SimpleCondExpression =
 ;
 
 generic BetweenExpression =
-	ArithmeticExpression NOT? BETWEEN ArithmeticExpression AND ArithmeticExpression
+  ArithmeticExpression NOT? BETWEEN ArithmeticExpression AND ArithmeticExpression
 / StringExpression     NOT? BETWEEN StringExpression     AND StringExpression
 / DatetimeExpression   NOT? BETWEEN DatetimeExpression   AND DatetimeExpression
 ;
 
 generic InExpression =
-	( StateFieldPathExpression / TypeDiscriminator ) NOT? IN ( LParen InItem ( COMMA InItem )* RParen 
+  ( StateFieldPathExpression / TypeDiscriminator ) NOT? IN ( LParen InItem ( COMMA InItem )* RParen 
                                                            / LParen Subquery RParen
                                                            / CollectionValuedInputParameter
                                                            )
@@ -316,19 +316,19 @@ generic InItem =
 ;
 
 generic LikeExpression =
-	StringExpression NOT? LIKE PatternValue ( ESCAPE EscapeCharacter )?
+  StringExpression NOT? LIKE PatternValue ( ESCAPE EscapeCharacter )?
 ;
 
 generic NullComparisonExpression =
-	( SingleValuedPathExpression / InputParameter) IS NOT? NULL 
+  ( SingleValuedPathExpression / InputParameter) IS NOT? NULL 
 ;
 
 generic EmptyCollectionComparisonExpression =
-	CollectionValuedPathExpression IS NOT? EMPTY 
+  CollectionValuedPathExpression IS NOT? EMPTY 
 ;
 
 generic CollectionMemberExpression =
-	EntityOrValueExpression NOT? MEMBER OF? CollectionValuedPathExpression
+  EntityOrValueExpression NOT? MEMBER OF? CollectionValuedPathExpression
 ;
 
 generic EntityOrValueExpression =
@@ -344,11 +344,11 @@ generic SimpleEntityOrValueExpression =
 ;
 
 generic ExistsExpression =
-	NOT? EXISTS LParen Subquery RParen 
+  NOT? EXISTS LParen Subquery RParen 
 ;
 
 generic AllOrAnyExpression =
-	( ALL / ANY / SOME ) LParen Subquery RParen
+  ( ALL / ANY / SOME ) LParen Subquery RParen
 ;
 
 generic ComparisonExpression =
@@ -456,7 +456,7 @@ generic TypeDiscriminator =
   TYPE LParen ( IdentificationVariable 
               / SingleValuedObjectPathExpression
               / InputParameter
-             )
+              )
        RParen
 ;
 
@@ -559,7 +559,7 @@ generic EntityTypeLiteral =
 
 generic InputParameter =
   ':' identifier    @NamedInputParameter
-/ '?' [1-9] [0-9]*	@PositionInputParameter
+/ '?' [1-9] [0-9]*  @PositionInputParameter
 ;
 
 generic CollectionValuedInputParameter =
@@ -572,17 +572,17 @@ generic PatternValue =
 ;
 
 generic EscapeCharacter =
-	SingleQuotedStringLiteral
+  SingleQuotedStringLiteral
 ;
 
 generic TrimCharacter =
-	SingleQuotedStringLiteral
+  SingleQuotedStringLiteral
 ;
 
 // ----- undefined terms in BNF
 
 generic IdentificationVariable =
-	Identifier
+  Identifier
 ;
 
 generic ResultVariable =
