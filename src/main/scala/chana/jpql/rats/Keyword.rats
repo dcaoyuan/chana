@@ -11,7 +11,8 @@ import Spacing;
 
 body {
   static {
-    add(JPQL_KEYWORDS, new String[] {
+    add(JPQL_RESERVED, new String[] {
+      "ABS",
       "ALL",
       "AND",
       "ANY",
@@ -20,29 +21,43 @@ body {
       "AVG",
       "BETWEEN",
       "BIT_LENGTH",
+      "BOTH",
       "BY",
-      "CHARACTER_LENGTH",
+      "CASE",
       "CHAR_LENGTH",
+      "CHARACTER_LENGTH",
+      "CLASS",
+      "COALESCE"
+      "CONCAT"
       "COUNT",
-      "CURRENT_TIME",
       "CURRENT_DATE",
+      "CURRENT_TIME",
       "CURRENT_TIMESTAMP",
       "DELETE",
       "DESC",
       "DISTINCT",
+      "ELSE",
       "EMPTY",
+      "ENTRY",
+      "ESCAPE",
       "EXISTS",
       "FALSE",
       "FETCH",
       "FROM",
+      "FUNCTION",
       "GROUP",
       "HAVING",
       "IN",
+      "INDEX",
       "INNER",
       "IS",
       "JOIN",
+      "KEY",
+      "LEADING",
       "LEFT",
+      "LENGTH",
       "LIKE",
+      "LOCATE",
       "LOWER",
       "MAX",
       "MEMBER",
@@ -51,83 +66,134 @@ body {
       "NEW",
       "NOT",
       "NULL",
+      "NULLIF",
       "OBJECT",
       "OF",
+      "ON",
       "OR",
       "ORDER",
       "OUTER",
       "POSITION",
       "SELECT",
+      "SET",
+      "SIZE",
       "SOME",
+      "SQRT",
+      "SUBSTRING",
       "SUM",
+      "THEN",
+      "TAILING",
+      "TREAT",
       "TRIM",
       "TRUE",
-      "UPDATE",
+      "TYPE",
       "UNKNOWN",
+      "UPDATE",
       "UPPER",
+      "VALUE",
+      "WHEN",
       "WHERE"
     });
   }
 }
 
-option setOfString(JPQL_KEYWORDS);
+option setOfString(JPQL_RESERVED);
 
-// ----- Keywords
+// ----- reserved identifiers
+ignoringCase String ABS               = "abs"               :Word ;
+ignoringCase String ALL               = "all"               :Word ;
+ignoringCase String AND               = "and"               :Word ;
+ignoringCase String ANY               = "any"               :Word ;
+ignoringCase String AS                = "as"                :Word ;
+ignoringCase String ASC               = "asc"               :Word ;
+ignoringCase String AVG               = "avg"               :Word ;
+ignoringCase String BETWEEN           = "between"           :Word ;
+ignoringCase String BIT_LENGTH        = "bit_length"        :Word ;
+ignoringCase String BOTH              = "both"              :Word ;
+ignoringCase String BY                = "by"                :Word ;
+ignoringCase String CASE              = "case"              :Word ;
+ignoringCase String CHARACTER_LENGTH  = "character_length"  :Word ;
+ignoringCase String CHAR_LENGTH       = "char_length"       :Word ;
+ignoringCase String COALESCE          = "coalesce"          :Word ;
+ignoringCase String CONCAT            = "concat"            :Word ;
+ignoringCase String COUNT             = "count"             :Word ;
+ignoringCase String CURRENT_TIME      = "current_time"      :Word ;
+ignoringCase String CURRENT_DATE      = "current_date"      :Word ;
+ignoringCase String CURRENT_TIMESTAMP = "current_timestamp" :Word ;
+ignoringCase String DELETE            = "delete"            :Word ;
+ignoringCase String DESC              = "desc"              :Word ;
+ignoringCase String DISTINCT          = "distinct"          :Word ;
+ignoringCase String ELSE              = "else"              :Word ;
+ignoringCase String END               = "end"               :Word ;
+ignoringCase String ENTRY             = "entry"             :Word ;
+ignoringCase String EMPTY             = "empty"             :Word ;
+ignoringCase String ESCAPE            = "escape"            :Word ;
+ignoringCase String EXISTS            = "exists"            :Word ;
+ignoringCase String FALSE             = "false"             :Word ;
+ignoringCase String FETCH             = "fetch"             :Word ;
+ignoringCase String FROM              = "from"              :Word ;
+ignoringCase String FUNCTION          = "function"          :Word ;
+ignoringCase String GROUP             = "group"             :Word ;
+ignoringCase String HAVING            = "having"            :Word ;
+ignoringCase String IN                = "in"                :Word ;
+ignoringCase String INDEX             = "index"             :Word ;
+ignoringCase String INNER             = "inner"             :Word ;
+ignoringCase String IS                = "is"                :Word ;
+ignoringCase String JOIN              = "join"              :Word ;
+ignoringCase String KEY               = "key"               :Word ;
+ignoringCase String LEADING           = "leading"           :Word ;
+ignoringCase String LEFT              = "left"              :Word ;
+ignoringCase String LENGTH            = "length"            :Word ;
+ignoringCase String LIKE              = "like"              :Word ;
+ignoringCase String LOCATE            = "locate"            :Word ;
+ignoringCase String LOWER             = "lower"             :Word ;
+ignoringCase String MAX               = "max"               :Word ;
+ignoringCase String MEMBER            = "member"            :Word ;
+ignoringCase String MIN               = "min"               :Word ;
+ignoringCase String MOD               = "mod"               :Word ;
+ignoringCase String NEW               = "new"               :Word ;
+ignoringCase String NOT               = "not"               :Word ;
+ignoringCase String NULL              = "null"              :Word ;
+ignoringCase String NULLIF            = "nullif"            :Word ;
+ignoringCase String OBJECT            = "object"            :Word ;
+ignoringCase String OF                = "of"                :Word ;
+ignoringCase String ON                = "on"                :Word ; 
+ignoringCase String OR                = "or"                :Word ;
+ignoringCase String ORDER             = "order"             :Word ;
+ignoringCase String OUTER             = "outer"             :Word ;
+ignoringCase String POSITION          = "position"          :Word ;
+ignoringCase String SELECT            = "select"            :Word ;
+ignoringCase String SET               = "set"               :Word ;
+ignoringCase String SIZE              = "size"              :Word ;
+ignoringCase String SOME              = "some"              :Word ;
+ignoringCase String SQRT              = "sqrt"              :Word ;
+ignoringCase String SUBSTRING         = "substring"         :Word ;
+ignoringCase String SUM               = "sum"               :Word ;
+ignoringCase String TRAILING          = "trailing"          :Word ;
+ignoringCase String THEN              = "then"              :Word ;
+ignoringCase String TREAT             = "treat"             :Word ;
+ignoringCase String TRIM              = "trim"              :Word ;
+ignoringCase String TRUE              = "true"              :Word ;
+ignoringCase String TYPE              = "type"              :Word ;
+ignoringCase String UPDATE            = "update"            :Word ;
+ignoringCase String UNKNOWN           = "unknown"           :Word ;
+ignoringCase String UPPER             = "upper"             :Word ;
+ignoringCase String VALUE             = "value"             :Word ;
+ignoringCase String WHEN              = "when"              :Word ;
+ignoringCase String WHERE             = "where"             :Word ;
 
-ignoringCase generic Keyword =
-  "all"               :Word @All
-/ "and"               :Word @And
-/ "any"               :Word @Any
-/ "as"                :Word @As
-/ "asc"               :Word @Asc
-/ "avg"               :Word @Avg
-/ "between"           :Word @Between
-/ "bit_length"        :Word @BitLength
-/ "by"                :Word @By
-/ "character_length"  :Word @CharacterLength
-/ "char_length"       :Word @CharLength
-/ "count"             :Word @Count
-/ "current_time"      :Word @CurrentTime
-/ "current_date"      :Word @CurrentDate
-/ "current_timestamp" :Word @CurrentTimestamp
-/ "delete"            :Word @Delete
-/ "desc"              :Word @Desc
-/ "distinct"          :Word @Distinct
-/ "empty"             :Word @Empty
-/ "exists"            :Word @Exists
-/ "false"             :Word @False
-/ "fetch"             :Word @Fetch
-/ "from"              :Word @From
-/ "group"             :Word @Group
-/ "having"            :Word @Having
-/ "in"                :Word @In
-/ "inner"             :Word @Inner
-/ "is"                :Word @Is
-/ "join"              :Word @Join
-/ "left"              :Word @Left
-/ "like"              :Word @Like
-/ "lower"             :Word @Lower
-/ "max"               :Word @Max
-/ "member"            :Word @Member
-/ "min"               :Word @Min
-/ "mod"               :Word @Mod
-/ "new"               :Word @New
-/ "not"               :Word @Not
-/ "null"              :Word @Null
-/ "object"            :Word @Object
-/ "of"                :Word @Of
-/ "or"                :Word @Or
-/ "order"             :Word @Order
-/ "outer"             :Word @Outer
-/ "position"          :Word @Position
-/ "select"            :Word @Select
-/ "some"              :Word @Some
-/ "sum"               :Word @Sum
-/ "trim"              :Word @Trim
-/ "true"              :Word @True
-/ "update"            :Word @update
-/ "unknown"           :Word @Unkown
-/ "upper"             :Word @Upper
-/ "where"             :Word @Where
-;
+
+String Word               = wordChar SKIP_N ;
+transient String wordChar = [a-zA-Z]+ ;
+
+String EQ    = SKIP_N "="  SKIP_N ;
+String NE    = SKIP_N "<>" SKIP_N ;
+String GT    = SKIP_N ">"  SKIP_N ;
+String GE    = SKIP_N ">=" SKIP_N ;
+String LT    = SKIP_N "<"  SKIP_N ;
+String LE    = SKIP_N "<=" SKIP_N ;
+String PLUS  = SKIP_N "+"  SKIP_N ;
+String MINUS = SKIP_N "-"  SKIP_N ;
+String TIMES = SKIP_N "*"  SKIP_N ;
+String DIV   = SKIP_N "/"  SKIP_N ;
 

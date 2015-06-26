@@ -1,0 +1,621 @@
+/*
+ * Definition of JPQL grammar.
+ * 
+ * @author Caoyuan Deng
+ */
+module chana.jpql.rats.JPQLGrammar;
+
+import Character;
+import Identifier;
+import Keyword;
+import Literal;
+import Separator;
+import Spacing;
+import State;
+
+option withLocation;
+
+
+// ----- public entrance
+public generic JPQL = 
+  SelectStatement
+/ UpdateStatement
+/ DeleteStatement
+;
+
+generic SelectStatement = 
+  SelectClause FromClause WhereClause? GroupbyClause? HavingClause? OrderbyClause?
+;
+
+generic UpdateStatement =
+	UpdateClause WhereClause?
+;
+
+generic DeleteStatement =
+  DeleteClause WhereClause?
+;
+
+generic FromClause =
+	FROM IdentificationVariableDeclaration ( COMMA ( IdentificationVariableDeclaration / CollectionMemberDeclaration) )*
+;
+
+generic IdentificationVariableDeclaration =
+	RangeVariableDeclaration ( Join / FetchJoin )*
+;
+
+generic RangeVariableDeclaration = 
+  EntityName AS? IdentificationVariable
+;
+
+generic Join = 
+  JoinSpec JoinAssociationPathExpression AS? IdentificationVariable JoinCondition?
+;
+
+generic FetchJoin = 
+  JoinSpec FETCH JoinAssociationPathExpression JoinCondition?
+;
+
+generic JoinSpec = 
+ ( LEFT OUTER? / INNER )? JOIN
+;
+
+generic JoinCondition = 
+  ON ConditionalExpression
+;
+
+generic JoinAssociationPathExpression = 
+  JoinCollectionValuedPathExpression
+/ JoinSingleValuedPathExpression
+/ TREAT LParen JoinCollectionValuedPathExpression AS Subtype RParen
+/ TREAT LParen JoinSingleValuedPathExpression     AS Subtype RParen
+;
+
+generic JoinCollectionValuedPathExpression = 
+  IdentificationVariable DOT ( SingleValuedEmbeddableObjectField DOT )* CollectionValuedField
+;
+
+generic JoinSingleValuedPathExpression = 
+  IdentificationVariable DOT ( SingleValuedEmbeddableObjectField DOT )* SingleValuedObjectField
+;
+
+generic CollectionMemberDeclaration =
+	IN LParen CollectionValuedPathExpression RParen AS? IdentificationVariable
+;
+
+generic QualifiedIdentificationVariable = 
+   ComposableQualifiedIdentificationVariable
+ / ENTRY LParen IdentificationVariable RParen
+;
+
+generic ComposableQualifiedIdentificationVariable = 
+  KEY    LParen IdentificationVariable RParen
+/ VALUE  LParen IdentificationVariable RParen
+;
+
+generic SingleValuedPathExpression = 
+  QualifiedIdentificationVariable
+/ TREAT LParen QualifiedIdentificationVariable RParen
+/ StateFieldPathExpression
+/ SingleValuedObjectPathExpression
+;
+
+generic GeneralIdentificationVariable =
+  IdentificationVariable
+/ ComposableQualifiedIdentificationVariable
+;
+
+generic GeneralSubpath = 
+  SimpleSubpath
+/ TreatedSubpath ( DOT SingleValuedObjectField )*
+;
+
+generic SimpleSubpath = 
+  GeneralIdentificationVariable
+/ GeneralIdentificationVariable ( DOT SingleValuedObjectField )*
+; 
+
+generic TreatedSubpath = 
+  TREAT LParen GeneralSubpath AS Subtype RParen
+; 
+
+generic StateFieldPathExpression = 
+  GeneralSubpath DOT StateField
+;
+
+generic SingleValuedObjectPathExpression = 
+  GeneralSubpath DOT SingleValuedObjectField
+;
+
+generic CollectionValuedPathExpression = 
+  GeneralSubpath DOT CollectionValuedField
+;
+
+generic UpdateClause =
+  UPDATE EntityName ( AS? IdentificationVariable )? SET UpdateItem ( COMMA UpdateItem )*
+;
+
+generic UpdateItem =
+ ( IdentificationVariable DOT )? ( SingleValuedEmbeddableObjectField DOT )* ( StateField / SingleValuedObjectField ) EQ NewValue
+;
+
+generic NewValue =
+  ScalarExpression
+/ SimpleEntityExpression
+/ NULL
+;
+
+generic DeleteClause =
+  DELETE FROM EntityName ( AS? IdentificationVariable )?
+;
+
+generic SelectClause = 
+  SELECT DISTINCT? SelectItem (COMMA SelectItem )* 
+; 
+
+generic SelectItem = 
+  SelectExpression ( AS? ResultVariable )?
+;
+
+generic SelectExpression = 
+	SingleValuedPathExpression
+/ ScalarExpression
+/ AggregateExpression
+/ IdentificationVariable
+/ OBJECT LParen IdentificationVariable RParen
+/ ConstructorExpression
+;
+
+generic ConstructorExpression =
+	NEW ConstructorName LParen ConstructorItem ( COMMA ConstructorItem )* RParen
+;
+
+generic ConstructorItem =
+  SingleValuedPathExpression
+/ ScalarExpression
+/ AggregateExpression
+/ IdentificationVariable
+;
+
+generic AggregateExpression = 
+  ( AVG / MAX / MIN / SUM ) LParen DISTINCT? StateFieldPathExpression RParen
+/ COUNT                     LParen DISTINCT? ( IdentificationVariable 
+                                            / StateFieldPathExpression 
+                                            / SingleValuedObjectPathExpression 
+                                            )
+                            RParen
+/ FunctionInvocation
+;
+
+
+generic WhereClause =
+	WHERE ConditionalExpression 
+;
+
+generic GroupbyClause =
+	GROUP BY GroupbyItem ( COMMA GroupbyItem )* 
+;
+
+generic GroupbyItem =
+	SingleValuedPathExpression
+/ IdentificationVariable
+;
+
+generic HavingClause =
+	HAVING ConditionalExpression 
+;
+
+generic OrderbyClause =
+  ORDER BY OrderbyItem ( COMMA OrderbyItem )*
+;
+
+generic OrderbyItem =
+  ( StateFieldPathExpression / ResultVariable ) ( ASC / DESC )?
+;
+
+generic Subquery =
+	SimpleSelectClause SubqueryFromClause WhereClause? GroupbyClause? HavingClause?
+;
+
+generic SubqueryFromClause =
+  FROM SubselectIdentificationVariableDeclaration ( COMMA ( SubselectIdentificationVariableDeclaration 
+                                                          / CollectionMemberDeclaration
+                                                          ) 
+                                                  )*
+;
+
+generic SubselectIdentificationVariableDeclaration = 
+  IdentificationVariableDeclaration 
+/ DerivedPathExpression AS? IdentificationVariable Join*
+/ DerivedCollectionMemberDeclaration
+;
+
+generic DerivedPathExpression = 
+  GeneralDerivedPath DOT SingleValuedObjectField
+/ GeneralDerivedPath DOT CollectionValuedField
+;
+
+generic GeneralDerivedPath =
+  SimpleDerivedPath
+/ TreatedDerivedPath ( DOT SingleValuedObjectField )*
+;
+
+generic SimpleDerivedPath =
+  SuperqueryIdentificationVariable ( DOT SingleValuedObjectField )*
+;
+
+generic TreatedDerivedPath =
+  TREAT LParen GeneralDerivedPath AS Subtype RParen
+;
+
+generic DerivedCollectionMemberDeclaration =
+  IN SuperqueryIdentificationVariable DOT ( SingleValuedObjectField DOT )* CollectionValuedField
+;
+
+generic SimpleSelectClause =
+	SELECT DISTINCT? SimpleSelectExpression
+;
+
+generic SimpleSelectExpression = 
+  SingleValuedPathExpression 
+/ ScalarExpression
+/ AggregateExpression
+/ IdentificationVariable
+;
+
+generic ScalarExpression = 
+  ArithmeticExpression
+/ StringExpression
+/ EnumExpression
+/ DatetimeExpression
+/ BooleanExpression
+/ CaseExpression
+/ EntityTypeExpression
+;
+
+generic ConditionalExpression =
+	( ConditionalTerm / ConditionalExpression ) OR ConditionalTerm 
+;
+
+generic ConditionalTerm =
+	( ConditionalFactor / ConditionalTerm ) AND ConditionalFactor
+;
+
+generic ConditionalFactor =
+	NOT? ConditionalPrimary
+;
+
+generic ConditionalPrimary =
+	SimpleCondExpression
+/ LParen ConditionalExpression RParen
+;
+
+generic SimpleCondExpression =
+  ComparisonExpression
+/ BetweenExpression
+/ LikeExpression
+/ InExpression
+/ NullComparisonExpression
+/ EmptyCollectionComparisonExpression
+/ CollectionMemberExpression
+/ ExistsExpression
+;
+
+generic BetweenExpression =
+	ArithmeticExpression NOT? BETWEEN ArithmeticExpression AND ArithmeticExpression
+/ StringExpression     NOT? BETWEEN StringExpression     AND StringExpression
+/ DatetimeExpression   NOT? BETWEEN DatetimeExpression   AND DatetimeExpression
+;
+
+generic InExpression =
+	( StateFieldPathExpression / TypeDiscriminator ) NOT? IN ( LParen InItem ( COMMA InItem )* RParen 
+                                                           / LParen Subquery RParen
+                                                           / CollectionValuedInputParameter
+                                                           )
+;
+
+generic InItem =
+  Literal
+/ SingleValuedInputParameter
+;
+
+generic LikeExpression =
+	StringExpression NOT? LIKE PatternValue ( ESCAPE EscapeCharacter )?
+;
+
+generic NullComparisonExpression =
+	( SingleValuedPathExpression / InputParameter) IS NOT? NULL 
+;
+
+generic EmptyCollectionComparisonExpression =
+	CollectionValuedPathExpression IS NOT? EMPTY 
+;
+
+generic CollectionMemberExpression =
+	EntityOrValueExpression NOT? MEMBER OF? CollectionValuedPathExpression
+;
+
+generic EntityOrValueExpression =
+  SingleValuedObjectPathExpression
+/ StateFieldPathExpression
+/ SimpleEntityOrValueExpression
+;
+
+generic SimpleEntityOrValueExpression =
+  IdentificationVariable
+/ InputParameter
+/ Literal
+;
+
+generic ExistsExpression =
+	NOT? EXISTS LParen Subquery RParen 
+;
+
+generic AllOrAnyExpression =
+	( ALL / ANY / SOME ) LParen Subquery RParen
+;
+
+generic ComparisonExpression =
+  StringExpression     ComparisonOperator ( StringExpression     / AllOrAnyExpression )
+/ BooleanExpression    ( EQ / NE )        ( BooleanExpression    / AllOrAnyExpression )
+/ EnumExpression       ( EQ / NE )        ( EnumExpression       / AllOrAnyExpression )
+/ DatetimeExpression   ComparisonOperator ( DatetimeExpression   / AllOrAnyExpression )
+/ EntityExpression     ( EQ / NE )        ( EntityExpression     / AllOrAnyExpression )
+/ ArithmeticExpression ComparisonOperator ( ArithmeticExpression / AllOrAnyExpression )
+/ EntityTypeExpression ( EQ / NE )        EntityTypeExpression
+;
+
+generic ComparisonOperator =
+ EQ / GE / GT / NE / LT / LE
+;
+
+generic ArithmeticExpression = 
+  ( ArithmeticTerm / ArithmeticExpression ) ( PLUS / MINUS ) ArithmeticTerm
+;
+
+generic ArithmeticTerm = 
+  ( ArithmeticTerm / ArithmeticFactor ) ( TIMES / DIV ) ArithmeticFactor
+/	
+;
+
+generic ArithmeticFactor = 
+  ( PLUS / MINUS )? ArithmeticPrimary
+;
+
+generic ArithmeticPrimary =
+  StateFieldPathExpression 
+/ NumericLiteral 
+/ LParen ArithmeticExpression RParen
+/ InputParameter
+/ FunctionsReturningNumerics
+/ AggregateExpression
+/ CaseExpression
+/ FunctionInvocation
+/ LParen Subquery RParen
+;
+
+generic StringExpression =
+  StateFieldPathExpression 
+/ StringLiteral 
+/ InputParameter
+/ FunctionsReturningStrings
+/ AggregateExpression
+/ CaseExpression
+/ FunctionInvocation
+/ LParen Subquery RParen
+;
+
+generic DatetimeExpression =
+  StateFieldPathExpression 
+/ InputParameter
+/ FunctionsReturningDatetime
+/ AggregateExpression
+/ CaseExpression
+/ FunctionInvocation
+/ DatetimeTimestampLiteral
+/ LParen Subquery RParen
+;
+
+generic BooleanExpression =
+  StateFieldPathExpression 
+/ BooleanLiteral
+/ InputParameter
+/ CaseExpression
+/ FunctionInvocation
+/ LParen Subquery RParen
+;
+
+generic EnumExpression =
+  StateFieldPathExpression
+/ EnumLiteral
+/ InputParameter
+/ CaseExpression
+/ LParen Subquery RParen
+;
+
+generic EntityExpression = 
+  SingleValuedObjectPathExpression
+/ SimpleEntityExpression 
+;
+
+generic SimpleEntityExpression = 
+  IdentificationVariable
+/ InputParameter
+;
+
+generic EntityTypeExpression =
+  TypeDiscriminator
+/ EntityTypeLiteral
+/ InputParameter
+;
+
+generic TypeDiscriminator = 
+  TYPE LParen ( IdentificationVariable 
+             / SingleValuedObjectPathExpression
+             / InputParameter
+             )
+       RParen
+;
+
+generic FunctionsReturningNumerics =
+  LENGTH LParen StringExpression RParen
+/ LOCATE LParen StringExpression COMMA StringExpression ( COMMA ArithmeticExpression )? RParen
+/ ABS    LParen ArithmeticExpression RParen 
+/ SQRT   LParen ArithmeticExpression RParen
+/ MOD    LParen ArithmeticExpression COMMA ArithmeticExpression RParen 
+/ SIZE   LParen CollectionValuedPathExpression RParen
+/ INDEX  LParen IdentificationVariable RParen
+;
+
+generic FunctionsReturningDatetime = 
+  CURRENT_DATE
+/ CURRENT_TIME
+/ CURRENT_TIMESTAMP
+;
+
+generic FunctionsReturningStrings = 
+  CONCAT    LParen StringExpression COMMA StringExpression ( COMMA StringExpression )* RParen 
+/ SUBSTRING LParen StringExpression COMMA ArithmeticExpression ( COMMA ArithmeticExpression )? RParen
+/ TRIM      LParen ( TrimSpecification? TrimCharacter? FROM )? StringExpression RParen 
+/ LOWER     LParen StringExpression RParen 
+/ UPPER     LParen StringExpression RParen
+;
+
+generic TrimSpecification = 
+  LEADING / TRAILING / BOTH
+;
+
+generic FunctionInvocation =
+  FUNCTION LParen StringLiteral ( COMMA FunctionArg )* RParen
+;
+
+generic FunctionArg =
+  Literal
+/ StateFieldPathExpression
+/ InputParameter
+/ ScalarExpression
+;
+
+generic CaseExpression =
+  GeneralCaseExpression
+/ SimpleCaseExpression
+/ CoalesceExpression
+/ NullifExpression
+;
+
+generic GeneralCaseExpression =
+  CASE WhenClause WhenClause* ELSE ScalarExpression END
+;
+
+generic WhenClause =
+  WHEN ConditionalExpression THEN ScalarExpression
+;
+
+generic SimpleCaseExpression =
+  CASE CaseOperand SimpleWhenClause SimpleWhenClause* ELSE ScalarExpression END
+;
+
+generic CaseOperand =
+  StateFieldPathExpression
+/ TypeDiscriminator
+;
+
+generic SimpleWhenClause =
+  WHEN ScalarExpression THEN ScalarExpression
+;
+
+generic CoalesceExpression =
+  COALESCE LParen ScalarExpression ( COMMA ScalarExpression )+ RParen
+;
+
+generic NullifExpression =
+  NULLIF LParen ScalarExpression COMMA ScalarExpression RParen
+;
+
+generic Literal =
+  BooleanLiteral
+/ EnumLiteral
+/ NumericLiteral
+/ StringLiteral
+;
+
+generic DatetimeTimestampLiteral =
+  DateLiteral
+/ TimeLiteral
+/ TimestampLiteral
+;
+
+generic EnumLiteral =
+  ( identifier '.' )+ identifier	 // 
+;
+
+generic EntityTypeLiteral =
+  Identifier
+;
+
+generic InputParameter =
+  ':' identifier    @NamedInputParameter
+/ '?' [1-9] [0-9]*	@PositionInputParameter
+;
+
+generic CollectionValuedInputParameter =
+  InputParameter
+;
+
+generic PatternValue =
+  InputParameter
+/ StringLiteral
+;
+
+generic EscapeCharacter =
+	SingleQuotedStringLiteral
+;
+
+generic TrimCharacter =
+	SingleQuotedStringLiteral
+;
+
+// ----- undefined terms in BNF
+
+generic IdentificationVariable =
+	Identifier
+;
+
+generic ResultVariable =
+  Identifier
+;
+
+generic EntityName =
+  Identifier
+;
+
+generic SingleValuedObjectField = 
+  PathComponent
+;
+
+generic CollectionValuedField = 
+  PathComponent
+;
+
+generic StateField = 
+  ( PathComponent DOT )* PathComponent
+;
+
+generic SingleValuedEmbeddableObjectField =
+  PathComponent
+;
+
+generic ConstructorName =
+  Identifier ( DOT PathComponent )*
+;
+
+generic Subtype =
+  Identifier
+;
+
+generic SuperqueryIdentificationVariable =
+  Identifier
+;
+
+generic SingleValuedInputParameter =
+  Identifier
+;

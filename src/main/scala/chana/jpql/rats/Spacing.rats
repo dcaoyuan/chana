@@ -48,7 +48,7 @@ transient String lineComment =
 
 // ----- Meaningful newline
 
-transient void N = ( w / DocComment / BlockComment / lineComment )* n;
+transient void N = ( w / DocComment / BlockComment / lineComment )* n ;
 
 // ----- Skip including nl but will leave all ( w / DocComment / BlockComment / lineComment )* before latest n
 transient void SKIP_TILL_N = 

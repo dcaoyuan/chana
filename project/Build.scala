@@ -60,7 +60,7 @@ object Build extends sbt.Build {
   //   val inputFiles = (scalaSourceDir ** ("*.rats" | "*.syntax")).get.toSet 
   // when call FileFunction.cached
   lazy val ratsSettings = SBTRatsPluginPatched.sbtRatsSettings ++ Seq(
-    SBTRatsPluginPatched.ratsMainModule := Some((scalaSource in Compile).value / "chana" / "jpql" / "rats" / "LexerJPQL.rats"),
+    SBTRatsPluginPatched.ratsMainModule := Some((scalaSource in Compile).value / "chana" / "jpql" / "rats" / "JPQLGrammar.rats"),
     //generateRatsSources <<= (sourceGenerators in Compile) {_.join.map(_.flatten.toList)}
     generateRatsSources <<= runRatsGenerators)
 

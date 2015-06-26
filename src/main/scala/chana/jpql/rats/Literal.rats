@@ -7,54 +7,72 @@ module Literal;
 
 import Character;
 import Identifier;
+import Spacing;
+import Keyword;
 
+
+transient genecit NumericLiteral =
+  IntegerLiteral
+/ DecimalLiteral
+;
 
 // ----- Integer literals
 
-transient generic IntegerLiteral = integerLiteral;
-transient String integerLiteral =
-  hexNumeral     integerTypeSuffix?     
-/ octalNumeral   integerTypeSuffix? 
-/ decimalNumeral integerTypeSuffix?
+transient generic IntegerLiteral =
+  [0-9]+ [lL]?     
 ;
 
-transient String integerTypeSuffix = [lL] ;
+// ----- Decimal literals
 
-// ----- Floating point literals
-
-transient generic FloatingPointLiteral = floatingPointLiteral ;
-transient String floatingPointLiteral =
-  digit+ '.' digit* exponent? floatTypeSuffix?
-/        '.' digit+ exponent? floatTypeSuffix?
-/ digit+            exponent  floatTypeSuffix?
-/ digit+            exponent? floatTypeSuffix
+transient generic DecimalLiteral =
+  [0-9]* '.' [0-9]+ exponent? [fFdD]?
+/ [0-9]+ '.'        exponent? [fFdD]?
+/ [0-9]+            exponent  [fFdD]?
+/ [0-9]+            exponent? [fFdD]? 
 ;
 
-transient String exponent = [eE] [+\-]? digit+ ;
-
-transient String floatTypeSuffix = [fFdD] ;
-
-// ----- Character and string constants
-
-transient generic CharacterLiteral = characterLiteral ;
-// Although it should be: ['] characterChar ['], but for error recover, we change it to this
-transient String characterLiteral = ['] characterChar? ['] ;
-
-transient generic StringLiteral = stringLiteral ;
-transient String stringLiteral = 
-  ["] ["] ["] multiLineChar* ["] ["] ["]
-/ ["] stringChar* ["] 
+transient String exponent = 
+  [eE] [+\-]? [0-9]+ 
 ;
-transient String multiLineChar = ["]? ["]? !["] _ ;
 
-// ------ Symbol constant
+// ----- Character and String Literals
 
-transient generic SymbolLiteral = symbolLiteral;
-transient String symbolLiteral = 
-  ['] 
-  ( opchar+
-  / lower idrest?
-  / upper idrest?
-  / [$_]  idrest?
-  )
+transient generic CharacterLiteral = 
+  ['] characterChar ['] 
+;
+
+transient generic StringLiteral = 
+  DoubleQuotedStringLiteral
+/ SingleQuotedStringLiteral
+;
+
+transient generic DoubleQuotedStringLiteral = 
+ ["] stringChar* ["] 
+;
+
+transient generic SingleQuotedStringLiteral = 
+ ['] ( "''" / characterChar )* [']
+;
+
+// ----- Date Time literal
+
+transient generic DateLiteral = 
+  "{d '" ( [0-9][0-9][0-9][0-9] '-' [0-9][0-9] '-' [0-9][0-9] ) "'}"
+;
+
+transient generic TimeLiteral = 
+  "{t '" ( [0-9][0-9] ':' [0-9][0-9] ':' [0-9][0-9] ) "'}"
+;
+
+transient generic TimestampLiteral =
+  "{ts '" ( [0-9][0-9][0-9][0-9] '-' [0-9][0-9] '-' [0-9][0-9] ) w+ 
+    ( [0-9][0-9] ':' [0-9][0-9] ':' [0-9][0-9] ) 
+    ( '.' [0-9]* "'}" 
+    / "'}" 
+    )
+;
+
+// ----- Boolean literal
+transient generic BooleanLiteral =
+  TRUE / FALSE
 ;

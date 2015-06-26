@@ -11,3 +11,7 @@ transient void ENTER_NL_ENABLE  = { yyState.enterNewlineEnable();  } ;
 transient void EXIT_NL_ENABLE   = { yyState.exitNewlineEnable();   } ;
 transient void ENTER_NL_DISABLE = { yyState.enterNewlineDisable(); } ;
 transient void EXIT_NL_DISABLE  = { yyState.exitNewlineDisable();  } ;
+
+//transient void ENTER_ENUM_PATH = { yyState.enterEnumPath(); } ;
+//transient void EXIT_ENUM_PATH  = { yyState.exitEnumPath();  } ;
+
