@@ -140,8 +140,6 @@ generic UpdateItem =
 
 generic NewValue =
   ScalarExpression
-/ SimpleEntityExpression
-/ NULL
 ;
 
 generic DeleteClause =
@@ -157,12 +155,11 @@ generic SelectItem =
 ;
 
 generic SelectExpression = 
-	SingleValuedPathExpression
-/ ScalarExpression
-/ AggregateExpression
-/ IdentificationVariable
+  AggregateExpression
 / OBJECT LParen IdentificationVariable RParen
 / ConstructorExpression
+/ SingleValuedPathExpression
+/ ScalarExpression
 ;
 
 generic ConstructorExpression =
@@ -170,10 +167,9 @@ generic ConstructorExpression =
 ;
 
 generic ConstructorItem =
-  SingleValuedPathExpression
+  AggregateExpression
+/ SingleValuedPathExpression
 / ScalarExpression
-/ AggregateExpression
-/ IdentificationVariable
 ;
 
 generic AggregateExpression = 
@@ -256,20 +252,19 @@ generic SimpleSelectClause =
 ;
 
 generic SimpleSelectExpression = 
-  SingleValuedPathExpression 
+  AggregateExpression
+/ SingleValuedPathExpression 
 / ScalarExpression
-/ AggregateExpression
-/ IdentificationVariable
 ;
 
 generic ScalarExpression = 
-  ArithmeticExpression
-/ StringExpression
+  StringExpression
 / EnumExpression
 / DatetimeExpression
 / BooleanExpression
 / CaseExpression
 / EntityTypeExpression
+/ ArithmeticExpression
 ;
 
 generic ConditionalExpression =
@@ -355,17 +350,18 @@ generic AllOrAnyExpression =
 ;
 
 generic ComparisonExpression =
-  StringExpression     ComparisonOperator ( StringExpression     / AllOrAnyExpression )
-/ BooleanExpression    ( EQ / NE )        ( BooleanExpression    / AllOrAnyExpression )
-/ EnumExpression       ( EQ / NE )        ( EnumExpression       / AllOrAnyExpression )
-/ DatetimeExpression   ComparisonOperator ( DatetimeExpression   / AllOrAnyExpression )
-/ EntityExpression     ( EQ / NE )        ( EntityExpression     / AllOrAnyExpression )
-/ ArithmeticExpression ComparisonOperator ( ArithmeticExpression / AllOrAnyExpression )
+  StringExpression     ComparisonOperator ( StringExpression   / AllOrAnyExpression )
+/ BooleanExpression    ( EQ / NE )        ( BooleanExpression  / AllOrAnyExpression )
+/ EnumExpression       ( EQ / NE )        ( EnumExpression     / AllOrAnyExpression )
+/ DatetimeExpression   ComparisonOperator ( DatetimeExpression / AllOrAnyExpression )
+/ EntityExpression     ( EQ / NE )        ( EntityExpression   / AllOrAnyExpression )
 / EntityTypeExpression ( EQ / NE )        EntityTypeExpression
+/ ArithmeticExpression ComparisonOperator ArithmeticExpression
+/ ArithmeticExpression ComparisonOperator AllOrAnyExpression
 ;
 
 generic ComparisonOperator =
- EQ / GE / GT / NE / LT / LE
+  EQ / GE / GT / NE / LT / LE
 ;
 
 generic ArithmeticExpression = 
@@ -444,14 +440,14 @@ generic SimpleEntityExpression =
 
 generic EntityTypeExpression =
   TypeDiscriminator
-/ EntityTypeLiteral
 / InputParameter
+/ EntityTypeLiteral
 ;
 
 generic TypeDiscriminator = 
   TYPE LParen ( IdentificationVariable 
-             / SingleValuedObjectPathExpression
-             / InputParameter
+              / SingleValuedObjectPathExpression
+              / InputParameter
              )
        RParen
 ;
