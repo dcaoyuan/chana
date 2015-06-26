@@ -273,11 +273,11 @@ generic ScalarExpression =
 ;
 
 generic ConditionalExpression =
-	( ConditionalTerm / ConditionalExpression ) OR ConditionalTerm 
+	ConditionalTerm ( OR ConditionalExpression )*
 ;
 
 generic ConditionalTerm =
-	( ConditionalFactor / ConditionalTerm ) AND ConditionalFactor
+	ConditionalFactor ( AND ConditionalFactor )*
 ;
 
 generic ConditionalFactor =
@@ -369,11 +369,11 @@ generic ComparisonOperator =
 ;
 
 generic ArithmeticExpression = 
-  ( ArithmeticTerm / ArithmeticExpression ) ( PLUS / MINUS ) ArithmeticTerm
+  ArithmeticTerm ( ( PLUS / MINUS ) ArithmeticExpression )*
 ;
 
 generic ArithmeticTerm = 
-  ( ArithmeticTerm / ArithmeticFactor ) ( TIMES / DIV ) ArithmeticFactor
+  ArithmeticFactor ( ( TIMES / DIV ) ArithmeticTerm )*
 /	
 ;
 
