@@ -10,7 +10,7 @@ import Spacing;
 
 // ----- Identifier
 transient String Identifier = 
-  SKIP v:identifier &{ !contains(JPQL_RESERVED, toText(v).toUpperCase()) } 
+  SKIP v:identifier &{ !contains(JPQL_RESERVED, v.toUpperCase()) } 
 ;
 transient String identifier = 
   id_letter ( id_letter / id_digit )*

@@ -27,8 +27,8 @@ body {
       "CHAR_LENGTH",
       "CHARACTER_LENGTH",
       "CLASS",
-      "COALESCE"
-      "CONCAT"
+      "COALESCE",
+      "CONCAT",
       "COUNT",
       "CURRENT_DATE",
       "CURRENT_TIME",

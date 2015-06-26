@@ -11,7 +11,7 @@ import Spacing;
 import Keyword;
 
 
-transient genecit NumericLiteral =
+transient generic NumericLiteral =
   IntegerLiteral
 / DecimalLiteral
 ;
