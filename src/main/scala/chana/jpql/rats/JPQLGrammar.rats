@@ -113,8 +113,7 @@ generic GeneralSubpath =
 ;
 
 generic SimpleSubpath = 
-  GeneralIdentificationVariable
-/ GeneralIdentificationVariable ( DOT SingleValuedObjectField )*
+  GeneralIdentificationVariable ( DOT SingleValuedObjectField )*
 ; 
 
 generic TreatedSubpath = 
@@ -359,8 +358,8 @@ generic ComparisonExpression =
 / DatetimeExpression   ComparisonOperator ( DatetimeExpression / AllOrAnyExpression )
 / EntityExpression     ( EQ / NE )        ( EntityExpression   / AllOrAnyExpression )
 / EntityTypeExpression ( EQ / NE )        EntityTypeExpression
-/ ArithmeticExpression ComparisonOperator ArithmeticExpression
 / ArithmeticExpression ComparisonOperator AllOrAnyExpression
+/ ArithmeticExpression ComparisonOperator ArithmeticExpression
 ;
 
 generic ComparisonOperator =
