@@ -300,9 +300,12 @@ coalesce_expression ::= COALESCE(scalar_expression {, scalar_expression}+)
 nullif_expression ::= NULLIF(scalar_expression, scalar_expression)
 
 literal ::= boolean_literal |
-            enum_literal
+            enum_literal |
             numeric_literal |
             string_literal |
+            date_literal |
+            time_literal |
+            timestamp_literal
 
 boolean_literal ::= TRUE | FALSE
 

@@ -541,6 +541,9 @@ generic Literal =
 / EnumLiteral
 / NumericLiteral
 / StringLiteral
+/ DateLiteral 
+/ TimeLiteral 
+/ TimestampLiteral 
 ;
 
 generic DatetimeTimestampLiteral =
