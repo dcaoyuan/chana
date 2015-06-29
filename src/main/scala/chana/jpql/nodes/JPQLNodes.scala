@@ -11,15 +11,15 @@ case class SelectStatement(select: SelectClause, from: FromClause, where: Option
 case class UpdateStatement(update: UpdateClause, where: Option[WhereClause]) extends Statement
 case class DeleteStatement(delete: DeleteClause, where: Option[WhereClause]) extends Statement
 
-case class FromClause(from: IdentificationVariableDeclaration, froms: List[Either[IdentificationVariableDeclaration, CollectionMemberDeclaration]])
+case class FromClause(from: IdentVarDecl, froms: List[Either[IdentVarDecl, CollectionMemberDecl]])
 
-case class IdentificationVariableDeclaration(rangeVariableDeclaration: RangeVariableDeclaration, joins: List[Either[Join, FetchJoin]])
+case class IdentVarDecl(rangeVarDecl: RangeVarDecl, joins: List[Either[Join, FetchJoin]])
 
-case class RangeVariableDeclaration(entityName: EntityName, as: IdentificationVariable)
+case class RangeVarDecl(entityName: EntityName, as: IdentVar)
 
-case class Join(joinSpec: JoinSpec, joinAssociationExpression: JoinAssociationPathExpression, as: IdentificationVariable, joinCondition: Option[JoinCondition])
+case class Join(joinSpec: JoinSpec, joinAssocExpr: JoinAssocPathExpr, as: IdentVar, joinCond: Option[JoinCond])
 
-case class FetchJoin(joinSpec: JoinSpec, fetch: JoinAssociationPathExpression, joinCondition: Option[JoinCondition])
+case class FetchJoin(joinSpec: JoinSpec, fetch: JoinAssocPathExpr, joinCond: Option[JoinCond])
 
 trait JoinSpec
 case object JOIN extends JoinSpec
@@ -27,347 +27,347 @@ case object LEFT_JOIN extends JoinSpec
 case object LEFT_OUTER_JOIN extends JoinSpec
 case object INNER_JOIN extends JoinSpec
 
-case class JoinCondition(on: ConditionalExpression)
+case class JoinCond(on: CondExpr)
 
-trait JoinAssociationPathExpression
-case class JoinAssociationPathExpression_JoinCollectionValuedPathExpression(path: IdentificationVariable, paths: List[SingleValuedEmbeddableObjectField], field: CollectionValuedField, as: Option[Subtype]) extends JoinAssociationPathExpression
-case class JoinAssociationPathExpression_JoinSingleValuedPathExpression(path: IdentificationVariable, paths: List[SingleValuedEmbeddableObjectField], field: SingleValuedObjectField, as: Option[Subtype]) extends JoinAssociationPathExpression
+trait JoinAssocPathExpr
+case class JoinAssocPathExpr_JoinCollectionValuedPathExpr(path: IdentVar, paths: List[SingleValuedEmbeddableObjectField], field: CollectionValuedField, as: Option[Subtype]) extends JoinAssocPathExpr
+case class JoinAssocPathExpr_JoinSingleValuedPathExpr(path: IdentVar, paths: List[SingleValuedEmbeddableObjectField], field: SingleValuedObjectField, as: Option[Subtype]) extends JoinAssocPathExpr
 
-case class CollectionMemberDeclaration(in: CollectionValuedPathExpression, as: IdentificationVariable)
+case class CollectionMemberDecl(in: CollectionValuedPathExpr, as: IdentVar)
 
-trait QualifiedIdentificationVariable
-case class QualifiedIdentificationVariable_ComposableQualifiedIdentificationVariable(variable: ComposableQualifiedIdentificationVariable) extends QualifiedIdentificationVariable
-case class QualifiedIdentificationVariable_ENTRY(variable: IdentificationVariable) extends QualifiedIdentificationVariable
+trait QualIdentVar
+case class QualIdentVar_ComposableQualIdentVar(variable: ComposableQualIdentVar) extends QualIdentVar
+case class QualIdentVar_ENTRY(variable: IdentVar) extends QualIdentVar
 
-trait ComposableQualifiedIdentificationVariable
-case class ComposableQualifiedIdentificationVariable_KEY(name: IdentificationVariable) extends ComposableQualifiedIdentificationVariable
-case class ComposableQualifiedIdentificationVariable_VALUE(name: IdentificationVariable) extends ComposableQualifiedIdentificationVariable
+trait ComposableQualIdentVar
+case class ComposableQualIdentVar_KEY(name: IdentVar) extends ComposableQualIdentVar
+case class ComposableQualIdentVar_VALUE(name: IdentVar) extends ComposableQualIdentVar
 
-trait SingleValuedPathExpression
-case class SingleValuedPathExpression_QualifiedIdentificationVariable(variable: QualifiedIdentificationVariable) extends SingleValuedPathExpression
-case class SingleValuedPathExpression_TREAT(variable: QualifiedIdentificationVariable) extends SingleValuedPathExpression
-case class SingleValuedPathExpression_StateFieldPathExpression(variable: StateFieldPathExpression) extends SingleValuedPathExpression
-case class SingleValuedPathExpression_SingleValuedObjectPathExpression(variable: SingleValuedObjectPathExpression) extends SingleValuedPathExpression
+trait SingleValuedPathExpr
+case class SingleValuedPathExpr_QualIdentVar(variable: QualIdentVar) extends SingleValuedPathExpr
+case class SingleValuedPathExpr_TREAT(variable: QualIdentVar) extends SingleValuedPathExpr
+case class SingleValuedPathExpr_StateFieldPathExpr(variable: StateFieldPathExpr) extends SingleValuedPathExpr
+case class SingleValuedPathExpr_SingleValuedObjectPathExpr(variable: SingleValuedObjectPathExpr) extends SingleValuedPathExpr
 
-trait GeneralIdentificationVariable
-case class GeneralIdentificationVariable_Identificationvariable(variable: IdentificationVariable) extends GeneralIdentificationVariable
-case class GeneralIdentificationVariable_ComposableQualifiedIdentificationVariable(variable: ComposableQualifiedIdentificationVariable) extends GeneralIdentificationVariable
+trait GeneralIdentVar
+case class GeneralIdentVar_Identvariable(variable: IdentVar) extends GeneralIdentVar
+case class GeneralIdentVar_ComposableQualIdentVar(variable: ComposableQualIdentVar) extends GeneralIdentVar
 
 trait GeneralSubpath
 case class GeneralSubpath_SimpleSubpath(subpath: SimpleSubpath) extends GeneralSubpath
 case class GeneralSubpath_TreatedSubpath(subpath: TreatedSubpath, fields: List[SingleValuedObjectField]) extends GeneralSubpath
 
-case class SimpleSubpath(path: GeneralIdentificationVariable, paths: List[SingleValuedObjectField])
+case class SimpleSubpath(path: GeneralIdentVar, paths: List[SingleValuedObjectField])
 
 case class TreatedSubpath(path: GeneralSubpath, as: Subtype)
 
-case class StateFieldPathExpression(path: GeneralSubpath, field: StateField)
+case class StateFieldPathExpr(path: GeneralSubpath, field: StateField)
 
-case class SingleValuedObjectPathExpression(path: GeneralSubpath, field: SingleValuedObjectField)
+case class SingleValuedObjectPathExpr(path: GeneralSubpath, field: SingleValuedObjectField)
 
-case class CollectionValuedPathExpression(path: GeneralSubpath, field: CollectionValuedField)
+case class CollectionValuedPathExpr(path: GeneralSubpath, field: CollectionValuedField)
 
-case class UpdateClause(entityName: EntityName, as: Option[IdentificationVariable], set: List[UpdateItem])
+case class UpdateClause(entityName: EntityName, as: Option[IdentVar], set: List[UpdateItem])
 
-case class UpdateItem(id: Option[IdentificationVariable], fields: List[SingleValuedEmbeddableObjectField], field: Either[StateField, SingleValuedObjectField], newValue: NewValue)
+case class UpdateItem(id: Option[IdentVar], fields: List[SingleValuedEmbeddableObjectField], field: Either[StateField, SingleValuedObjectField], newValue: NewValue)
 
-trait NewValue // = ScalarExpression
+trait NewValue // = ScalarExpr
 
-case class DeleteClause(from: EntityName, as: Option[IdentificationVariable])
+case class DeleteClause(from: EntityName, as: Option[IdentVar])
 
 case class SelectClause(isDistince: Boolean, selectItems: List[SelectItem])
 
-case class SelectItem(selectExpr: SelectExpression, as: Option[ResultVariable])
+case class SelectItem(selectExpr: SelectExpr, as: Option[ResultVar])
 
-trait SelectExpression
-case class SelectExpression_AggregateExpression(expr: AggregateExpression) extends SelectExpression
-case class SelectExpression_OBJECT(id: IdentificationVariable) extends SelectExpression
-case class SelectExpression_ConstructorExpression(expr: ConstructorExpression) extends SelectExpression
-case class SelectExpression_SingleValuedPathExpression(expr: SingleValuedPathExpression) extends SelectExpression
-case class SelectExpression_ScalarExpression(expr: ScalarExpression) extends SelectExpression
+trait SelectExpr
+case class SelectExpr_AggregateExpr(expr: AggregateExpr) extends SelectExpr
+case class SelectExpr_OBJECT(id: IdentVar) extends SelectExpr
+case class SelectExpr_ConstructorExpr(expr: ConstructorExpr) extends SelectExpr
+case class SelectExpr_SingleValuedPathExpr(expr: SingleValuedPathExpr) extends SelectExpr
+case class SelectExpr_ScalarExpr(expr: ScalarExpr) extends SelectExpr
 //;
 
-case class ConstructorExpression(constructorName: ConstructorName, constructorItems: List[ConstructorItem])
+case class ConstructorExpr(constructorName: ConstructorName, constructorItems: List[ConstructorItem])
 
 trait ConstructorItem
-case class AggregateExpression_ConstructorItem(expr: AggregateExpression) extends ConstructorItem
-case class SingleValuedPathExpression_ConstructorItem(expr: SingleValuedPathExpression) extends ConstructorItem
-case class ScalarExpression_ConstructorItem(expr: ScalarExpression) extends ConstructorItem
+case class AggregateExpr_ConstructorItem(expr: AggregateExpr) extends ConstructorItem
+case class SingleValuedPathExpr_ConstructorItem(expr: SingleValuedPathExpr) extends ConstructorItem
+case class ScalarExpr_ConstructorItem(expr: ScalarExpr) extends ConstructorItem
 
-trait AggregateExpression
-case class AggregateExpression_AVG(isDistinct: Boolean, field: StateFieldPathExpression) extends AggregateExpression
-case class AggregateExpression_MAX_(isDistinct: Boolean, field: StateFieldPathExpression) extends AggregateExpression
-case class AggregateExpression_MIN(isDistinct: Boolean, field: StateFieldPathExpression) extends AggregateExpression
-case class AggregateExpression_SUM(isDistinct: Boolean, field: StateFieldPathExpression) extends AggregateExpression
-case class AggregateExpression_COUNT1(isDistinct: Boolean, field: IdentificationVariable) extends AggregateExpression
-case class AggregateExpression_COUNT2(isDistinct: Boolean, field: StateFieldPathExpression) extends AggregateExpression
-case class AggregateExpression_COUNT3(isDistinct: Boolean, field: SingleValuedObjectPathExpression) extends AggregateExpression
-case class AggregateExpression_FunctionInvocation(function: FunctionInvocation) extends AggregateExpression
+trait AggregateExpr
+case class AggregateExpr_AVG(isDistinct: Boolean, field: StateFieldPathExpr) extends AggregateExpr
+case class AggregateExpr_MAX_(isDistinct: Boolean, field: StateFieldPathExpr) extends AggregateExpr
+case class AggregateExpr_MIN(isDistinct: Boolean, field: StateFieldPathExpr) extends AggregateExpr
+case class AggregateExpr_SUM(isDistinct: Boolean, field: StateFieldPathExpr) extends AggregateExpr
+case class AggregateExpr_COUNT1(isDistinct: Boolean, field: IdentVar) extends AggregateExpr
+case class AggregateExpr_COUNT2(isDistinct: Boolean, field: StateFieldPathExpr) extends AggregateExpr
+case class AggregateExpr_COUNT3(isDistinct: Boolean, field: SingleValuedObjectPathExpr) extends AggregateExpr
+case class AggregateExpr_FuncInvocation(function: FuncInvocation) extends AggregateExpr
 
-case class WhereClause(where: ConditionalExpression)
+case class WhereClause(where: CondExpr)
 
 case class GroupbyClause(groupbyItems: List[GroupbyItem])
 
 trait GroupbyItem
-case class GroupbyItem_SingleValuedPathExpression(x: SingleValuedPathExpression) extends GroupbyItem
-case class GroupbyItem_IdentificationVariable(x: QualifiedIdentificationVariable) extends GroupbyItem
+case class GroupbyItem_SingleValuedPathExpr(x: SingleValuedPathExpr) extends GroupbyItem
+case class GroupbyItem_IdentVar(x: QualIdentVar) extends GroupbyItem
 
-case class HavingClause(having: ConditionalExpression)
+case class HavingClause(having: CondExpr)
 
 case class OrderbyClause(orderbyItems: List[OrderbyItem])
 
-case class OrderbyItem(item: Either[StateFieldPathExpression, ResultVariable], isAsc: Boolean)
+case class OrderbyItem(item: Either[StateFieldPathExpr, ResultVar], isAsc: Boolean)
 
 case class Subquery(simpleSelect: SimpleSelectClause, subqueryFrom: SubqueryFromClause, where: Option[WhereClause], groupby: Option[GroupbyClause], having: Option[HavingClause])
 
-case class SubqueryFromClause(from: SubselectIdentificationVariableDeclaration, names: List[Either[SubselectIdentificationVariableDeclaration, CollectionMemberDeclaration]])
+case class SubqueryFromClause(from: SubselectIdentVarDecl, names: List[Either[SubselectIdentVarDecl, CollectionMemberDecl]])
 
-trait SubselectIdentificationVariableDeclaration
-case class SubselectIdentificationVariableDeclaration_IdentificationVariableDeclaration(variable: IdentificationVariableDeclaration) extends SubselectIdentificationVariableDeclaration
-case class SubselectIdentificationVariableDeclaration_DerivedPathExpression(variable: DerivedPathExpression, as: Option[IdentificationVariable], joins: List[Join]) extends SubselectIdentificationVariableDeclaration
-case class SubselectIdentificationVariableDeclaration_DerivedCollectionMemberDeclaration(variable: DerivedCollectionMemberDeclaration) extends SubselectIdentificationVariableDeclaration
+trait SubselectIdentVarDecl
+case class SubselectIdentVarDecl_IdentVarDecl(variable: IdentVarDecl) extends SubselectIdentVarDecl
+case class SubselectIdentVarDecl_DerivedPathExpr(variable: DerivedPathExpr, as: Option[IdentVar], joins: List[Join]) extends SubselectIdentVarDecl
+case class SubselectIdentVarDecl_DerivedCollectionMemberDecl(variable: DerivedCollectionMemberDecl) extends SubselectIdentVarDecl
 
-case class DerivedPathExpression(path: GeneralDerivedPath, field: Either[SingleValuedObjectField, CollectionValuedField])
+case class DerivedPathExpr(path: GeneralDerivedPath, field: Either[SingleValuedObjectField, CollectionValuedField])
 
 trait GeneralDerivedPath
 case class GeneralDerivedPath_SimpleDerivedPath(path: SimpleDerivedPath) extends GeneralDerivedPath
 case class GeneralDerivedPath_TreatedDerivedPath(path: TreatedDerivedPath, fields: List[SingleValuedObjectField]) extends GeneralDerivedPath
 
-case class SimpleDerivedPath(variable: SuperqueryIdentificationVariable, fields: List[SingleValuedObjectField])
+case class SimpleDerivedPath(variable: SuperqueryIdentVar, fields: List[SingleValuedObjectField])
 
 case class TreatedDerivedPath(path: GeneralDerivedPath, as: Subtype)
 
-case class DerivedCollectionMemberDeclaration(in: SuperqueryIdentificationVariable, fields: List[SingleValuedObjectField], field: CollectionValuedField)
+case class DerivedCollectionMemberDecl(in: SuperqueryIdentVar, fields: List[SingleValuedObjectField], field: CollectionValuedField)
 
-case class SimpleSelectClause(isDistince: Boolean, expression: SimpleSelectExpression)
+case class SimpleSelectClause(isDistince: Boolean, expression: SimpleSelectExpr)
 
-trait SimpleSelectExpression
-case class SimpleSelectExpression_AggregateExpression(expr: AggregateExpression) extends SimpleSelectExpression
-case class SimpleSelectExpression_SingleValuedPathExpression(expr: SingleValuedPathExpression) extends SimpleSelectExpression
-case class SimpleSelectExpression_ScalarExpression(expr: ScalarExpression) extends SimpleSelectExpression
+trait SimpleSelectExpr
+case class SimpleSelectExpr_AggregateExpr(expr: AggregateExpr) extends SimpleSelectExpr
+case class SimpleSelectExpr_SingleValuedPathExpr(expr: SingleValuedPathExpr) extends SimpleSelectExpr
+case class SimpleSelectExpr_ScalarExpr(expr: ScalarExpr) extends SimpleSelectExpr
 
-trait ScalarExpression
-case class ScalarExpression_StringExpression(expr: StringExpression) extends ScalarExpression
-case class ScalarExpression_EnumExpression(expr: EnumExpression) extends ScalarExpression
-case class ScalarExpression_DatetimeExpression(expr: DatetimeExpression) extends ScalarExpression
-case class ScalarExpression_BooleanExpression(expr: BooleanExpression) extends ScalarExpression
-case class ScalarExpression_CaseExpression(expr: CaseExpression) extends ScalarExpression
-case class ScalarExpression_EntityTypeExpression(expr: EntityTypeExpression) extends ScalarExpression
-case class ScalarExpression_ArithmeticExpression(expr: ArithmeticExpression) extends ScalarExpression
+trait ScalarExpr
+case class ScalarExpr_StringExpr(expr: StringExpr) extends ScalarExpr
+case class ScalarExpr_EnumExpr(expr: EnumExpr) extends ScalarExpr
+case class ScalarExpr_DatetimeExpr(expr: DatetimeExpr) extends ScalarExpr
+case class ScalarExpr_BooleanExpr(expr: BooleanExpr) extends ScalarExpr
+case class ScalarExpr_CaseExpr(expr: CaseExpr) extends ScalarExpr
+case class ScalarExpr_EntityTypeExpr(expr: EntityTypeExpr) extends ScalarExpr
+case class ScalarExpr_ArithExpr(expr: ArithExpr) extends ScalarExpr
 
-case class ConditionalExpression(term: ConditionalTerm, orConds: List[ConditionalExpression])
+case class CondExpr(term: CondTerm, orConds: List[CondExpr])
 
-case class ConditionalTerm(factor: ConditionalFactor, andConds: List[ConditionalFactor])
+case class CondTerm(factor: CondFactor, andConds: List[CondFactor])
 
-case class ConditionalFactor(isNot: Boolean, cond: ConditionalPrimary)
+case class CondFactor(isNot: Boolean, cond: CondPrimary)
 
-trait ConditionalPrimary
-case class ConditionalPrimary_SimpleCondExpression(expr: SimpleCondExpression) extends ConditionalPrimary
-case class ConditionalPrimary_ConditionalExpression(expr: ConditionalExpression) extends ConditionalPrimary
+trait CondPrimary
+case class CondPrimary_SimpleCondExpr(expr: SimpleCondExpr) extends CondPrimary
+case class CondPrimary_CondExpr(expr: CondExpr) extends CondPrimary
 
-trait SimpleCondExpression
-case class SimpleCondExpression_ComparisonExpression(expr: ComparisonExpression) extends SimpleCondExpression
-case class SimpleCondExpression_BetweenExpression(expr: BetweenExpression) extends SimpleCondExpression
-case class SimpleCondExpression_LikeExpression(expr: LikeExpression) extends SimpleCondExpression
-case class SimpleCondExpression_InExpression(expr: InExpression) extends SimpleCondExpression
-case class SimpleCondExpression_NullComparisonExpression(expr: NullComparisonExpression) extends SimpleCondExpression
-case class SimpleCondExpression_EmptyCollectionComparisonExpression(expr: EmptyCollectionComparisonExpression) extends SimpleCondExpression
-case class SimpleCondExpression_CollectionMemberExpression(expr: CollectionMemberExpression) extends SimpleCondExpression
-case class SimpleCondExpression_ExistsExpression(expr: ExistsExpression) extends SimpleCondExpression
+trait SimpleCondExpr
+case class SimpleCondExpr_ComparisonExpr(expr: ComparisonExpr) extends SimpleCondExpr
+case class SimpleCondExpr_BetweenExpr(expr: BetweenExpr) extends SimpleCondExpr
+case class SimpleCondExpr_LikeExpr(expr: LikeExpr) extends SimpleCondExpr
+case class SimpleCondExpr_InExpr(expr: InExpr) extends SimpleCondExpr
+case class SimpleCondExpr_NullComparisonExpr(expr: NullComparisonExpr) extends SimpleCondExpr
+case class SimpleCondExpr_EmptyCollectionComparisonExpr(expr: EmptyCollectionComparisonExpr) extends SimpleCondExpr
+case class SimpleCondExpr_CollectionMemberExpr(expr: CollectionMemberExpr) extends SimpleCondExpr
+case class SimpleCondExpr_ExistsExpr(expr: ExistsExpr) extends SimpleCondExpr
 
-trait BetweenExpression
-case class BetweenExpression_ArithmeticExpression(expr: ArithmeticExpression, isNot: Boolean, left: ArithmeticExpression, right: ArithmeticExpression) extends BetweenExpression
-case class BetweenExpression_StringExpression(expr: StringExpression, isNot: Boolean, left: StringExpression, right: StringExpression) extends BetweenExpression
-case class BetweenExpression_DatetimeExpression(expr: DatetimeExpression, isNot: Boolean, left: DatetimeExpression, right: DatetimeExpression) extends BetweenExpression
+trait BetweenExpr
+case class BetweenExpr_ArithExpr(expr: ArithExpr, isNot: Boolean, left: ArithExpr, right: ArithExpr) extends BetweenExpr
+case class BetweenExpr_StringExpr(expr: StringExpr, isNot: Boolean, left: StringExpr, right: StringExpr) extends BetweenExpr
+case class BetweenExpr_DatetimeExpr(expr: DatetimeExpr, isNot: Boolean, left: DatetimeExpr, right: DatetimeExpr) extends BetweenExpr
 
-case class InExpression(expr: Either[StateFieldPathExpression, TypeDiscriminator], isNot: Boolean, inItems: List[InItem], inSubqury: Subquery, inCollection: CollectionValuedInputParameter)
+case class InExpr(expr: Either[StateFieldPathExpr, TypeDiscriminator], isNot: Boolean, inItems: List[InItem], inSubqury: Subquery, inCollection: CollectionValuedInputParam)
 
 trait InItem
 case class InItem_Literal(item: Literal) extends InItem
-case class InItem_SingleValuedInputParameter(item: SingleValuedInputParameter) extends InItem
+case class InItem_SingleValuedInputParam(item: SingleValuedInputParam) extends InItem
 
-case class LikeExpression(expr: StringExpression, isNot: Boolean, like: PatternValue, escape: Option[EscapeCharacter])
+case class LikeExpr(expr: StringExpr, isNot: Boolean, like: PatternValue, escape: Option[EscapeChar])
 
-case class NullComparisonExpression(expr: Either[SingleValuedPathExpression, InputParameter], isNull: Boolean)
+case class NullComparisonExpr(expr: Either[SingleValuedPathExpr, InputParam], isNull: Boolean)
 
-case class EmptyCollectionComparisonExpression(expr: CollectionValuedPathExpression, isEmpty: Boolean)
+case class EmptyCollectionComparisonExpr(expr: CollectionValuedPathExpr, isEmpty: Boolean)
 
-case class CollectionMemberExpression(expr: EntityOrValueExpression, isNot: Boolean, memberOf: CollectionValuedPathExpression)
+case class CollectionMemberExpr(expr: EntityOrValueExpr, isNot: Boolean, memberOf: CollectionValuedPathExpr)
 
-trait EntityOrValueExpression
-case class EntityOrValueExpression_SingleValuedObjectPathExpression(expr: SingleValuedObjectPathExpression) extends EntityOrValueExpression
-case class EntityOrValueExpression_StateFieldPathExpression(expr: StateFieldPathExpression) extends EntityOrValueExpression
-case class EntityOrValueExpressionP_SimpleEntityOrValueExpression(expr: SimpleEntityOrValueExpression) extends EntityOrValueExpression
+trait EntityOrValueExpr
+case class EntityOrValueExpr_SingleValuedObjectPathExpr(expr: SingleValuedObjectPathExpr) extends EntityOrValueExpr
+case class EntityOrValueExpr_StateFieldPathExpr(expr: StateFieldPathExpr) extends EntityOrValueExpr
+case class EntityOrValueExprP_SimpleEntityOrValueExpr(expr: SimpleEntityOrValueExpr) extends EntityOrValueExpr
 
-trait SimpleEntityOrValueExpression
-case class SimpleEntityOrValueExpression_IdentificationVariable(expr: IdentificationVariable) extends SimpleEntityOrValueExpression
-case class SimpleEntityOrValueExpression_InputParameter(expr: InputParameter) extends SimpleEntityOrValueExpression
-case class SimpleEntityOrValueExpression_Literal(expr: Literal) extends SimpleEntityOrValueExpression
+trait SimpleEntityOrValueExpr
+case class SimpleEntityOrValueExpr_IdentVar(expr: IdentVar) extends SimpleEntityOrValueExpr
+case class SimpleEntityOrValueExpr_InputParam(expr: InputParam) extends SimpleEntityOrValueExpr
+case class SimpleEntityOrValueExpr_Literal(expr: Literal) extends SimpleEntityOrValueExpr
 
-case class ExistsExpression(isNot: Boolean, exists: Subquery)
+case class ExistsExpr(isNot: Boolean, exists: Subquery)
 
-trait AllOrAnyExpression
-case class AllOrAnyExpression_All(subquery: Subquery) extends AllOrAnyExpression
-case class AllOrAnyExpression_Any(subquery: Subquery) extends AllOrAnyExpression
-case class AllOrAnyExpression_Some(subquery: Subquery) extends AllOrAnyExpression
+trait AllOrAnyExpr
+case class AllOrAnyExpr_All(subquery: Subquery) extends AllOrAnyExpr
+case class AllOrAnyExpr_Any(subquery: Subquery) extends AllOrAnyExpr
+case class AllOrAnyExpr_Some(subquery: Subquery) extends AllOrAnyExpr
 
-trait ComparisonExpression
-case class ComparisonExpression_StringExpression(op: ComparisonOperator, rightExpr: Either[StringExpression, AllOrAnyExpression])
-case class ComparisonExpression_BooleanExpression(isEq: Boolean, rightExpr: Either[BooleanExpression, AllOrAnyExpression])
-case class ComparisonExpression_EnumExpression(isEq: Boolean, rightExpr: Either[EnumExpression, AllOrAnyExpression])
-case class ComparisonExpression_DatetimeExpression(op: ComparisonOperator, rightExpr: Either[DatetimeExpression, AllOrAnyExpression])
-case class ComparisonExpression_EntityExpression(isEq: Boolean, rightExpr: Either[EntityExpression, AllOrAnyExpression])
-case class ComparisonExpression_EntityTypeExpression(isEq: Boolean, rightExpr: EntityTypeExpression)
-case class ComparisonExpression_ArithmeticExpression(op: ComparisonOperator, rightExpr: Either[AllOrAnyExpression, ArithmeticExpression])
+trait ComparisonExpr
+case class ComparisonExpr_StringExpr(op: ComparisonOp, rightExpr: Either[StringExpr, AllOrAnyExpr])
+case class ComparisonExpr_BooleanExpr(isEq: Boolean, rightExpr: Either[BooleanExpr, AllOrAnyExpr])
+case class ComparisonExpr_EnumExpr(isEq: Boolean, rightExpr: Either[EnumExpr, AllOrAnyExpr])
+case class ComparisonExpr_DatetimeExpr(op: ComparisonOp, rightExpr: Either[DatetimeExpr, AllOrAnyExpr])
+case class ComparisonExpr_EntityExpr(isEq: Boolean, rightExpr: Either[EntityExpr, AllOrAnyExpr])
+case class ComparisonExpr_EntityTypeExpr(isEq: Boolean, rightExpr: EntityTypeExpr)
+case class ComparisonExpr_ArithExpr(op: ComparisonOp, rightExpr: Either[AllOrAnyExpr, ArithExpr])
 
-trait ComparisonOperator
-case object EQ extends ComparisonOperator
-case object GE extends ComparisonOperator
-case object GT extends ComparisonOperator
-case object NE extends ComparisonOperator
-case object LT extends ComparisonOperator
-case object LE extends ComparisonOperator
+trait ComparisonOp
+case object EQ extends ComparisonOp
+case object GE extends ComparisonOp
+case object GT extends ComparisonOp
+case object NE extends ComparisonOp
+case object LT extends ComparisonOp
+case object LE extends ComparisonOp
 
 /**
  * rightTerms: Left: Plus, Right: Minus
  */
-case class ArithmeticExpression(term: ArithmeticTerm, rightTerms: List[Either[ArithmeticExpression, ArithmeticExpression]])
+case class ArithExpr(term: ArithTerm, rightTerms: List[Either[ArithExpr, ArithExpr]])
 
 /**
  * rightTerms: Left: Times, Right: Div
  */
-case class ArithmeticTerm(factor: ArithmeticFactor, rightTerms: List[Either[ArithmeticTerm, ArithmeticTerm]])
+case class ArithTerm(factor: ArithFactor, rightTerms: List[Either[ArithTerm, ArithTerm]])
 
-trait MathOperator
-case object Plus extends MathOperator
-case object Minus extends MathOperator
-case object Times extends MathOperator
-case object Div extends MathOperator
+trait ArithOp
+case object Plus extends ArithOp
+case object Minus extends ArithOp
+case object Times extends ArithOp
+case object Div extends ArithOp
 
 /**
  * Left: Plus, Right: Minus
  */
-case class ArithmeticFactor(primary: ArithmeticPrimary, pre: Either[MathOperator, MathOperator])
+case class ArithFactor(primary: ArithPrimary, pre: Either[ArithOp, ArithOp])
 
-trait ArithmeticPrimary
-case class ArithmeticPrimary_StateFieldPathExpression(expr: StateFieldPathExpression) extends ArithmeticPrimary
-case class ArithmeticPrimary_NumericLiteral(expr: NumericLiteral) extends ArithmeticPrimary
-case class ArithmeticPrimary_ArithmeticExpression(expr: ArithmeticExpression) extends ArithmeticPrimary
-case class ArithmeticPrimary_InputParameter(expr: InputParameter) extends ArithmeticPrimary
-case class ArithmeticPrimary_FunctionsReturningNumerics(expr: FunctionsReturningNumerics) extends ArithmeticPrimary
-case class ArithmeticPrimary_AggregateExpression(expr: AggregateExpression) extends ArithmeticPrimary
-case class ArithmeticPrimary_CaseExpression(expr: CaseExpression) extends ArithmeticPrimary
-case class ArithmeticPrimary_FunctionInvocation(expr: FunctionInvocation) extends ArithmeticPrimary
-case class ArithmeticPrimary_Subquery(expr: Subquery) extends ArithmeticPrimary
+trait ArithPrimary
+case class ArithPrimary_StateFieldPathExpr(expr: StateFieldPathExpr) extends ArithPrimary
+case class ArithPrimary_NumericLiteral(expr: NumericLiteral) extends ArithPrimary
+case class ArithPrimary_ArithExpr(expr: ArithExpr) extends ArithPrimary
+case class ArithPrimary_InputParam(expr: InputParam) extends ArithPrimary
+case class ArithPrimary_FuncsReturningNumerics(expr: FuncsReturningNumerics) extends ArithPrimary
+case class ArithPrimary_AggregateExpr(expr: AggregateExpr) extends ArithPrimary
+case class ArithPrimary_CaseExpr(expr: CaseExpr) extends ArithPrimary
+case class ArithPrimary_FuncInvocation(expr: FuncInvocation) extends ArithPrimary
+case class ArithPrimary_Subquery(expr: Subquery) extends ArithPrimary
 
-trait StringExpression
-case class StringExpression_StateFieldPathExpression(expr: StateFieldPathExpression) extends StringExpression
-case class StringExpression_StringLiteral(expr: StringLiteral) extends StringExpression
-case class StringExpression_InputParameter(expr: InputParameter) extends StringExpression
-case class StringExpression_FunctionsReturningStrings(expr: FunctionsReturningStrings) extends StringExpression
-case class StringExpression_AggregateExpression(expr: AggregateExpression) extends StringExpression
-case class StringExpression_CaseExpression(expr: CaseExpression) extends StringExpression
-case class StringExpression_FunctionInvocation(expr: FunctionInvocation) extends StringExpression
-case class StringExpression_Subquery(expr: Subquery) extends StringExpression
+trait StringExpr
+case class StringExpr_StateFieldPathExpr(expr: StateFieldPathExpr) extends StringExpr
+case class StringExpr_StringLiteral(expr: StringLiteral) extends StringExpr
+case class StringExpr_InputParam(expr: InputParam) extends StringExpr
+case class StringExpr_FuncsReturningStrings(expr: FuncsReturningStrings) extends StringExpr
+case class StringExpr_AggregateExpr(expr: AggregateExpr) extends StringExpr
+case class StringExpr_CaseExpr(expr: CaseExpr) extends StringExpr
+case class StringExpr_FuncInvocation(expr: FuncInvocation) extends StringExpr
+case class StringExpr_Subquery(expr: Subquery) extends StringExpr
 
-trait DatetimeExpression
-case class DatetimeExpression_StateFieldPathExpression(expr: StateFieldPathExpression) extends DatetimeExpression
-case class DatetimeExpression_InputParameter(expr: InputParameter) extends DatetimeExpression
-case class DatetimeExpression_FunctionsReturningDatetime(expr: FunctionsReturningDatetime) extends DatetimeExpression
-case class DatetimeExpression_AggregateExpression(expr: AggregateExpression) extends DatetimeExpression
-case class DatetimeExpression_CaseExpression(expr: CaseExpression) extends DatetimeExpression
-case class DatetimeExpression_FunctionInvocation(expr: FunctionInvocation) extends DatetimeExpression
-case class DatetimeExpression_DatetimeTimestampLiteral(expr: DatetimeTimestampLiteral) extends DatetimeExpression
-case class DatetimeExpression_Subquery(expr: Subquery) extends DatetimeExpression
+trait DatetimeExpr
+case class DatetimeExpr_StateFieldPathExpr(expr: StateFieldPathExpr) extends DatetimeExpr
+case class DatetimeExpr_InputParam(expr: InputParam) extends DatetimeExpr
+case class DatetimeExpr_FuncsReturningDatetime(expr: FuncsReturningDatetime) extends DatetimeExpr
+case class DatetimeExpr_AggregateExpr(expr: AggregateExpr) extends DatetimeExpr
+case class DatetimeExpr_CaseExpr(expr: CaseExpr) extends DatetimeExpr
+case class DatetimeExpr_FuncInvocation(expr: FuncInvocation) extends DatetimeExpr
+case class DatetimeExpr_DatetimeTimestampLiteral(expr: DatetimeTimestampLiteral) extends DatetimeExpr
+case class DatetimeExpr_Subquery(expr: Subquery) extends DatetimeExpr
 
-trait BooleanExpression
-case class BooleanExpression_StateFieldPathExpression(expr: StateFieldPathExpression) extends BooleanExpression
-case class BooleanExpression_BooleanLiteral(expr: BooleanLiteral) extends BooleanExpression
-case class BooleanExpression_InputParameter(expr: InputParameter) extends BooleanExpression
-case class BooleanExpression_CaseExpression(expr: CaseExpression) extends BooleanExpression
-case class BooleanExpression_FunctionInvocation(expr: FunctionInvocation) extends BooleanExpression
-case class BooleanExpression_Subquery(expr: Subquery) extends BooleanExpression
+trait BooleanExpr
+case class BooleanExpr_StateFieldPathExpr(expr: StateFieldPathExpr) extends BooleanExpr
+case class BooleanExpr_BooleanLiteral(expr: BooleanLiteral) extends BooleanExpr
+case class BooleanExpr_InputParam(expr: InputParam) extends BooleanExpr
+case class BooleanExpr_CaseExpr(expr: CaseExpr) extends BooleanExpr
+case class BooleanExpr_FuncInvocation(expr: FuncInvocation) extends BooleanExpr
+case class BooleanExpr_Subquery(expr: Subquery) extends BooleanExpr
 
-trait EnumExpression
-case class EnumExpression_StateFieldPathExpression(expr: StateFieldPathExpression) extends EnumExpression
-case class EnumExpression_EnumLiteral(expr: EnumLiteral) extends EnumExpression
-case class EnumExpression_InputParameter(expr: InputParameter) extends EnumExpression
-case class EnumExpression_CaseExpression(expr: CaseExpression) extends EnumExpression
-case class EnumExpression_Subquery(expr: Subquery) extends EnumExpression
+trait EnumExpr
+case class EnumExpr_StateFieldPathExpr(expr: StateFieldPathExpr) extends EnumExpr
+case class EnumExpr_EnumLiteral(expr: EnumLiteral) extends EnumExpr
+case class EnumExpr_InputParam(expr: InputParam) extends EnumExpr
+case class EnumExpr_CaseExpr(expr: CaseExpr) extends EnumExpr
+case class EnumExpr_Subquery(expr: Subquery) extends EnumExpr
 
-trait EntityExpression
-case class EntityExpression_SingleValuedObjectPathExpression(expr: SingleValuedObjectPathExpression) extends EntityExpression
-case class EntityExpression_SimpleEntityExpression(expr: SimpleEntityExpression) extends EntityExpression
+trait EntityExpr
+case class EntityExpr_SingleValuedObjectPathExpr(expr: SingleValuedObjectPathExpr) extends EntityExpr
+case class EntityExpr_SimpleEntityExpr(expr: SimpleEntityExpr) extends EntityExpr
 
-trait SimpleEntityExpression
-case class SimpleEntityExpression_IdentificationVariable(expr: IdentificationVariable) extends SimpleEntityExpression
-case class SimpleEntityExpression_InputParameter(expr: InputParameter) extends SimpleEntityExpression
+trait SimpleEntityExpr
+case class SimpleEntityExpr_IdentVar(expr: IdentVar) extends SimpleEntityExpr
+case class SimpleEntityExpr_InputParam(expr: InputParam) extends SimpleEntityExpr
 
-trait EntityTypeExpression
-case class EntityTypeExpression_TypeDiscriminator(expr: TypeDiscriminator) extends EntityTypeExpression
-case class EntityTypeExpression_InputParameter(expr: InputParameter) extends EntityTypeExpression
-case class EntityTypeExpression_EntityTypeLiteral(expr: EntityTypeLiteral) extends EntityTypeExpression
+trait EntityTypeExpr
+case class EntityTypeExpr_TypeDiscriminator(expr: TypeDiscriminator) extends EntityTypeExpr
+case class EntityTypeExpr_InputParam(expr: InputParam) extends EntityTypeExpr
+case class EntityTypeExpr_EntityTypeLiteral(expr: EntityTypeLiteral) extends EntityTypeExpr
 
 trait TypeDiscriminator
-case class TypeDiscriminator_IdentificationVariable(expr: IdentificationVariable) extends TypeDiscriminator
-case class TypeDiscriminator_SingleValuedObjectPathExpression(expr: SingleValuedObjectPathExpression) extends TypeDiscriminator
-case class TypeDiscriminator_InputParameter(expr: InputParameter) extends TypeDiscriminator
+case class TypeDiscriminator_IdentVar(expr: IdentVar) extends TypeDiscriminator
+case class TypeDiscriminator_SingleValuedObjectPathExpr(expr: SingleValuedObjectPathExpr) extends TypeDiscriminator
+case class TypeDiscriminator_InputParam(expr: InputParam) extends TypeDiscriminator
 
-trait FunctionsReturningNumerics
-case class FunctionsReturningNumerics_LENGTH(expr: StringExpression) extends FunctionsReturningNumerics
-case class FunctionsReturningNumerics_LOCATE(expr: StringExpression, expr2: StringExpression, exprs: List[ArithmeticExpression]) extends FunctionsReturningNumerics
-case class FunctionsReturningNumerics_ABS(expr: ArithmeticExpression) extends FunctionsReturningNumerics
-case class FunctionsReturningNumerics_SQRT(expr: ArithmeticExpression) extends FunctionsReturningNumerics
-case class FunctionsReturningNumerics_MOD(expr: ArithmeticExpression, expr2: ArithmeticExpression) extends FunctionsReturningNumerics
-case class FunctionsReturningNumerics_SIZE(expr: CollectionValuedPathExpression) extends FunctionsReturningNumerics
-case class FunctionsReturningNumerics_INDEX(expr: IdentificationVariable) extends FunctionsReturningNumerics
+trait FuncsReturningNumerics
+case class FuncsReturningNumerics_LENGTH(expr: StringExpr) extends FuncsReturningNumerics
+case class FuncsReturningNumerics_LOCATE(expr: StringExpr, expr2: StringExpr, exprs: List[ArithExpr]) extends FuncsReturningNumerics
+case class FuncsReturningNumerics_ABS(expr: ArithExpr) extends FuncsReturningNumerics
+case class FuncsReturningNumerics_SQRT(expr: ArithExpr) extends FuncsReturningNumerics
+case class FuncsReturningNumerics_MOD(expr: ArithExpr, expr2: ArithExpr) extends FuncsReturningNumerics
+case class FuncsReturningNumerics_SIZE(expr: CollectionValuedPathExpr) extends FuncsReturningNumerics
+case class FuncsReturningNumerics_INDEX(expr: IdentVar) extends FuncsReturningNumerics
 
-trait FunctionsReturningDatetime
-case object CURRENT_DATE extends FunctionsReturningDatetime
-case object CURRENT_TIME extends FunctionsReturningDatetime
-case object CURRENT_TIMESTAMP extends FunctionsReturningDatetime
+trait FuncsReturningDatetime
+case object CURRENT_DATE extends FuncsReturningDatetime
+case object CURRENT_TIME extends FuncsReturningDatetime
+case object CURRENT_TIMESTAMP extends FuncsReturningDatetime
 
-trait FunctionsReturningStrings
-case class FunctionReturningStrings_CONCAT(expr1: StringExpression, expr2: StringExpression, exprs: List[StringExpression]) extends FunctionsReturningStrings
-case class FunctionReturningStrings_SUBSTRING(expr1: StringExpression, expr2: ArithmeticExpression, exprs: List[ArithmeticExpression]) extends FunctionsReturningStrings
-case class FunctionReturningStrings_TRIM(trimSepc: Option[TrimSpecification], trimChar: Option[TrimCharacter], from: StringExpression) extends FunctionsReturningStrings
-case class FunctionReturningStrings_LOWER(str: StringExpression) extends FunctionsReturningStrings
-case class FunctionReturningStrings_UPPER(str: StringExpression) extends FunctionsReturningStrings;
+trait FuncsReturningStrings
+case class FuncReturningStrings_CONCAT(expr1: StringExpr, expr2: StringExpr, exprs: List[StringExpr]) extends FuncsReturningStrings
+case class FuncReturningStrings_SUBSTRING(expr1: StringExpr, expr2: ArithExpr, exprs: List[ArithExpr]) extends FuncsReturningStrings
+case class FuncReturningStrings_TRIM(trimSepc: Option[TrimSpecification], trimChar: Option[TrimChar], from: StringExpr) extends FuncsReturningStrings
+case class FuncReturningStrings_LOWER(str: StringExpr) extends FuncsReturningStrings
+case class FuncReturningStrings_UPPER(str: StringExpr) extends FuncsReturningStrings;
 
 trait TrimSpecification
 case object LEADING extends TrimSpecification
 case object TRAILING extends TrimSpecification
 case object BOTH extends TrimSpecification
 
-case class FunctionInvocation(functionName: StringLiteral, args: List[FunctionArg])
+case class FuncInvocation(functionName: StringLiteral, args: List[FuncArg])
 
-trait FunctionArg
-case class FunctionArg_Literal(arg: Literal) extends FunctionArg
-case class FunctionArg_StateFieldPathExpression(arg: StateFieldPathExpression) extends FunctionArg
-case class FunctionArg_InputParameter(arg: InputParameter) extends FunctionArg
-case class FunctionArg_ScalarExpression(arg: ScalarExpression) extends FunctionArg
+trait FuncArg
+case class FuncArg_Literal(arg: Literal) extends FuncArg
+case class FuncArg_StateFieldPathExpr(arg: StateFieldPathExpr) extends FuncArg
+case class FuncArg_InputParam(arg: InputParam) extends FuncArg
+case class FuncArg_ScalarExpr(arg: ScalarExpr) extends FuncArg
 
-trait CaseExpression
-case class CaseExpression_GeneralCaseExpression(expr: GeneralCaseExpression) extends CaseExpression
-case class CaseExpression_SimpleCaseExpression(expr: SimpleCaseExpression) extends CaseExpression
-case class CaseExpression_CoalesceExpression(expr: CoalesceExpression) extends CaseExpression
-case class CaseExpression_NullifExpression(expr: NullifExpression) extends CaseExpression
+trait CaseExpr
+case class CaseExpr_GeneralCaseExpr(expr: GeneralCaseExpr) extends CaseExpr
+case class CaseExpr_SimpleCaseExpr(expr: SimpleCaseExpr) extends CaseExpr
+case class CaseExpr_CoalesceExpr(expr: CoalesceExpr) extends CaseExpr
+case class CaseExpr_NullifExpr(expr: NullifExpr) extends CaseExpr
 
-case class GeneralCaseExpression(whens: List[WhenClause], elseExpr: ScalarExpression)
+case class GeneralCaseExpr(whens: List[WhenClause], elseExpr: ScalarExpr)
 
-case class WhenClause(condExpr: ConditionalExpression, thenExpr: ScalarExpression)
+case class WhenClause(condExpr: CondExpr, thenExpr: ScalarExpr)
 
-case class SimpleCaseExpression(caseOperand: CaseOperand, whens: List[SimpleWhenClause], elseExpr: ScalarExpression)
+case class SimpleCaseExpr(caseOperand: CaseOperand, whens: List[SimpleWhenClause], elseExpr: ScalarExpr)
 
 trait CaseOperand
-case class CaseOperand_StateFieldPathExpression(operand: StateFieldPathExpression) extends CaseOperand
+case class CaseOperand_StateFieldPathExpr(operand: StateFieldPathExpr) extends CaseOperand
 case class CaseOperand_TypeDiscriminato(operand: TypeDiscriminator) extends CaseOperand
 
-case class SimpleWhenClause(whenExpr: ScalarExpression, thenExpr: ScalarExpression)
+case class SimpleWhenClause(whenExpr: ScalarExpr, thenExpr: ScalarExpr)
 
-case class CoalesceExpression(coalesceExpr: ScalarExpression, exprs: List[ScalarExpression])
+case class CoalesceExpr(coalesceExpr: ScalarExpr, exprs: List[ScalarExpr])
 
-case class NullifExpression(leftExpr: ScalarExpression, rightExpr: ScalarExpression)
+case class NullifExpr(leftExpr: ScalarExpr, rightExpr: ScalarExpr)
 
 trait Literal
 case class BooleanLiteral(v: Boolean) extends Literal
@@ -382,22 +382,22 @@ case class TimestampLiteral(timeInMills: Long) extends DatetimeTimestampLiteral
 
 case class EntityTypeLiteral(name: Identifier) // TODO
 
-trait InputParameter
-case class InputParameter_Named(name: String) extends InputParameter
-case class InputParameter_Position(i: Int) extends InputParameter
+trait InputParam
+case class InputParam_Named(name: String) extends InputParam
+case class InputParam_Position(i: Int) extends InputParam
 
-case class CollectionValuedInputParameter(param: InputParameter)
+case class CollectionValuedInputParam(param: InputParam)
 
 trait PatternValue
-case class PatternValue_InputParameter(pattern: InputParameter) extends PatternValue
+case class PatternValue_InputParam(pattern: InputParam) extends PatternValue
 case class PatternValue_StringLiteral(pattern: String) extends PatternValue
 
-case class EscapeCharacter(chars: String)
-case class TrimCharacter(chars: String)
+case class EscapeChar(chars: String)
+case class TrimChar(chars: String)
 
-case class IdentificationVariable(name: Identifier)
+case class IdentVar(name: Identifier)
 
-case class ResultVariable(name: Identifier)
+case class ResultVar(name: Identifier)
 
 case class EntityName(name: Identifier)
 
@@ -409,8 +409,8 @@ case class StateField(paths: List[PathComponent])
 case class SingleValuedEmbeddableObjectField(name: PathComponent)
 case class ConstructorName(path: Identifier, paths: List[PathComponent])
 case class Subtype(name: Identifier)
-case class SuperqueryIdentificationVariable(name: Identifier)
-case class SingleValuedInputParameter(name: Identifier)
+case class SuperqueryIdentVar(name: Identifier)
+case class SingleValuedInputParam(name: Identifier)
 
 case class Identifier(name: String)
 case class PathComponent(name: String)
