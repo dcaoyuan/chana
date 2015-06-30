@@ -6,7 +6,7 @@ import akka.http.scaladsl.model.StatusCode
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives
 import akka.pattern.ask
-import akka.stream.ActorFlowMaterializer
+import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import chana.schema.DistributedSchemaBoard
 import chana.script.DistributedScriptBoard
@@ -19,7 +19,7 @@ import scala.util.Try
 
 trait RestRouteAkka extends Directives {
   implicit val system: ActorSystem
-  implicit val materializer = ActorFlowMaterializer()
+  implicit val materializer = ActorMaterializer()
   import system.dispatcher
 
   def readTimeout: Timeout

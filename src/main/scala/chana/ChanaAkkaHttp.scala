@@ -4,7 +4,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.server.Directives
-import akka.stream.ActorFlowMaterializer
+import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import chana.http.RestRouteAkka
 import scala.concurrent.duration._
@@ -14,7 +14,7 @@ import scala.concurrent.duration._
  */
 object ChanaAkkaHttp extends scala.App {
   implicit val system = ActorSystem("ChanaSystem")
-  implicit val materializer = ActorFlowMaterializer()
+  implicit val materializer = ActorMaterializer()
   implicit val dispatcher = system.dispatcher
 
   val route = Directives.respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
