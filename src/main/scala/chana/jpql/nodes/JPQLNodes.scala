@@ -229,12 +229,12 @@ case object LT extends ComparisonOp
 case object LE extends ComparisonOp
 
 /**
- * rightTerms: Left: Plus, Right: Minus
+ * rightTerms: Left - Plus, Right - Minus
  */
 case class ArithExpr(term: ArithTerm, rightTerms: List[Either[ArithExpr, ArithExpr]])
 
 /**
- * rightTerms: Left: Times, Right: Div
+ * rightTerms: Left - Times, Right - Div
  */
 case class ArithTerm(factor: ArithFactor, rightTerms: List[Either[ArithTerm, ArithTerm]])
 
@@ -245,9 +245,9 @@ case object Times extends ArithOp
 case object Div extends ArithOp
 
 /**
- * Left: Plus, Right: Minus
+ * prefix: Left - Plus, Right - Minus
  */
-case class ArithFactor(primary: ArithPrimary, pre: Either[ArithOp, ArithOp])
+case class ArithFactor(prefix: Either[ArithOp, ArithOp], primary: ArithPrimary)
 
 trait ArithPrimary
 case class ArithPrimary_StateFieldPathExpr(expr: StateFieldPathExpr) extends ArithPrimary
@@ -330,14 +330,14 @@ case object CURRENT_TIMESTAMP extends FuncsReturningDatetime
 trait FuncsReturningStrings
 case class FuncReturningStrings_CONCAT(expr1: StringExpr, expr2: StringExpr, exprs: List[StringExpr]) extends FuncsReturningStrings
 case class FuncReturningStrings_SUBSTRING(expr1: StringExpr, expr2: ArithExpr, exprs: List[ArithExpr]) extends FuncsReturningStrings
-case class FuncReturningStrings_TRIM(trimSepc: Option[TrimSpecification], trimChar: Option[TrimChar], from: StringExpr) extends FuncsReturningStrings
+case class FuncReturningStrings_TRIM(trimSepc: Option[TrimSpec], trimChar: Option[TrimChar], from: StringExpr) extends FuncsReturningStrings
 case class FuncReturningStrings_LOWER(str: StringExpr) extends FuncsReturningStrings
 case class FuncReturningStrings_UPPER(str: StringExpr) extends FuncsReturningStrings;
 
-trait TrimSpecification
-case object LEADING extends TrimSpecification
-case object TRAILING extends TrimSpecification
-case object BOTH extends TrimSpecification
+trait TrimSpec
+case object LEADING extends TrimSpec
+case object TRAILING extends TrimSpec
+case object BOTH extends TrimSpec
 
 case class FuncInvocation(functionName: StringLiteral, args: List[FuncArg])
 
