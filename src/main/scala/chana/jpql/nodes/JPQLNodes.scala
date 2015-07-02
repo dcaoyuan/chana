@@ -22,10 +22,10 @@ case class Join(joinSpec: JoinSpec, joinAssocExpr: JoinAssocPathExpr, as: IdentV
 case class FetchJoin(joinSpec: JoinSpec, fetch: JoinAssocPathExpr, joinCond: Option[JoinCond])
 
 trait JoinSpec
-case object JOIN extends JoinSpec
-case object LEFT_JOIN extends JoinSpec
-case object LEFT_OUTER_JOIN extends JoinSpec
-case object INNER_JOIN extends JoinSpec
+case object JOIN_Spec extends JoinSpec
+case object LEFT_JOIN_Spec extends JoinSpec
+case object LEFT_OUTER_JOIN_Spec extends JoinSpec
+case object INNER_JOIN_Spec extends JoinSpec
 
 case class JoinCond(on: CondExpr)
 

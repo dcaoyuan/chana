@@ -183,8 +183,8 @@ ignoringCase String WHEN              = "when"              :Word ;
 ignoringCase String WHERE             = "where"             :Word ;
 
 
-String Word               = wordChar SKIP_N ;
-transient String wordChar = [a-zA-Z]+ ;
+String Word               = SKIP_N wordChar SKIP_N ;
+transient String wordChar = [a-zA-Z_]+ ;
 
 String EQ    = SKIP_N "="  SKIP_N ;
 String NE    = SKIP_N "<>" SKIP_N ;
