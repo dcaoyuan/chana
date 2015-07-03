@@ -80,14 +80,6 @@ class JPQLGrammarSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
         queris foreach parse
       }
 
-      //"with Sub-selects in FROM clause" in {
-      //  val queris = List(
-      //    "SELECT e, c.city FROM Employee e, (SELECT DISTINCT a.city FROM Address a) c WHERE e.address.city = c.city"
-      //  )
-      //
-      //  queris foreach parse
-      //}
-
       "with ORDER BY clause" in {
         val queris = List(
           "SELECT e FROM Employee e ORDER BY e.lastName ASC, e.firstName ASC",
