@@ -20,7 +20,7 @@ class JPQLGrammarSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
       info("\n-- " + query + " --\n" + rootNode.toString)
     }
 
-    assert(r.hasValue, "\n-- " + query + " --\n" + r.parseError.msg)
+    assert(r.hasValue, "\n-- " + query + " --\n" + r.parseError.msg + " at " + r.parseError.index)
   }
 
   "JPQLGrammar" when {
@@ -74,7 +74,7 @@ class JPQLGrammarSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
 
       "with ON" in {
         val queris = List(
-          "SELECT e FROM Employee e LEFT JOIN e.address ON a.city = :city",
+          "SELECT e FROM Employee e LEFT JOIN e.address a ON a.city = :city",
           "SELECT e FROM Employee e LEFT JOIN MailingAddress a ON e.address = a.address")
 
         queris foreach parse
@@ -89,7 +89,7 @@ class JPQLGrammarSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
 
       "with ORDER BY clause" in {
         val queris = List(
-          "SELECT e FROM Employee e ORDER BY e.lastName ASC, e.firstName, ASC",
+          "SELECT e FROM Employee e ORDER BY e.lastName ASC, e.firstName ASC",
           "SELECT e FROM Employee e ORDER BY UPPER(e.lastName)",
           "SELECT e FROM Employee e LEFT JOIN e.manager m ORDER BY m.lastName NULLS FIRST",
           "SELECT e FROM Employee e ORDER BY e.address")

@@ -18,9 +18,9 @@ option withLocation;
 
 // ----- public entrance
 public generic JPQL = 
-  SelectStatement
-/ UpdateStatement
-/ DeleteStatement
+  SelectStatement EOF
+/ UpdateStatement EOF
+/ DeleteStatement EOF
 ;
 
 generic SelectStatement = 
@@ -40,7 +40,7 @@ generic FromClause =
 ;
 
 generic IdentVarDecl =
-  RangeVarDecl ( Join / FetchJoin )*
+  RangeVarDecl ( FetchJoin / Join )*
 ;
 
 generic RangeVarDecl = 
@@ -51,8 +51,9 @@ generic Join =
   JoinSpec JoinAssocPathExpr AS? IdentVar JoinCond?
 ;
 
+// support an optional alias
 generic FetchJoin = 
-  JoinSpec FETCH JoinAssocPathExpr JoinCond?
+  JoinSpec FETCH JoinAssocPathExpr IdentVar? JoinCond?
 ;
 
 generic JoinSpec = 
@@ -74,11 +75,11 @@ generic JoinAssocPathExpr =
 ;
 
 generic JoinCollectionValuedPathExpr = 
-  IdentVar DOT ( SingleValuedEmbeddableObjectField DOT )* CollectionValuedField
+  IdentVar ( DOT SingleValuedEmbeddableObjectField )* ( DOT CollectionValuedField)?
 ;
 
 generic JoinSingleValuedPathExpr = 
-  IdentVar DOT ( SingleValuedEmbeddableObjectField DOT )* SingleValuedObjectField
+  IdentVar ( DOT SingleValuedEmbeddableObjectField )* ( DOT SingleValuedObjectField)?
 ;
 
 generic CollectionMemberDecl =
@@ -206,8 +207,9 @@ generic OrderbyClause =
   ORDER BY OrderbyItem ( COMMA OrderbyItem )*
 ;
 
+// Allow ScalarExpr as order by item
 generic OrderbyItem =
-  ( StateFieldPathExpr / ResultVar ) ( ASC / DESC )?
+  ScalarExpr ( ASC / DESC )?
 ;
 
 generic Subquery =
@@ -270,20 +272,20 @@ generic ScalarExpr =
 ;
 
 generic CondExpr =
-  CondTerm ( void:OR CondExpr )*
+  CondTerm ( OR CondTerm )*
 ;
 
 generic CondTerm =
-  CondFactor ( void:AND CondFactor )*
+  CondFactor ( AND CondFactor )*
 ;
 
 generic CondFactor =
-  NOT? CondPrimary
+  NOT? ( CondPrimary / ExistsExpr )
 ;
 
 generic CondPrimary =
-  SimpleCondExpr
-/ LParen CondExpr RParen
+  LParen CondExpr RParen
+/ SimpleCondExpr
 ;
 
 generic SimpleCondExpr =
@@ -298,9 +300,9 @@ generic SimpleCondExpr =
 ;
 
 generic BetweenExpr =
-  ArithExpr NOT? BETWEEN ArithExpr AND ArithExpr
-/ StringExpr     NOT? BETWEEN StringExpr     AND StringExpr
-/ DatetimeExpr   NOT? BETWEEN DatetimeExpr   AND DatetimeExpr
+  ArithExpr    NOT? BETWEEN ArithExpr    AND ArithExpr
+/ StringExpr   NOT? BETWEEN StringExpr   AND StringExpr
+/ DatetimeExpr NOT? BETWEEN DatetimeExpr AND DatetimeExpr
 ;
 
 generic InExpr =

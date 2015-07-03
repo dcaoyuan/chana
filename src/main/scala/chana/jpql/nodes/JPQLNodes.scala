@@ -19,7 +19,7 @@ case class RangeVarDecl(entityName: EntityName, as: IdentVar)
 
 case class Join(joinSpec: JoinSpec, joinAssocExpr: JoinAssocPathExpr, as: IdentVar, joinCond: Option[JoinCond])
 
-case class FetchJoin(joinSpec: JoinSpec, fetch: JoinAssocPathExpr, joinCond: Option[JoinCond])
+case class FetchJoin(joinSpec: JoinSpec, fetch: JoinAssocPathExpr, as: IdentVar, joinCond: Option[JoinCond])
 
 trait JoinSpec
 case object JOIN_Spec extends JoinSpec
@@ -116,7 +116,7 @@ case class HavingClause(having: CondExpr)
 
 case class OrderbyClause(orderbyItems: List[OrderbyItem])
 
-case class OrderbyItem(item: Either[StateFieldPathExpr, ResultVar], isAsc: Boolean)
+case class OrderbyItem(item: ScalarExpr, isAsc: Boolean)
 
 case class Subquery(simpleSelect: SimpleSelectClause, subqueryFrom: SubqueryFromClause, where: Option[WhereClause], groupby: Option[GroupbyClause], having: Option[HavingClause])
 
