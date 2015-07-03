@@ -28,11 +28,88 @@ generic SelectStatement =
 ;
 
 generic UpdateStatement =
-  UpdateClause WhereClause?
+  UpdateClause SetClause WhereClause?
+;
+
+generic UpdateClause =
+  UPDATE EntityName ( AS? Ident )? 
+;
+
+generic SetClause =
+  SET SetAssignClause ( COMMA SetAssignClause )*
+;
+
+generic SetAssignClause =
+  SetAssignTarget EQ NewValue
+;
+
+generic SetAssignTarget =
+  PathExpr
+/ Attribute
+;
+
+generic NewValue =
+  ScalarExpr
+/ NULL
 ;
 
 generic DeleteStatement =
   DeleteClause WhereClause?
+;
+
+generic DeleteClause =
+  DELETE FROM EntityName ( AS? Ident )?
+;
+
+generic SelectClause = 
+  SELECT DISTINCT? SelectItem (COMMA SelectItem )* 
+; 
+
+generic SelectItem = 
+  SelectExpr ( AS? Ident )?
+;
+
+generic SelectExpr = 
+  AggregateExpr
+/ ScalarExpr
+/ OBJECT LParen VarAccessOrTypeConstant RParen
+/ ConstructorExpr
+/ MapEntryExpr
+;
+
+generic MapEntryExpr =
+  ENTRY LParen VarAccessOrTypeConstant RParen
+;
+
+generic PathExprOrVarAccess =
+  QualIdentVar ( DOT Attribute )*
+;
+
+generic QualIdentVar =
+  VarAccessOrTypeConstant
+/ KEY   LParen VarAccessOrTypeConstant RParen
+/ VALUE LParen VarAccessOrTypeConstant RParen 
+;
+
+generic AggregateExpr = 
+  AVG   LParen DISTINCT? ScalarExpr RParen
+/ MAX   LParen DISTINCT? ScalarExpr RParen
+/ MIN   LParen DISTINCT? ScalarExpr RParen
+/ SUM   LParen DISTINCT? ScalarExpr RParen
+/ COUNT LParen DISTINCT? ScalarExpr RParen
+;
+
+generic ConstructorExpr =
+  NEW ConstructorName LParen ConstructorItem ( COMMA ConstructorItem )* RParen
+;
+
+generic ConstructorName =
+  Ident ( DOT Ident )*
+;
+
+generic ConstructorItem =
+  ScalarExpr
+/ AggregateExpr
 ;
 
 generic FromClause =
@@ -40,20 +117,22 @@ generic FromClause =
 ;
 
 generic IdentVarDecl =
-  RangeVarDecl ( FetchJoin / Join )*
+  RangeVarDecl Join*
 ;
 
 generic RangeVarDecl = 
-  EntityName AS? IdentVar
+  EntityName AS? Ident
 ;
 
+generic EntityName =
+  Identifier
+;
+
+// support join fetch with alias name
 generic Join = 
-  JoinSpec JoinAssocPathExpr AS? IdentVar JoinCond?
-;
-
-// support an optional alias
-generic FetchJoin = 
-  JoinSpec FETCH JoinAssocPathExpr IdentVar? JoinCond?
+  JoinSpec              JoinAssocPathExpr                   AS? Ident  JoinCond?
+/ JoinSpec TREAT LParen JoinAssocPathExpr AS  Ident  RParen AS? Ident  JoinCond?
+/ JoinSpec FETCH        JoinAssocPathExpr                       Ident? JoinCond?
 ;
 
 generic JoinSpec = 
@@ -63,212 +142,48 @@ generic JoinSpec =
 / INNER JOIN
 ;
 
-generic JoinCond = 
+generic JoinCond =
   ON CondExpr
 ;
 
-generic JoinAssocPathExpr = 
-  JoinCollectionValuedPathExpr
-/ JoinSingleValuedPathExpr
-/ TREAT LParen JoinCollectionValuedPathExpr AS Subtype RParen
-/ TREAT LParen JoinSingleValuedPathExpr     AS Subtype RParen
-;
-
-generic JoinCollectionValuedPathExpr = 
-  IdentVar ( DOT SingleValuedEmbeddableObjectField )* ( DOT CollectionValuedField)?
-;
-
-generic JoinSingleValuedPathExpr = 
-  IdentVar ( DOT SingleValuedEmbeddableObjectField )* ( DOT SingleValuedObjectField)?
-;
-
 generic CollectionMemberDecl =
-  IN LParen CollectionValuedPathExpr RParen AS? IdentVar
-;
-
-generic QualIdentVar = 
-   ComposableQualIdentVar
- / ENTRY LParen IdentVar RParen
-;
-
-generic ComposableQualIdentVar = 
-  KEY    LParen IdentVar RParen
-/ VALUE  LParen IdentVar RParen
-;
-
-generic SingleValuedPathExpr = 
-  QualIdentVar
-/ TREAT LParen QualIdentVar RParen
-/ StateFieldPathExpr
-/ SingleValuedObjectPathExpr
-;
-
-generic GeneralIdentVar =
-  IdentVar
-/ ComposableQualIdentVar
-;
-
-generic GeneralSubpath = 
-  SimpleSubpath
-/ TreatedSubpath ( DOT SingleValuedObjectField )*
-;
-
-generic SimpleSubpath = 
-  GeneralIdentVar ( DOT SingleValuedObjectField )*
-; 
-
-generic TreatedSubpath = 
-  TREAT LParen GeneralSubpath AS Subtype RParen
-; 
-
-generic StateFieldPathExpr = 
-  GeneralSubpath // DOT StateField
-;
-
-generic SingleValuedObjectPathExpr = 
-  GeneralSubpath // DOT SingleValuedObjectField
+  IN LParen CollectionValuedPathExpr RParen AS? Ident
 ;
 
 generic CollectionValuedPathExpr = 
-  GeneralSubpath // DOT CollectionValuedField
+  PathExpr
 ;
 
-generic UpdateClause =
-  UPDATE EntityName ( AS? IdentVar )? SET UpdateItem ( COMMA UpdateItem )*
+generic AssocPathExpr =
+  PathExpr
 ;
 
-generic UpdateItem =
-  ( IdentVar DOT )? ( SingleValuedEmbeddableObjectField DOT )* ( StateField / SingleValuedObjectField ) EQ NewValue
+generic JoinAssocPathExpr = 
+  QualIdentVar ( DOT Attribute )*
 ;
 
-generic NewValue =
-  ScalarExpr
+generic SingleValuedPathExpr = 
+  PathExpr
 ;
 
-generic DeleteClause =
-  DELETE FROM EntityName ( AS? IdentVar )?
+generic StateFieldPathExpr = 
+  PathExpr 
 ;
 
-generic SelectClause = 
-  SELECT DISTINCT? SelectItem (COMMA SelectItem )* 
-; 
-
-generic SelectItem = 
-  SelectExpr ( AS? ResultVar )?
+generic PathExpr =
+  QualIdentVar ( DOT Attribute )+
 ;
 
-generic SelectExpr = 
-  AggregateExpr
-/ OBJECT LParen IdentVar RParen
-/ ConstructorExpr
-/ SingleValuedPathExpr
-/ ScalarExpr
+generic Attribute =
+  AttributeName
 ;
 
-generic ConstructorExpr =
-  NEW ConstructorName LParen ConstructorItem ( COMMA ConstructorItem )* RParen
+generic VarAccessOrTypeConstant =
+  Ident
 ;
-
-generic ConstructorItem =
-  AggregateExpr
-/ SingleValuedPathExpr
-/ ScalarExpr
-;
-
-generic AggregateExpr = 
-  ( AVG / MAX / MIN / SUM ) LParen DISTINCT? StateFieldPathExpr RParen
-/ COUNT                     LParen DISTINCT? ( IdentVar 
-                                             / StateFieldPathExpr 
-                                             / SingleValuedObjectPathExpr 
-                                             )
-                            RParen
-/ FuncInvocation
-;
-
 
 generic WhereClause =
   WHERE CondExpr 
-;
-
-generic GroupbyClause =
-  GROUP BY GroupbyItem ( COMMA GroupbyItem )* 
-;
-
-generic GroupbyItem =
-  SingleValuedPathExpr
-/ IdentVar
-;
-
-generic HavingClause =
-  HAVING CondExpr 
-;
-
-generic OrderbyClause =
-  ORDER BY OrderbyItem ( COMMA OrderbyItem )*
-;
-
-// Allow ScalarExpr as order by item
-generic OrderbyItem =
-  ScalarExpr ( ASC / DESC )?
-;
-
-generic Subquery =
-  SimpleSelectClause SubqueryFromClause WhereClause? GroupbyClause? HavingClause?
-;
-
-generic SubqueryFromClause =
-  FROM SubselectIdentVarDecl ( COMMA ( SubselectIdentVarDecl 
-                                     / CollectionMemberDecl
-                                     ) 
-                             )*
-;
-
-generic SubselectIdentVarDecl = 
-  IdentVarDecl 
-/ DerivedPathExpr AS? IdentVar Join*
-/ DerivedCollectionMemberDecl
-;
-
-generic DerivedPathExpr = 
-  GeneralDerivedPath DOT SingleValuedObjectField
-/ GeneralDerivedPath DOT CollectionValuedField
-;
-
-generic GeneralDerivedPath =
-  SimpleDerivedPath
-/ TreatedDerivedPath ( DOT SingleValuedObjectField )*
-;
-
-generic SimpleDerivedPath =
-  SuperqueryIdentVar ( DOT SingleValuedObjectField )*
-;
-
-generic TreatedDerivedPath =
-  TREAT LParen GeneralDerivedPath AS Subtype RParen
-;
-
-generic DerivedCollectionMemberDecl =
-  IN SuperqueryIdentVar DOT ( SingleValuedObjectField DOT )* CollectionValuedField
-;
-
-generic SimpleSelectClause =
-  SELECT DISTINCT? SimpleSelectExpr
-;
-
-generic SimpleSelectExpr = 
-  AggregateExpr
-/ SingleValuedPathExpr 
-/ ScalarExpr
-;
-
-generic ScalarExpr = 
-  StringExpr
-/ EnumExpr
-/ DatetimeExpr
-/ BooleanExpr
-/ CaseExpr
-/ EntityTypeExpr
-/ ArithExpr
 ;
 
 generic CondExpr =
@@ -289,245 +204,162 @@ generic CondPrimary =
 ;
 
 generic SimpleCondExpr =
-  ComparisonExpr
-/ BetweenExpr
-/ LikeExpr
-/ InExpr
-/ NullComparisonExpr
-/ EmptyCollectionComparisonExpr
-/ CollectionMemberExpr
-/ ExistsExpr
+  ArithExpr          SimpleCondExprRem
+/ NonArithScalarExpr SimpleCondExprRem
 ;
 
+generic SimpleCondExprRem =
+  ComparisonExpr
+/ NOT? CondWithNotExpr 
+/ IS NOT? IsExpr
+;
+
+generic CondWithNotExpr =
+  BetweenExpr
+/ LikeExpr
+/ InExpr
+/ CollectionMemberExpr
+;
+
+generic IsExpr =
+  NullComparisonExpr
+/ EmptyCollectionComparisonExpr
+; 
+
 generic BetweenExpr =
-  ArithExpr    NOT? BETWEEN ArithExpr    AND ArithExpr
-/ StringExpr   NOT? BETWEEN StringExpr   AND StringExpr
-/ DatetimeExpr NOT? BETWEEN DatetimeExpr AND DatetimeExpr
+  BETWEEN ScalarOrSubSelectExpr AND ScalarOrSubSelectExpr
 ;
 
 generic InExpr =
-  ( StateFieldPathExpr / TypeDiscriminator ) NOT? IN ( LParen InItem ( COMMA InItem )* RParen 
-                                                     / LParen Subquery RParen
-                                                     / CollectionValuedInputParam
-                                                     )
-;
-
-generic InItem =
-  Literal
-/ SingleValuedInputParam
+  IN InputParam
+/ IN LParen ScalarOrSubSelectExpr ( COMMA ScalarOrSubSelectExpr )* RParen
+/ IN LParen Subquery                                               RParen
 ;
 
 generic LikeExpr =
-  StringExpr NOT? LIKE PatternValue ( ESCAPE EscapeChar )?
+  LIKE ScalarOrSubSelectExpr Escape?
+;
+
+generic Escape =
+  ESCAPE ScalarExpr
 ;
 
 generic NullComparisonExpr =
-  ( SingleValuedPathExpr / InputParam) IS NOT? NULL 
+  NULL 
 ;
 
 generic EmptyCollectionComparisonExpr =
-  CollectionValuedPathExpr IS NOT? EMPTY 
+  EMPTY 
 ;
 
 generic CollectionMemberExpr =
-  EntityOrValueExpr NOT? MEMBER OF? CollectionValuedPathExpr
-;
-
-generic EntityOrValueExpr =
-  SingleValuedObjectPathExpr
-/ StateFieldPathExpr
-/ SimpleEntityOrValueExpr
-;
-
-generic SimpleEntityOrValueExpr =
-  IdentVar
-/ InputParam
-/ Literal
+  MEMBER OF? CollectionValuedPathExpr
 ;
 
 generic ExistsExpr =
-  NOT? EXISTS LParen Subquery RParen 
-;
-
-generic AllOrAnyExpr =
-  ( ALL / ANY / SOME ) LParen Subquery RParen
+  EXISTS LParen Subquery RParen 
 ;
 
 generic ComparisonExpr =
-  StringExpr     ComparisonOp ( StringExpr   / AllOrAnyExpr )
-/ BooleanExpr    ( EQ / NE )  ( BooleanExpr  / AllOrAnyExpr )
-/ EnumExpr       ( EQ / NE )  ( EnumExpr     / AllOrAnyExpr )
-/ DatetimeExpr   ComparisonOp ( DatetimeExpr / AllOrAnyExpr )
-/ EntityExpr     ( EQ / NE )  ( EntityExpr   / AllOrAnyExpr )
-/ EntityTypeExpr ( EQ / NE )  EntityTypeExpr
-/ ArithExpr      ComparisonOp AllOrAnyExpr
-/ ArithExpr      ComparisonOp ArithExpr
+  EQ ComparisonExprRightOperand
+/ NE ComparisonExprRightOperand
+/ GT ComparisonExprRightOperand
+/ GE ComparisonExprRightOperand
+/ LT ComparisonExprRightOperand
+/ LE ComparisonExprRightOperand
 ;
 
-generic ComparisonOp =
-  EQ / GE / GT / NE / LT / LE
+generic ComparsionExprRightOperand =
+  ArithExpr
+/ NonArithScalarExpr
+/ AnyOrAllExpr
+;
+
+generic ComparisonExprRightOperand =
+  ArithExpr
+/ NonArithScalarExpr
+/ AnyOrAllExpr
 ;
 
 generic ArithExpr = 
-  ArithTerm ( void:( PLUS  @PlusArithExpr 
-                   / MINUS @MinusArithExpr 
-                   ) ArithExpr 
-            )*
+  SimpleArithExpr
+/ LParen Subquery RParen
 ;
 
+generic SimpleArithExpr =
+  ArithTerm ( PLUS  ArithTerm @PlusArithTerm 
+            / MINUS ArithTerm @MinusArithTerm 
+            )* 
+;  
+
 generic ArithTerm = 
-  ArithFactor ( void:( TIMES @TimesArithTerm
-                     / DIV   @DivArithTerm 
-                     ) ArithTerm 
-              )*
-/	
+  ArithFactor ( MULTIPLY ArithFactor @MultiplyArithFactor
+              / DIVIDE   ArithFactor @DivideArithFactor
+              )* 
 ;
 
 generic ArithFactor = 
-  ( PLUS / MINUS )? ArithPrimary
+  PLUS  ArithPrimary @PlusArithPrimary
+/ MINUS ArithPrimary @MinusArithPrimay
+/ ArithPrimary
 ;
 
 generic ArithPrimary =
-  StateFieldPathExpr 
-/ NumericLiteral 
-/ LParen ArithExpr RParen
+  PathExprOrVarAccess
 / InputParam
+/ CaseExpr
 / FuncsReturningNumerics
-/ AggregateExpr
-/ CaseExpr
-/ FuncInvocation
-/ LParen Subquery RParen
+/ LParen SimpleArithExpr RParen
+/ LiteralNumeric 
 ;
 
-generic StringExpr =
-  StateFieldPathExpr 
-/ StringLiteral 
-/ InputParam
+generic ScalarExpr = 
+  SimpleArithExpr
+/ NonArithScalarExpr
+;
+
+generic ScalarOrSubSelectExpr =
+  ArithExpr
+/ NonArithScalarExpr
+;
+
+generic NonArithScalarExpr =
+  FuncsReturningDatetime
 / FuncsReturningStrings
-/ AggregateExpr
-/ CaseExpr
-/ FuncInvocation
-/ LParen Subquery RParen
+/ LiteralString
+/ LiteralBoolean
+/ LiteralTemporal
+/ EntityTypeExpr
 ;
 
-generic DatetimeExpr =
-  StateFieldPathExpr 
-/ InputParam
-/ FuncsReturningDatetime
-/ AggregateExpr
-/ CaseExpr
-/ FuncInvocation
-/ DatetimeTimestampLiteral
-/ LParen Subquery RParen
-;
-
-generic BooleanExpr =
-  StateFieldPathExpr 
-/ BooleanLiteral
-/ InputParam
-/ CaseExpr
-/ FuncInvocation
-/ LParen Subquery RParen
-;
-
-generic EnumExpr =
-  StateFieldPathExpr
-/ EnumLiteral
-/ InputParam
-/ CaseExpr
-/ LParen Subquery RParen
-;
-
-generic EntityExpr = 
-  SingleValuedObjectPathExpr
-/ SimpleEntityExpr 
-;
-
-generic SimpleEntityExpr = 
-  IdentVar
-/ InputParam
+generic AnyOrAllExpr =
+  ALL  LParen Subquery RParen
+/ ANY  LParen Subquery RParen
+/ SOME LParen Subquery RParen
 ;
 
 generic EntityTypeExpr =
   TypeDiscriminator
-/ InputParam
-/ EntityTypeLiteral
 ;
 
 generic TypeDiscriminator = 
-  TYPE LParen ( IdentVar 
-              / SingleValuedObjectPathExpr
-              / InputParam
-              )
-       RParen
-;
-
-generic FuncsReturningNumerics =
-  LENGTH LParen StringExpr RParen
-/ LOCATE LParen StringExpr COMMA StringExpr ( COMMA ArithExpr )? RParen
-/ ABS    LParen ArithExpr RParen 
-/ SQRT   LParen ArithExpr RParen
-/ MOD    LParen ArithExpr COMMA ArithExpr RParen 
-/ SIZE   LParen CollectionValuedPathExpr RParen
-/ INDEX  LParen IdentVar RParen
-;
-
-generic FuncsReturningDatetime = 
-  CURRENT_DATE
-/ CURRENT_TIME
-/ CURRENT_TIMESTAMP
-;
-
-generic FuncsReturningStrings = 
-  CONCAT    LParen StringExpr COMMA StringExpr ( COMMA StringExpr )* RParen 
-/ SUBSTRING LParen StringExpr COMMA ArithExpr  ( COMMA ArithExpr  )? RParen
-/ TRIM      LParen TrimSpec?  TrimChar? FROM StringExpr RParen 
-/ TRIM      LParen StringExpr RParen 
-/ LOWER     LParen StringExpr RParen 
-/ UPPER     LParen StringExpr RParen
-;
-
-generic TrimSpec = 
-  LEADING / TRAILING / BOTH
-;
-
-generic FuncInvocation =
-  FUNCTION LParen StringLiteral ( COMMA FuncArg )* RParen
-;
-
-generic FuncArg =
-  Literal
-/ StateFieldPathExpr
-/ InputParam
-/ ScalarExpr
+  TYPE LParen VarOrSingleValuedPath RParen
+/ TYPE LParen InputParam            RParen
 ;
 
 generic CaseExpr =
-  GeneralCaseExpr
-/ SimpleCaseExpr
+  SimpleCaseExpr
+/ GeneralCaseExpr
 / CoalesceExpr
 / NullifExpr
-;
-
-generic GeneralCaseExpr =
-  CASE WhenClause WhenClause* ELSE ScalarExpr END
-;
-
-generic WhenClause =
-  WHEN CondExpr THEN ScalarExpr
 ;
 
 generic SimpleCaseExpr =
   CASE CaseOperand SimpleWhenClause SimpleWhenClause* ELSE ScalarExpr END
 ;
 
-generic CaseOperand =
-  StateFieldPathExpr
-/ TypeDiscriminator
-;
-
-generic SimpleWhenClause =
-  WHEN ScalarExpr THEN ScalarExpr
+generic GeneralCaseExpr =
+  CASE WhenClause WhenClause* ELSE ScalarExpr END
 ;
 
 generic CoalesceExpr =
@@ -538,28 +370,41 @@ generic NullifExpr =
   NULLIF LParen ScalarExpr COMMA ScalarExpr RParen
 ;
 
+generic CaseOperand =
+  StateFieldPathExpr
+/ TypeDiscriminator
+;
+
+generic WhenClause =
+  WHEN CondExpr THEN ScalarExpr
+;
+
+generic SimpleWhenClause =
+  WHEN ScalarExpr THEN ScalarExpr
+;
+
+generic VarOrSingleValuedPath =
+  SingleValuedPathExpr
+/ VarAccessOrTypeConstant
+;
+
+generic StringPrimary =
+  LiteralString 
+/ FuncsReturningStrings
+/ InputParam
+/ StateFieldPathExpr 
+;
+
 generic Literal =
-  BooleanLiteral
-/ EnumLiteral
-/ NumericLiteral
-/ StringLiteral
-/ DateLiteral 
-/ TimeLiteral 
-/ TimestampLiteral 
+  LiteralNumeric
+/ LiteralBoolean
+/ LiteralString
 ;
 
-generic DatetimeTimestampLiteral =
-  DateLiteral
-/ TimeLiteral
-/ TimestampLiteral
-;
-
-generic EnumLiteral =
-  ( identifier void:'.' )+ identifier
-;
-
-generic EntityTypeLiteral =
-  Identifier
+generic LiteralTemporal =
+  LiteralDate
+/ LiteralTime
+/ LiteralTimestamp
 ;
 
 generic InputParam =
@@ -567,65 +412,143 @@ generic InputParam =
 / '?' [1-9] [0-9]*  @PositionInputParam
 ;
 
-generic CollectionValuedInputParam =
-  InputParam
+generic FuncsReturningNumerics =
+  Abs
+/ Length 
+/ Mod
+/ Locate
+/ Size
+/ Sqrt
+/ Index
+/ Func
 ;
 
-generic PatternValue =
-  InputParam
-/ StringLiteral
+generic FuncsReturningDatetime = 
+  CURRENT_DATE
+/ CURRENT_TIME
+/ CURRENT_TIMESTAMP
 ;
 
-generic EscapeChar =
-  SingleQuotedStringLiteral
+generic FuncsReturningStrings = 
+  Concat
+/ Substring
+/ Trim
+/ Upper
+/ Lower
+;
+
+// --- Functions returning string
+
+generic Concat =
+  CONCAT LParen ScalarExpr (COMMA ScalarExpr)+ RParen
+;
+
+generic Substring =
+  SUBSTRING LParen ScalarExpr COMMA ScalarExpr ( COMMA ScalarExpr )? RParen
+;
+
+generic Trim =
+  TRIM LParen TrimSpec? TrimChar? FROM? StringPrimary RParen
+;
+
+generic TrimSpec = 
+  LEADING 
+/ TRAILING
+/ BOTH
 ;
 
 generic TrimChar =
-  SingleQuotedStringLiteral
+  LiteralSingleQuotedString
+/ InputParam
 ;
 
-// ----- undefined terms in BNF
+generic Upper =
+  UPPER LParen ScalarExpr RParen
+;
 
-generic IdentVar =
+generic Lower =
+  LOWER LParen ScalarExpr RParen
+;
+
+// --- Functions returning numeric
+
+generic Abs =
+  ABS LParen SimpleArithExpr RParen
+;
+
+generic Length =
+  LENGTH LParen ScalarExpr RParen
+;
+
+generic Locate =
+  LOCATE LParen ScalarExpr COMMA ScalarExpr ( COMMA ScalarExpr )? RParen
+;
+
+generic Size =
+  SIZE LParen CollectionValuedPathExpr RParen
+;
+
+generic Mod =
+  MOD LParen ScalarExpr COMMA ScalarExpr RParen
+;
+
+generic Sqrt =
+  SQRT LParen ScalarExpr RParen
+;
+
+generic Index =
+  INDEX LParen VarAccessOrTypeConstant RParen
+;
+
+generic Func =
+  FUNCTION LParen LiteralSingleQuotedString ( COMMA NewValue )* RParen
+;
+
+generic Subquery =
+  SimpleSelectClause SubqueryFromClause WhereClause? GroupbyClause? HavingClause?
+;
+
+generic SimpleSelectClause =
+  SELECT DISTINCT? SimpleSelectExpr
+;
+
+generic SimpleSelectExpr = 
+  SingleValuedPathExpr 
+/ AggregateExpr
+/ VarAccessOrTypeConstant
+;
+
+generic SubqueryFromClause =
+  FROM SubselectIdentVarDecl ( COMMA ( SubselectIdentVarDecl 
+                                     / CollectionMemberDecl
+                                     ) 
+                             )*
+;
+
+generic SubselectIdentVarDecl =
+  IdentVarDecl
+/ AssocPathExpr AS? Ident
+/ CollectionMemberDecl
+;
+
+generic OrderbyClause =
+  ORDER BY OrderbyItem ( COMMA OrderbyItem )*
+;
+
+// support SimpleArithExpr as order by item
+generic OrderbyItem =
+  ( SimpleArithExpr / ScalarExpr ) ( ASC / DESC )?
+;
+
+generic GroupbyClause =
+  GROUP BY ScalarExpr ( COMMA ScalarExpr )* 
+;
+
+generic HavingClause =
+  HAVING CondExpr 
+;
+
+generic Ident =
   Identifier
 ;
 
-generic ResultVar =
-  Identifier
-;
-
-generic EntityName =
-  Identifier
-;
-
-generic SingleValuedObjectField = 
-  PathComponent
-;
-
-generic CollectionValuedField = 
-  PathComponent
-;
-
-generic StateField = 
-  ( PathComponent DOT )* PathComponent
-;
-
-generic SingleValuedEmbeddableObjectField =
-  PathComponent
-;
-
-generic ConstructorName =
-  Identifier ( DOT PathComponent )*
-;
-
-generic Subtype =
-  Identifier
-;
-
-generic SuperqueryIdentVar =
-  Identifier
-;
-
-generic SingleValuedInputParam =
-  Identifier
-;

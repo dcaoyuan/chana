@@ -11,24 +11,37 @@ import Spacing;
 import Keyword;
 
 
-transient generic NumericLiteral =
-  IntegerLiteral
-/ DecimalLiteral
+transient generic LiteralNumeric =
+  LiteralFloat
+/ LiteralDouble
+/ LiteralLong
+/ LiteralInteger
 ;
 
 // ----- Integer literals
 
-transient generic IntegerLiteral =
-  [0-9]+ [lL]?     
+transient generic LiteralInteger =
+  [0-9]+
+;
+
+transient generic LiteralLong =
+  LiteralInteger [lL]     
 ;
 
 // ----- Decimal literals
 
-transient generic DecimalLiteral =
-  [0-9]* '.' [0-9]+ exponent? [fFdD]?
-/ [0-9]+ '.'        exponent? [fFdD]?
-/ [0-9]+            exponent  [fFdD]?
-/ [0-9]+            exponent? [fFdD]? 
+transient generic LiteralDecimal =
+  [0-9]* '.' [0-9]+ exponent?
+/ [0-9]+ '.'        exponent?
+/ [0-9]+            exponent
+;
+
+transient generic LiteralDouble =
+  LiteralDecimal [dD]?
+;
+
+transient generic LiteralFloat =
+  LiteralDecimal [fF]
 ;
 
 transient String exponent = 
@@ -37,35 +50,35 @@ transient String exponent =
 
 // ----- Character and String Literals
 
-transient generic CharacterLiteral = 
+transient generic LiteralCharacter = 
   ['] characterChar ['] 
 ;
 
-transient generic StringLiteral = 
-  DoubleQuotedStringLiteral
-/ SingleQuotedStringLiteral
+transient generic LiteralString = 
+  LiteralDoubleQuotedString
+/ LiteralSingleQuotedString
 ;
 
-transient generic DoubleQuotedStringLiteral = 
+transient generic LiteralDoubleQuotedString = 
  ["] stringChar* ["] 
 ;
 
-transient generic SingleQuotedStringLiteral = 
+transient generic LiteralSingleQuotedString = 
  ['] ( "''" / characterChar )* [']
 ;
 
 // ----- Date Time literal
 
-transient generic DateLiteral = 
-  "{d '" ( [0-9][0-9][0-9][0-9] '-' [0-9][0-9] '-' [0-9][0-9] ) "'}"
+transient generic LiteralDate = 
+  "{d'" ( [0-9][0-9][0-9][0-9] '-' [0-9][0-9] '-' [0-9][0-9] ) "'}"
 ;
 
-transient generic TimeLiteral = 
-  "{t '" ( [0-9][0-9] ':' [0-9][0-9] ':' [0-9][0-9] ) "'}"
+transient generic LiteralTime = 
+  "{t'" ( [0-9][0-9] ':' [0-9][0-9] ':' [0-9][0-9] ) "'}"
 ;
 
-transient generic TimestampLiteral =
-  "{ts '" ( [0-9][0-9][0-9][0-9] '-' [0-9][0-9] '-' [0-9][0-9] ) w+ 
+transient generic LiteralTimestamp =
+  "{ts'" ( [0-9][0-9][0-9][0-9] '-' [0-9][0-9] '-' [0-9][0-9] ) w+ 
     ( [0-9][0-9] ':' [0-9][0-9] ':' [0-9][0-9] ) 
     ( '.' [0-9]* "'}" 
     / "'}" 
@@ -73,6 +86,6 @@ transient generic TimestampLiteral =
 ;
 
 // ----- Boolean literal
-transient generic BooleanLiteral =
+transient generic LiteralBoolean =
   TRUE / FALSE
 ;

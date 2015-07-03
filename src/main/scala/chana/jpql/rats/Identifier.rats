@@ -15,11 +15,11 @@ transient String Identifier =
 transient String identifier = 
   id_letter ( id_letter / id_digit )*
 ;
-// ----- field name
 
-transient String PathComponent = SKIP pathComponent;
-transient String pathComponent =
-  v:( id_letter ( id_letter / id_digit )* )
+// ----- field name
+transient String AttributeName = SKIP attributeName;
+transient String attributeName =
+  id_letter ( id_letter / id_digit )*
 ;
 
 transient String id_letter = 
