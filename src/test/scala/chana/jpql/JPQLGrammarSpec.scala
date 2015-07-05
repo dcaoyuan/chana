@@ -17,7 +17,7 @@ class JPQLGrammarSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
       // with at least of Any to avoid:
       //   xtc.tree.GNode$Fixed1 cannot be cast to scala.runtime.Nothing$
       val rootNode = r.semanticValue[Any]
-      info("\n## " + query + " ##\n" + rootNode.toString)
+      info("\n## " + query + " ##\n" + rootNode)
     }
 
     assert(r.hasValue, "\n## " + query + " ##\n" + r.parseError.msg + " at " + r.parseError.index)
@@ -38,6 +38,7 @@ class JPQLGrammarSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
       "with Constructors" in {
         val queris = List(
           "SELECT NEW com.acme.reports.EmpReport(e.firstName, e.lastName, e.salary) FROM Employee e")
+
         queris foreach parse
       }
 

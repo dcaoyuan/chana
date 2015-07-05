@@ -269,12 +269,6 @@ generic ComparisonExpr =
 / LE ComparisonExprRightOperand
 ;
 
-generic ComparsionExprRightOperand =
-  ArithExpr
-/ NonArithScalarExpr
-/ AnyOrAllExpr
-;
-
 generic ComparisonExprRightOperand =
   ArithExpr
 / NonArithScalarExpr
