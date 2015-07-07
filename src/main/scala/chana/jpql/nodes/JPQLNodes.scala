@@ -49,7 +49,7 @@ case class AggregateExpr_MIN(isDistinct: Boolean, expr: ScalarExpr) extends Aggr
 case class AggregateExpr_SUM(isDistinct: Boolean, expr: ScalarExpr) extends AggregateExpr
 case class AggregateExpr_COUNT(isDistinct: Boolean, expr: ScalarExpr) extends AggregateExpr
 
-case class ConstructorExpr(name: ConstructorName, item: ConstructorItem, items: List[ConstructorItem])
+case class ConstructorExpr(name: ConstructorName, arg: ConstructorItem, args: List[ConstructorItem])
 
 case class ConstructorName(id: Ident, ids: List[Ident])
 
@@ -63,12 +63,12 @@ case class IdentVarDecl(variable: RangeVarDecl, joins: List[Join])
 
 case class RangeVarDecl(entityName: EntityName, as: Ident)
 
-case class EntityName(ident: Ident)
+case class EntityName(ident: String)
 
 trait Join
-case class Join_JoinSpec(joinSpec: JoinSpec, expr: JoinAssocPathExpr, as: Ident, joinCond: Option[JoinCond]) extends Join
-case class Join_JoinSpec_TREAT(joinSpec: JoinSpec, expr: JoinAssocPathExpr, exprAs: Ident, as: Ident, joinCond: Option[JoinCond]) extends Join
-case class Join_JoinSpec_FETCH(joinSpec: JoinSpec, expr: JoinAssocPathExpr, alias: Option[Ident], joinCond: Option[JoinCond]) extends Join
+case class Join_General(joinSpec: JoinSpec, expr: JoinAssocPathExpr, as: Ident, joinCond: Option[JoinCond]) extends Join
+case class Join_TREAT(joinSpec: JoinSpec, expr: JoinAssocPathExpr, exprAs: Ident, as: Ident, joinCond: Option[JoinCond]) extends Join
+case class Join_FETCH(joinSpec: JoinSpec, expr: JoinAssocPathExpr, alias: Option[Ident], joinCond: Option[JoinCond]) extends Join
 
 trait JoinSpec
 case object JOIN extends JoinSpec
@@ -125,14 +125,14 @@ trait IsExpr
 case object IsNullExpr extends IsExpr // NULL 
 case object IsEmptyExpr extends IsExpr // EMPTY
 
-case class BetweenExpr(between: ScalarOrSubSelectExpr, and: ScalarOrSubSelectExpr)
+case class BetweenExpr(between: ScalarOrSubselectExpr, and: ScalarOrSubselectExpr)
 
 trait InExpr
 case class InExpr_InputParam(expr: InputParam) extends InExpr
-case class InExpr_ScalarOrSubSelectExpr(expr: ScalarOrSubSelectExpr, exprs: List[ScalarOrSubSelectExpr]) extends InExpr
+case class InExpr_ScalarOrSubselectExpr(expr: ScalarOrSubselectExpr, exprs: List[ScalarOrSubselectExpr]) extends InExpr
 case class InExpr_Subquery(expr: Subquery) extends InExpr
 
-case class LikeExpr(like: ScalarOrSubSelectExpr, escape: Option[Escape])
+case class LikeExpr(like: ScalarOrSubselectExpr, escape: Option[Escape])
 
 case class Escape(expr: ScalarExpr)
 
@@ -160,20 +160,20 @@ case class ArithExpr(expr: Either[SimpleArithExpr, Subquery])
 case class SimpleArithExpr(term: ArithTerm, rightTerms: List[PlusOrMinusTerm])
 
 trait PlusOrMinusTerm
-case class PlusArithTerm(term: ArithTerm) extends PlusOrMinusTerm
-case class MinusArithTerm(term: ArithTerm) extends PlusOrMinusTerm
+case class ArithTerm_Plus(term: ArithTerm) extends PlusOrMinusTerm
+case class ArithTerm_Minus(term: ArithTerm) extends PlusOrMinusTerm
 
 case class ArithTerm(factor: ArithFactor, rightFactocs: List[MultiplyOrDivideFactor])
 
 trait MultiplyOrDivideFactor
-case class PlusArithFactor(factor: ArithFactor) extends MultiplyOrDivideFactor
-case class MinusArithFactor(factor: ArithFactor) extends MultiplyOrDivideFactor
+case class ArithFactor_Multiply(factor: ArithFactor) extends MultiplyOrDivideFactor
+case class ArithFactor_Divide(factor: ArithFactor) extends MultiplyOrDivideFactor
 
 case class ArithFactor(primary: PlusOrMinusPrimary)
 
 trait PlusOrMinusPrimary
-case class PlusArithPrimay(primary: ArithPrimary) extends PlusOrMinusPrimary
-case class MinusArithPrimay(primary: ArithPrimary) extends PlusOrMinusPrimary
+case class ArithPrimary_Plus(primary: ArithPrimary) extends PlusOrMinusPrimary
+case class ArithPrimary_Minus(primary: ArithPrimary) extends PlusOrMinusPrimary
 
 trait ArithPrimary
 case class ArithPrimary_PathExprOrVarAccess(expr: PathExprOrVarAccess) extends ArithPrimary
@@ -181,22 +181,22 @@ case class ArithPrimary_InputParam(expr: InputParam) extends ArithPrimary
 case class ArithPrimary_CaseExpr(expr: CaseExpr) extends ArithPrimary
 case class ArithPrimary_FuncsReturningNumerics(expr: FuncsReturningNumerics) extends ArithPrimary
 case class ArithPrimary_SimpleArithExpr(expr: SimpleArithExpr) extends ArithPrimary
-case class ArithPrimary_LiteralNumeric(expr: LiteralNumeric) extends ArithPrimary
+case class ArithPrimary_LiteralNumeric(expr: Number) extends ArithPrimary
 
 trait ScalarExpr
 case class ScalarExpr_SimpleArithExpr(expr: SimpleArithExpr) extends ScalarExpr
 case class ScalarExpr_NonArithScalarExpr(expr: NonArithScalarExpr) extends ScalarExpr
 
-trait ScalarOrSubSelectExpr
-case class ScalarOrSubSelectExpr_ArithExpr(expr: ArithExpr) extends ScalarOrSubSelectExpr
-case class ScalarOrSubSelectExpr_NonArithScalarExpr(expr: NonArithScalarExpr) extends ScalarOrSubSelectExpr
+trait ScalarOrSubselectExpr
+case class ScalarOrSubselectExpr_ArithExpr(expr: ArithExpr) extends ScalarOrSubselectExpr
+case class ScalarOrSubselectExpr_NonArithScalarExpr(expr: NonArithScalarExpr) extends ScalarOrSubselectExpr
 
 trait NonArithScalarExpr
 case class NonArithScalarExpr_FuncsReturningDatetime(expr: FuncsReturningDatetime) extends NonArithScalarExpr
 case class NonArithScalarExpr_FuncsReturningStrings(expr: FuncsReturningStrings) extends NonArithScalarExpr
-case class NonArithScalarExpr_LiteralString(expr: LiteralString) extends NonArithScalarExpr
-case class NonArithScalarExpr_LiteralBoolean(expr: LiteralBoolean) extends NonArithScalarExpr
-case class NonArithScalarExpr_LiteralTemporal(expr: LiteralTemporal) extends NonArithScalarExpr
+case class NonArithScalarExpr_LiteralString(expr: String) extends NonArithScalarExpr
+case class NonArithScalarExpr_LiteralBoolean(expr: Boolean) extends NonArithScalarExpr
+case class NonArithScalarExpr_LiteralTemporal(expr: java.time.temporal.Temporal) extends NonArithScalarExpr
 case class NonArithScalarExpr_EntityTypeExpr(expr: EntityTypeExpr) extends NonArithScalarExpr
 
 case class AnyOrAllExpr(anyOrAll: AnyOrAll, subquery: Subquery)
@@ -233,7 +233,7 @@ case class SimpleWhenClause(when: ScalarExpr, thenExpr: ScalarExpr)
 case class VarOrSingleValuedPath(expr: Either[SingleValuedPathExpr, VarAccessOrTypeConstant])
 
 trait StringPrimary
-case class StringPrimary_LiteralString(expr: LiteralString) extends StringPrimary
+case class StringPrimary_LiteralString(expr: String) extends StringPrimary
 case class StringPrimary_FuncsReturningStrings(expr: FuncsReturningStrings) extends StringPrimary
 case class StringPrimary_InputParam(expr: InputParam) extends StringPrimary
 case class StringPrimary_StateFieldPathExpr(expr: StateFieldPathExpr) extends StringPrimary
@@ -254,8 +254,8 @@ case class LiteralTime(time: java.time.LocalTime) extends LiteralTemporal
 case class LiteralTimestamp(time: java.time.LocalDateTime) extends LiteralTemporal
 
 trait InputParam
-case class NamedInputParam(name: String) extends InputParam
-case class PositionInputParam(pos: Int) extends InputParam
+case class InputParam_Named(name: String) extends InputParam
+case class InputParam_Position(pos: Int) extends InputParam
 
 trait FuncsReturningNumerics
 case class Abs(expr: SimpleArithExpr) extends FuncsReturningNumerics
@@ -274,8 +274,8 @@ case object CURRENT_TIMESTAMP extends FuncsReturningDatetime
 
 trait FuncsReturningStrings
 case class Concat(expr: ScalarExpr, exprs: List[ScalarExpr]) extends FuncsReturningStrings
-case class Substring(expr: ScalarExpr, expr1: ScalarExpr, exprs: List[ScalarExpr]) extends FuncsReturningStrings
-case class Trim(trimSpec: Option[TrimSpec], trimChar: Option[Either[String, InputParam]], from: StringPrimary) extends FuncsReturningStrings
+case class Substring(expr: ScalarExpr, expr2: ScalarExpr, exprs3: Option[ScalarExpr]) extends FuncsReturningStrings
+case class Trim(trimSpec: Option[TrimSpec], trimChar: Option[TrimChar], from: StringPrimary) extends FuncsReturningStrings
 case class Upper(expr: ScalarExpr) extends FuncsReturningStrings
 case class Lower(expr: ScalarExpr) extends FuncsReturningStrings
 
@@ -283,6 +283,10 @@ trait TrimSpec
 case object LEADING extends TrimSpec
 case object TRAILING extends TrimSpec
 case object BOTH extends TrimSpec
+
+trait TrimChar
+case class TrimChar_String(char: String) extends TrimChar
+case class TrimChar_InputParam(param: InputParam) extends TrimChar
 
 case class Subquery(select: SimpleSelectClause, from: SubqueryFromClause, where: Option[WhereClause], groupby: Option[GroupbyClause], having: Option[HavingClause])
 

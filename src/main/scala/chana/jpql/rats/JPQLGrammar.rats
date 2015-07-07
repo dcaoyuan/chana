@@ -13,9 +13,6 @@ import Separator;
 import Spacing;
 import State;
 
-option withLocation;
-
-
 // ----- public entrance
 public generic JPQL = 
   SelectStatement EOF
@@ -40,7 +37,7 @@ generic SetClause =
 ;
 
 generic SetAssignClause =
-  SetAssignTarget EQ NewValue
+  SetAssignTarget void:EQ NewValue
 ;
 
 generic SetAssignTarget =
@@ -130,9 +127,9 @@ generic EntityName =
 
 // support join fetch with alias name
 generic Join = 
-  JoinSpec              JoinAssocPathExpr                   AS? Ident  JoinCond?
-/ JoinSpec TREAT LParen JoinAssocPathExpr AS  Ident  RParen AS? Ident  JoinCond?
-/ JoinSpec FETCH        JoinAssocPathExpr                       Ident? JoinCond?
+  JoinSpec              JoinAssocPathExpr                  AS? Ident  JoinCond?
+/ JoinSpec TREAT LParen JoinAssocPathExpr AS Ident  RParen AS? Ident  JoinCond?
+/ JoinSpec FETCH        JoinAssocPathExpr                      Ident? JoinCond?
 ;
 
 generic JoinSpec = 
@@ -227,17 +224,17 @@ generic IsExpr =
 ; 
 
 generic BetweenExpr =
-  BETWEEN ScalarOrSubSelectExpr AND ScalarOrSubSelectExpr
+  BETWEEN ScalarOrSubselectExpr AND ScalarOrSubselectExpr
 ;
 
 generic InExpr =
   IN InputParam
-/ IN LParen ScalarOrSubSelectExpr ( COMMA ScalarOrSubSelectExpr )* RParen
+/ IN LParen ScalarOrSubselectExpr ( COMMA ScalarOrSubselectExpr )* RParen
 / IN LParen Subquery                                               RParen
 ;
 
 generic LikeExpr =
-  LIKE ScalarOrSubSelectExpr Escape?
+  LIKE ScalarOrSubselectExpr Escape?
 ;
 
 generic Escape =
@@ -281,21 +278,41 @@ generic ArithExpr =
 ;
 
 generic SimpleArithExpr =
-  ArithTerm ( PLUS  ArithTerm @PlusArithTerm 
-            / MINUS ArithTerm @MinusArithTerm 
-            )* 
+  ArithTerm ( ArithTermPlus / ArithTermMinus )* 
 ;  
 
-generic ArithTerm = 
-  ArithFactor ( MULTIPLY ArithFactor @MultiplyArithFactor
-              / DIVIDE   ArithFactor @DivideArithFactor
-              )* 
+generic ArithTermPlus =
+  PLUS ArithTerm
 ;
 
+generic ArithTermMinus =
+  MINUS ArithTerm
+;
+
+generic ArithTerm = 
+  ArithFactor ( ArithFactorMultiply / ArithFactorDivide )* 
+;
+
+generic ArithFactorMultiply = 
+  MULTIPLY ArithFactor
+; 
+
+generic ArithFactorDivide = 
+  DIVIDE ArithFactor
+; 
+
 generic ArithFactor = 
-  PLUS  ArithPrimary @PlusArithPrimary
-/ MINUS ArithPrimary @MinusArithPrimay
+  ArithPrimaryPlus
+/ ArithPrimaryMinus
 / ArithPrimary
+;
+
+generic ArithPrimaryPlus =
+  PLUS ArithPrimary
+;
+
+generic ArithPrimaryMinus =
+  MINUS ArithPrimary
 ;
 
 generic ArithPrimary =
@@ -312,7 +329,7 @@ generic ScalarExpr =
 / NonArithScalarExpr
 ;
 
-generic ScalarOrSubSelectExpr =
+generic ScalarOrSubselectExpr =
   ArithExpr
 / NonArithScalarExpr
 ;
@@ -395,15 +412,9 @@ generic Literal =
 / LiteralString
 ;
 
-generic LiteralTemporal =
-  LiteralDate
-/ LiteralTime
-/ LiteralTimestamp
-;
-
 generic InputParam =
-  ':' identifier    @NamedInputParam
-/ '?' [1-9] [0-9]*  @PositionInputParam
+  ':' identifier    @InputParam_Named
+/ '?' [1-9] [0-9]*  @InputParam_Position
 ;
 
 generic FuncsReturningNumerics =

@@ -11,7 +11,7 @@ import Spacing;
 import Keyword;
 
 
-transient generic LiteralNumeric =
+Number LiteralNumeric =
   LiteralFloat
 / LiteralDouble
 / LiteralLong
@@ -20,72 +20,91 @@ transient generic LiteralNumeric =
 
 // ----- Integer literals
 
-transient generic LiteralInteger =
+transient String integer =
   [0-9]+
 ;
 
-transient generic LiteralLong =
-  LiteralInteger [lL]     
+Integer LiteralInteger = 
+  v:integer { yyValue = Integer.parseInt(v, 10); }
+;
+
+Long LiteralLong = 
+  v:integer void:[lL] { yyValue = Long.parseLong(v, 10); }
 ;
 
 // ----- Decimal literals
 
-transient generic LiteralDecimal =
+transient String decimal =
   [0-9]* '.' [0-9]+ exponent?
 / [0-9]+ '.'        exponent?
 / [0-9]+            exponent
 ;
 
-transient generic LiteralDouble =
-  LiteralDecimal [dD]?
-;
-
-transient generic LiteralFloat =
-  LiteralDecimal [fF]
-;
-
 transient String exponent = 
-  [eE] [+\-]? [0-9]+ 
+  [eE] [+\-]? [0-9]+
+;
+
+Float LiteralFloat = 
+  v:decimal void:[fF] { yyValue = Float.parseFloat(v); }
+;
+
+Double LiteralDouble = 
+  v:decimal void:[dD] { yyValue = Double.parseDouble(v); }
 ;
 
 // ----- Character and String Literals
 
-transient generic LiteralCharacter = 
+String LiteralCharacter = 
   ['] characterChar ['] 
 ;
 
-transient generic LiteralString = 
+String LiteralString = 
   LiteralDoubleQuotedString
 / LiteralSingleQuotedString
 ;
 
-transient generic LiteralDoubleQuotedString = 
- ["] stringChar* ["] 
+String LiteralDoubleQuotedString = 
+  void:["] stringChar* void:["] 
 ;
 
-transient generic LiteralSingleQuotedString = 
- ['] ( "''" / characterChar )* [']
+String LiteralSingleQuotedString = 
+  void:['] ( "''" / characterChar )* void:[']
 ;
 
 // ----- Date Time literal
 
-transient generic LiteralDate = 
-  "{d'" ( [0-9][0-9][0-9][0-9] '-' [0-9][0-9] '-' [0-9][0-9] ) "'}"
+java.time.temporal.Temporal LiteralTemporal =
+  LiteralDate
+/ LiteralTime
+/ LiteralTimestamp
 ;
 
-transient generic LiteralTime = 
-  "{t'" ( [0-9][0-9] ':' [0-9][0-9] ':' [0-9][0-9] ) "'}"
+String date = 
+  [0-9][0-9][0-9][0-9] '-' [0-9][0-9] '-' [0-9][0-9]
 ;
 
-transient generic LiteralTimestamp =
-  "{ts'" ( [0-9][0-9][0-9][0-9] '-' [0-9][0-9] '-' [0-9][0-9] ) w+ 
-    ( [0-9][0-9] ':' [0-9][0-9] ':' [0-9][0-9] ) 
-    ( '.' [0-9]* "'}" 
-    / "'}" 
-    )
+String time = 
+  [0-9][0-9] ':' [0-9][0-9] ':' [0-9][0-9]
+;
+
+String mills = 
+  '.' [0-9]*
+;
+
+java.time.LocalDate LiteralDate = 
+  void:"{d'" v:date void:"'}" { yyValue = java.time.LocalDate.parse(v); }
+;
+
+java.time.LocalTime LiteralTime = 
+  void:"{t'" v:time void:"'}" { yyValue = java.time.LocalTime.parse(v); } 
+;
+
+java.time.LocalDateTime LiteralTimestamp =
+  void:"{ts'" v1:date w+ v2:time v3:mills? void:"'}" { yyValue = java.time.LocalDateTime.parse(v1 + "T" + v2 + v3); }
 ;
 
 // ----- Boolean literal
-transient generic LiteralBoolean =
-  TRUE / FALSE
+Boolean LiteralBoolean =
+  TRUE  { yyValue = true; }
+/ FALSE { yyValue = false; }
 ;

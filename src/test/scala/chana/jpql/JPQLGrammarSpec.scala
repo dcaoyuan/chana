@@ -1,10 +1,12 @@
 package chana.jpql
 
+import chana.jpql.nodes.JPQLParser
 import chana.jpql.rats.JPQLGrammar
 import java.io.StringReader
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.Matchers
 import org.scalatest.WordSpecLike
+import xtc.tree.Node
 
 class JPQLGrammarSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
 
@@ -16,8 +18,11 @@ class JPQLGrammarSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
       // for the signature of method: <T> T semanticValue(), we have to call
       // with at least of Any to avoid:
       //   xtc.tree.GNode$Fixed1 cannot be cast to scala.runtime.Nothing$
-      val rootNode = r.semanticValue[Any]
+      val rootNode = r.semanticValue[Node]
       info("\n## " + query + " ##\n" + rootNode)
+      val parser = new JPQLParser(rootNode)
+      val statement = parser.visitRoot()
+      info("\nParsed:\n" + statement)
     }
 
     assert(r.hasValue, "\n## " + query + " ##\n" + r.parseError.msg + " at " + r.parseError.index)
