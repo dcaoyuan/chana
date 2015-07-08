@@ -11,6 +11,10 @@ import Spacing;
 
 body {
   static {
+    /*
+     * BIT_LENGTH, CHAR_LENGTH, CHARACTER_LENGTH, POSITION, and UNKNOWN are not currently used: they are
+     * reserved for future use.
+     */
     add(JPQL_RESERVED, new String[] {
       "ABS",
       "ALL",

@@ -943,12 +943,18 @@ class JPQLParser(rootNode: Node) {
   }
 
   /*-
-    void:':' v:identifier { yyValue = v; }
-  / void:'?' v:position   { yyValue = Integer.parseInt(v, 10); }
-   */
+     namedInputParam 
+   / positionInputParam
+
+  String namedInputParam = void:':' v:identifier { yyValue = v; } ;
+  Integer positionInputParam = void:'?' v:position   { yyValue = Integer.parseInt(v, 10); } ;
+  transient String position = [1-9] [0-9]* ;
+      void:':' v:identifier { yyValue = v; }
+    / void:'?' v:position   { yyValue = Integer.parseInt(v, 10); }
+  */
   def inputParam(node: Node) = {
     node.get(0) match {
-      case v: String            => InputParam_Named(v)
+      case v: java.lang.String  => InputParam_Named(v)
       case v: java.lang.Integer => InputParam_Position(v)
     }
   }
