@@ -230,13 +230,13 @@ Environment:
     CPU: 2 x Intel(R) Xeon(R) CPU E5-2420 v2 @ 2.20GHz (12 #core, 24 #HT)
     OS: CentOS Linux release 7.0.1406 (Core)
 
-Simple GET/PET REST-JSON Result:
+Simple GET/PUT REST-JSON Result:
                                 
 
 ::
 
     Simple GET: 169,437 [req#/sec] (mean)
-    Simple PET: 102,961 [req#/sec] (mean)
+    Simple PUT 102,961 [req#/sec] (mean)
 
 Details: 
 
