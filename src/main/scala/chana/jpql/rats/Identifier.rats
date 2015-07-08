@@ -9,7 +9,7 @@ import Keyword;
 import Spacing;
 
 // ----- Identifier
-transient String Identifier = 
+String Identifier = 
   SKIP v:identifier &{ !contains(JPQL_RESERVED, v.toUpperCase()) } 
 ;
 transient String identifier = 
@@ -17,7 +17,9 @@ transient String identifier =
 ;
 
 // ----- field name
-transient String AttributeName = SKIP attributeName;
+String AttributeName = 
+  SKIP attributeName
+;
 transient String attributeName =
   id_letter ( id_letter / id_digit )*
 ;

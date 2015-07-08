@@ -127,9 +127,9 @@ class JPQLParser(rootNode: Node) {
    / NULL
    */
   def newValue(node: Node) = {
-    val v = node.get(0) match {
-      case n: Node => visit(n)(scalarExpr)
-      case "null"  => null
+    val v = if (node.isEmpty) null
+    else {
+      visit(node.getNode(0))(scalarExpr)
     }
     NewValue(v)
   }
@@ -575,8 +575,7 @@ class JPQLParser(rootNode: Node) {
   def inExpr(node: Node) = {
     val n = node.getNode(0)
     n.getName match {
-      case "InputParam_Named"      => InExpr_InputParam(visit(n)(inputParam))
-      case "InputParam_Position"   => InExpr_InputParam(visit(n)(inputParam))
+      case "InputParam"            => InExpr_InputParam(visit(n)(inputParam))
       case "ScalarOrSubselectExpr" => InExpr_ScalarOrSubselectExpr(visit(n)(scalarOrSubselectExpr), visitList(node.getList(1))(scalarOrSubselectExpr))
       case "Subquery"              => InExpr_Subquery(visit(n)(subquery))
     }
@@ -719,8 +718,7 @@ class JPQLParser(rootNode: Node) {
       case n: Node =>
         n.getName match {
           case "PathExprOrVarAccess"    => ArithPrimary_PathExprOrVarAccess(visit(n)(pathExprOrVarAccess))
-          case "InputParam_Named"       => ArithPrimary_InputParam(visit(n)(inputParam))
-          case "InputParam_Position"    => ArithPrimary_InputParam(visit(n)(inputParam))
+          case "InputParam"             => ArithPrimary_InputParam(visit(n)(inputParam))
           case "CaseExpr"               => ArithPrimary_CaseExpr(visit(n)(caseExpr))
           case "FuncsReturningNumerics" => ArithPrimary_FuncsReturningNumerics(visit(n)(funcsReturningNumerics))
           case "SimpleArithExpr"        => ArithPrimary_SimpleArithExpr(visit(n)(simpleArithExpr))
@@ -806,8 +804,7 @@ class JPQLParser(rootNode: Node) {
     val n = node.getNode(0)
     val expr = n.getName match {
       case "VarOrSingleValuedPath" => Left(visit(n)(varOrSingleValuedPath))
-      case "InputParam_Named"      => Right(visit(n)(inputParam))
-      case "InputParam_Position"   => Right(visit(n)(inputParam))
+      case "InputParam"            => Right(visit(n)(inputParam))
     }
     TypeDiscriminator(expr)
   }
@@ -923,8 +920,7 @@ class JPQLParser(rootNode: Node) {
       case n: Node =>
         n.getName match {
           case "FuncsReturningStrings" => StringPrimary_FuncsReturningStrings(visit(n)(funcsReturningStrings))
-          case "InputParam_Named"      => StringPrimary_InputParam(visit(n)(inputParam))
-          case "InputParam_Position"   => StringPrimary_InputParam(visit(n)(inputParam))
+          case "InputParam"            => StringPrimary_InputParam(visit(n)(inputParam))
           case "StateFieldPathExpr"    => StringPrimary_StateFieldPathExpr(visit(n)(stateFieldPathExpr))
         }
     }
@@ -947,13 +943,13 @@ class JPQLParser(rootNode: Node) {
   }
 
   /*-
-     ':' identifier    @InputParam_Named
-   / '?' [1-9] [0-9]*  @InputParam_Position
+    void:':' v:identifier { yyValue = v; }
+  / void:'?' v:position   { yyValue = Integer.parseInt(v, 10); }
    */
   def inputParam(node: Node) = {
-    node.getName match {
-      case "InputParam_Named"    => InputParam_Named(node.getString(0))
-      case "InputParam_Position" => InputParam_Position(node.getString(0).toInt)
+    node.get(0) match {
+      case v: String            => InputParam_Named(v)
+      case v: java.lang.Integer => InputParam_Position(v)
     }
   }
 

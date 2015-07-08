@@ -19,13 +19,13 @@ class JPQLGrammarSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
       // with at least of Any to avoid:
       //   xtc.tree.GNode$Fixed1 cannot be cast to scala.runtime.Nothing$
       val rootNode = r.semanticValue[Node]
-      info("\n## " + query + " ##\n" + rootNode)
+      info("\n\n## " + query + " ##\n\n" + rootNode)
       val parser = new JPQLParser(rootNode)
       val statement = parser.visitRoot()
       info("\nParsed:\n" + statement)
     }
 
-    assert(r.hasValue, "\n## " + query + " ##\n" + r.parseError.msg + " at " + r.parseError.index)
+    assert(r.hasValue, "\n\n## " + query + " ##\n\n" + r.parseError.msg + " at " + r.parseError.index)
   }
 
   "JPQLGrammar" when {
@@ -124,6 +124,7 @@ class JPQLGrammarSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
           "SELECT e FROM Employee e WHERE e.salary <= ALL (SELECT e2.salary FROM Employee e2)",
           "SELECT e FROM Employee e WHERE e.manager = e2.manager",
           "SELECT e FROM Employee e WHERE e.manager = :manager",
+          "SELECT e FROM Employee e WHERE e.manager = ?11",
           "SELECT e FROM Employee e WHERE e.manager <> :manager",
           "SELECT e FROM Employee e WHERE e.manager IS NULL",
           "SELECT e FROM Employee e WHERE e.manager IS NOT NULL",
@@ -156,6 +157,7 @@ class JPQLGrammarSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
           "SELECT s FROM Stat s WHERE s.ratio > 3.14F",
           "SELECT s FROM Stat s WHERE s.ratio > 3.14e32D",
           "SELECT e FROM Employee e WHERE e.active = TRUE",
+          "SELECT e FROM Employee e WHERE e.active = fAlse",
           "SELECT e FROM Employee e WHERE e.startDate = {d'2012-01-03'}",
           "SELECT e FROM Employee e WHERE e.startTime = {t'09:00:00'}",
           "SELECT e FROM Employee e WHERE e.version = {ts'2012-01-03 09:00:00.000000001'}",

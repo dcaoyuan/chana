@@ -413,9 +413,13 @@ generic Literal =
 ;
 
 generic InputParam =
-  ':' identifier    @InputParam_Named
-/ '?' [1-9] [0-9]*  @InputParam_Position
+  namedInputParam 
+/ positionInputParam
 ;
+
+String namedInputParam = void:':' v:identifier { yyValue = v; } ;
+Integer positionInputParam = void:'?' v:position   { yyValue = Integer.parseInt(v, 10); } ;
+transient String position = [1-9] [0-9]* ;
 
 generic FuncsReturningNumerics =
   Abs
