@@ -8,6 +8,7 @@ import akka.http.scaladsl.server.Directives
 import akka.pattern.ask
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
+import chana.jpql.DistributedJPQLBoard
 import chana.schema.DistributedSchemaBoard
 import chana.script.DistributedScriptBoard
 import scala.concurrent.Future
@@ -27,10 +28,11 @@ trait RestRouteAkka extends Directives {
 
   def schemaBoard = DistributedSchemaBoard(system).board
   def scriptBoard = DistributedScriptBoard(system).board
+  def jpqlBoard = DistributedJPQLBoard(system).board
 
   final def resolver(entityName: String) = ClusterSharding(system).shardRegion(entityName)
 
-  final def restApi = schemaApi ~ accessApi
+  final def restApi = schemaApi ~ jpqlApi ~ accessApi
 
   final def ping = path("ping") {
     complete("pong")
@@ -40,15 +42,13 @@ trait RestRouteAkka extends Directives {
   private def nextRandomId(min: Int, max: Int) = random.nextInt(max - min + 1) + min
 
   final def schemaApi = {
-    pathPrefix("putschema") {
-      path(Segment ~ Slash.?) { entityName =>
-        post {
-          parameters('fullname.as[String].?, 'timeout.as[Long].?) { (fullname, idleTimeout) =>
-            entity(as[String]) { schemaStr =>
-              complete {
-                withStatusCode {
-                  schemaBoard.ask(chana.PutSchema(entityName, schemaStr, fullname, idleTimeout.fold(Duration.Undefined: Duration)(_.milliseconds)))(writeTimeout)
-                }
+    path("putschema" / Segment ~ Slash.?) { entityName =>
+      post {
+        parameters('fullname.as[String].?, 'timeout.as[Long].?) { (fullname, idleTimeout) =>
+          entity(as[String]) { schemaStr =>
+            complete {
+              withStatusCode {
+                schemaBoard.ask(chana.PutSchema(entityName, schemaStr, fullname, idleTimeout.fold(Duration.Undefined: Duration)(_.milliseconds)))(writeTimeout)
               }
             }
           }
@@ -60,6 +60,30 @@ trait RestRouteAkka extends Directives {
           schemaBoard.ask(chana.RemoveSchema(entityName))(writeTimeout).collect {
             case Success(_)  => StatusCodes.OK
             case Failure(ex) => StatusCodes.InternalServerError
+          }
+        }
+      }
+    }
+  }
+
+  final def jpqlApi = {
+    path("putjpql" / Segment ~ Slash.?) { key =>
+      post {
+        parameters('timeout.as[Long].?) { timeout =>
+          entity(as[String]) { jpql =>
+            complete {
+              withStatusCode {
+                jpqlBoard.ask(chana.PutJPQL(key, jpql, timeout.fold(Duration.Undefined: Duration)(_.milliseconds)))(writeTimeout)
+              }
+            }
+          }
+        }
+      }
+    } ~ path("deljpql" / Segment ~ Slash.?) { key =>
+      get {
+        complete {
+          withStatusCode {
+            jpqlBoard.ask(chana.RemoveJPQL(key))(writeTimeout)
           }
         }
       }

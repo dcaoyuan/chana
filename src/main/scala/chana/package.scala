@@ -48,6 +48,13 @@ package object chana {
   final case class PutScript(entity: String, field: String, id: String, script: String)
   final case class RemoveScript(entity: String, field: String, id: String)
 
+  /**
+   * @param   jpql name
+   * @param   jpql string
+   */
+  final case class PutJPQL(key: String, schema: String, timeout: Duration) extends Event
+  final case class RemoveJPQL(key: String) extends Event
+
   final case class UpdatedFields(updatedFields: List[(Int, Any)]) extends Event
 
   object UpdateTimeoutException extends RuntimeException("Update timeout")

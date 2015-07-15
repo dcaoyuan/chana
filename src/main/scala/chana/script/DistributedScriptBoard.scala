@@ -34,7 +34,7 @@ object DistributedScriptBoard extends ExtensionId[DistributedScriptBoardExtensio
   // -- end of implementation of akka extention 
 
   /**
-   * Scala API: Factory method for `DistributedStatusBoard` [[akka.actor.Props]].
+   * Scala API: Factory method for `DistributedScriptBoard` [[akka.actor.Props]].
    */
   def props(): Props = Props(classOf[DistributedScriptBoard])
 
@@ -114,7 +114,7 @@ class DistributedScriptBoard extends Actor with ActorLogging {
           replicator.ask(Update(DistributedScriptBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ + (key -> script)))(60.seconds).onComplete {
             case Success(_: UpdateSuccess) =>
               DistributedScriptBoard.putScript(key, compiledScript)
-              log.info("put script [{}]:\n{} ", key, script)
+              log.info("put script (Update) [{}]:\n{} ", key, script)
               commander ! Success(key)
             case Success(_: UpdateTimeout) => commander ! Failure(chana.UpdateTimeoutException)
             case Success(x: InvalidUsage)  => commander ! Failure(x)
@@ -131,7 +131,7 @@ class DistributedScriptBoard extends Actor with ActorLogging {
 
       replicator.ask(Update(DistributedScriptBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ - key))(60.seconds).onComplete {
         case Success(_: UpdateSuccess) =>
-          log.info("remove scripts: {}", key)
+          log.info("remove script (Update): {}", key)
           DistributedScriptBoard.removeScript(key)
           commander ! Success(key)
         case Success(_: UpdateTimeout) => commander ! Failure(chana.UpdateTimeoutException)
@@ -149,7 +149,7 @@ class DistributedScriptBoard extends Actor with ActorLogging {
               compileScript(script) match {
                 case Success(compiledScript) =>
                   DistributedScriptBoard.putScript(key, compiledScript)
-                  log.info("put script [{}]:\n{} ", key, script)
+                  log.info("put script (Changed) [{}]:\n{} ", key, script)
                 case Failure(ex) =>
                   log.error(ex, ex.getMessage)
               }
@@ -160,7 +160,7 @@ class DistributedScriptBoard extends Actor with ActorLogging {
       // check if there were removed
       val toRemove = DistributedScriptBoard.keyToScript.filter(x => !entries.contains(x._1)).keys
       if (toRemove.nonEmpty) {
-        log.info("remove scripts: {}", toRemove)
+        log.info("remove script (Changed): {}", toRemove)
         toRemove foreach DistributedScriptBoard.removeScript
       }
   }

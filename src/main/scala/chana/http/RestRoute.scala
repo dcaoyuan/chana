@@ -4,6 +4,7 @@ import akka.actor.ActorSystem
 import akka.contrib.pattern.ClusterSharding
 import akka.pattern.ask
 import akka.util.Timeout
+import chana.jpql.DistributedJPQLBoard
 import chana.schema.DistributedSchemaBoard
 import chana.script.DistributedScriptBoard
 import scala.concurrent.Future
@@ -22,10 +23,11 @@ trait RestRoute extends Directives {
 
   def schemaBoard = DistributedSchemaBoard(system).board
   def scriptBoard = DistributedScriptBoard(system).board
+  def jpqlBoard = DistributedJPQLBoard(system).board
 
   final def resolver(entityName: String) = ClusterSharding(system).shardRegion(entityName)
 
-  final def restApi = schemaApi ~ accessApi
+  final def restApi = schemaApi ~ jpqlApi ~ accessApi
 
   final def ping = path("ping") {
     complete("pong")
@@ -34,15 +36,13 @@ trait RestRoute extends Directives {
   private def nextRandomId(min: Int, max: Int) = ThreadLocalRandom.current.nextInt(max - min + 1) + min
 
   final def schemaApi = {
-    pathPrefix("putschema") {
-      path(Segment ~ Slash.?) { entityName =>
-        post {
-          parameters('fullname.as[String].?, 'timeout.as[Long].?) { (fullname, idleTimeout) =>
-            entity(as[String]) { schemaStr =>
-              complete {
-                withStatusCode {
-                  schemaBoard.ask(chana.PutSchema(entityName, schemaStr, fullname, idleTimeout.fold(Duration.Undefined: Duration)(_.milliseconds)))(writeTimeout)
-                }
+    path("putschema" / Segment ~ Slash.?) { entityName =>
+      post {
+        parameters('fullname.as[String].?, 'timeout.as[Long].?) { (fullname, idleTimeout) =>
+          entity(as[String]) { schemaStr =>
+            complete {
+              withStatusCode {
+                schemaBoard.ask(chana.PutSchema(entityName, schemaStr, fullname, idleTimeout.fold(Duration.Undefined: Duration)(_.milliseconds)))(writeTimeout)
               }
             }
           }
@@ -53,6 +53,30 @@ trait RestRoute extends Directives {
         complete {
           withStatusCode {
             schemaBoard.ask(chana.RemoveSchema(entityName))(writeTimeout)
+          }
+        }
+      }
+    }
+  }
+
+  final def jpqlApi = {
+    path("putjpql" / Segment ~ Slash.?) { key =>
+      post {
+        parameters('timeout.as[Long].?) { timeout =>
+          entity(as[String]) { jpql =>
+            complete {
+              withStatusCode {
+                jpqlBoard.ask(chana.PutJPQL(key, jpql, timeout.fold(Duration.Undefined: Duration)(_.milliseconds)))(writeTimeout)
+              }
+            }
+          }
+        }
+      }
+    } ~ path("deljpql" / Segment ~ Slash.?) { key =>
+      get {
+        complete {
+          withStatusCode {
+            jpqlBoard.ask(chana.RemoveJPQL(key))(writeTimeout)
           }
         }
       }

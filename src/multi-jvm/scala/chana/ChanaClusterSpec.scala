@@ -11,6 +11,7 @@ import akka.persistence.journal.leveldb.{SharedLeveldbJournal, SharedLeveldbStor
 import akka.remote.testconductor.RoleName
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.ImplicitSender
+import chana.jpql.DistributedJPQLBoard
 import chana.script.DistributedScriptBoard
 import com.typesafe.config.ConfigFactory
 import org.iq80.leveldb.util.FileUtils
@@ -377,9 +378,42 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
         enterBarrier("script-done")
       }
 
-      enterBarrier("done")
     }
 
+    "do jpql" in within(30.seconds) {
+      enterBarrier("script-done")
+
+      runOn(client1) {
+        import spray.httpx.RequestBuilding._
+
+        // put jpql
+        IO(Http) ! Post(baseUrl1 + "/putjpql/JPQL_NO_1", "SELECT p.age FROM PersonInfo p")
+        expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
+        expectNoMsg(5.seconds)
+
+        enterBarrier("jpql-done")
+      }
+
+      runOn(entity1, entity2) {
+        enterBarrier("jpql-done")
+
+        import akka.contrib.datareplication.Replicator._
+        val replicator = DataReplication(system).replicator
+        awaitAssert {
+          replicator ! Get(DistributedJPQLBoard.DataKey, ReadQuorum(3.seconds), None)
+          expectMsgPF(5.seconds) {
+            case GetSuccess(DistributedJPQLBoard.DataKey, data: LWWMap[String] @unchecked, _) =>
+              data.entries.values.toSet.size should be(1)
+          }
+        }
+      }
+
+      runOn(controller) {
+        enterBarrier("jpql-done")
+      }
+
+      enterBarrier("done")
+    }
 
   }
 }

@@ -45,7 +45,7 @@ object DistributedSchemaBoard extends ExtensionId[DistributedSchemaBoardExtensio
   }
 
   private def removeSchema(system: ActorSystem, entityName: String): Unit = {
-    entityToSchema -= entityName
+    entityToSchema.remove(entityName)
     removeClusterShardActor(system, entityName)
   }
 
@@ -173,7 +173,7 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
     val key = entityName
     replicator.ask(Update(DistributedSchemaBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ + (key -> (schema.toString, idleTimeout))))(60.seconds).onComplete {
       case Success(_: UpdateSuccess) =>
-        log.info("put schema [{}]:\n{} ", key, schema)
+        log.info("put schema (Update) [{}]:\n{} ", key, schema)
         DistributedSchemaBoard.putSchema(context.system, entityName, schema, idleTimeout)
         // for schema, just save snapshot
         if (persistent && alsoSave) {
@@ -194,7 +194,7 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
     val key = entityName
     replicator.ask(Update(DistributedSchemaBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ - key))(60.seconds).onComplete {
       case Success(_: UpdateSuccess) =>
-        log.info("remove schemas: {}", key)
+        log.info("remove schemas (Update): {}", key)
         DistributedSchemaBoard.removeSchema(context.system, entityName)
         // for schema, just save snapshot
         if (persistent && alsoSave) {
