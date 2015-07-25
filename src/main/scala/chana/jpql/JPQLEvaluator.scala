@@ -205,9 +205,15 @@ class JPQLEvaluator(root: Statement, record: Record) {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         visitFromClause(from)
         visitSelectClause(select)
-        where match {
-          case Some(x) => visitWhereClause(x)
-          case None    =>
+        val res = where match {
+          case Some(x) =>
+            if (visitWhereClause(x)) {
+              selectScalars
+            } else {
+              List()
+            }
+          case None =>
+            selectScalars
         }
         groupby match {
           case Some(x) => visitGroupbyClause(x)
@@ -221,7 +227,7 @@ class JPQLEvaluator(root: Statement, record: Record) {
           case Some(x) => visitOrderbyClause(x)
           case None    =>
         }
-        selectScalars
+        res
       case UpdateStatement(update, set, where) => // NOT YET
       case DeleteStatement(delete, where)      => // NOT YET
     }

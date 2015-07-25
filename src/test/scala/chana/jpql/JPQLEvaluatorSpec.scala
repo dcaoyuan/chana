@@ -31,7 +31,7 @@ class JPQLEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterAl
     "query fields" should {
       val record = initAccount()
       record.put("registerTime", 10000L)
-      val q = "SELECT a.registerTime FROM account a"
+      val q = "SELECT a.registerTime FROM account a WHERE a.registerTime > 0"
       val stmt = parse(q)
       val e = new JPQLEvaluator(stmt, record)
       e.visit() should be(List(10000))
