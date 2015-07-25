@@ -562,9 +562,9 @@ class JPQLParser(rootNode: Node) {
      BETWEEN ScalarOrSubselectExpr AND ScalarOrSubselectExpr
    */
   def betweenExpr(node: Node) = {
-    val expr = visit(node.getNode(0))(scalarOrSubselectExpr)
-    val andExpr = visit(node.getNode(1))(scalarOrSubselectExpr)
-    BetweenExpr(expr, andExpr)
+    val minExpr = visit(node.getNode(0))(scalarOrSubselectExpr)
+    val maxExpr = visit(node.getNode(1))(scalarOrSubselectExpr)
+    BetweenExpr(minExpr, maxExpr)
   }
 
   /*-
@@ -1104,9 +1104,9 @@ class JPQLParser(rootNode: Node) {
    */
   def locate(node: Node) = {
     val expr = visit(node.getNode(0))(scalarExpr)
-    val expr2 = visit(node.getNode(1))(scalarExpr)
-    val exprs = visitList(node.getList(2))(scalarExpr)
-    Locate(expr, expr2, exprs)
+    val searchExpr = visit(node.getNode(1))(scalarExpr)
+    val startExpr = visitOpt(node.getNode(2))(scalarExpr)
+    Locate(expr, searchExpr, startExpr)
   }
 
   /*-
@@ -1122,8 +1122,8 @@ class JPQLParser(rootNode: Node) {
    */
   def mod(node: Node) = {
     val expr = visit(node.getNode(0))(scalarExpr)
-    val exprRight = visit(node.getNode(1))(scalarExpr)
-    Mod(expr, exprRight)
+    val divisorExpr = visit(node.getNode(1))(scalarExpr)
+    Mod(expr, divisorExpr)
   }
 
   /*-

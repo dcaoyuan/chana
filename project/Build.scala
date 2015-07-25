@@ -9,7 +9,7 @@ object Build extends sbt.Build {
 
   lazy val chana = Project("chana", file("."))
     .aggregate(avpath)
-    .dependsOn(avpath)
+    .dependsOn(avpath % "compile->compile;test->test")
     .settings(basicSettings: _*)
     .settings(ratsSettings: _*)
     .settings(Formatting.settings: _*)

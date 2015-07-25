@@ -41,7 +41,7 @@ object DistributedJPQLBoard extends ExtensionId[DistributedJPQLBoardExtension] w
    */
   def props(): Props = Props(classOf[DistributedJPQLBoard])
 
-  private val keyToStatement = new ConcurrentHashMap[String, (Statement, Duration)]()
+  val keyToStatement = new ConcurrentHashMap[String, (Statement, Duration)]()
   private val jpqlsLock = new ReentrantReadWriteLock()
   private def keyOf(entity: String, field: String, id: String) = entity + "/" + field + "/" + id
 
