@@ -66,9 +66,9 @@ case class RangeVarDecl(entityName: EntityName, as: Ident)
 case class EntityName(ident: String)
 
 sealed trait Join
-case class Join_General(joinSpec: JoinSpec, expr: JoinAssocPathExpr, as: Ident, joinCond: Option[JoinCond]) extends Join
-case class Join_TREAT(joinSpec: JoinSpec, expr: JoinAssocPathExpr, exprAs: Ident, as: Ident, joinCond: Option[JoinCond]) extends Join
-case class Join_FETCH(joinSpec: JoinSpec, expr: JoinAssocPathExpr, alias: Option[Ident], joinCond: Option[JoinCond]) extends Join
+case class Join_General(spec: JoinSpec, expr: JoinAssocPathExpr, as: Ident, cond: Option[JoinCond]) extends Join
+case class Join_TREAT(spec: JoinSpec, expr: JoinAssocPathExpr, exprAs: Ident, as: Ident, cond: Option[JoinCond]) extends Join
+case class Join_FETCH(spec: JoinSpec, expr: JoinAssocPathExpr, alias: Option[Ident], cond: Option[JoinCond]) extends Join
 
 sealed trait JoinSpec
 case object JOIN extends JoinSpec
@@ -102,7 +102,7 @@ case class CondExpr(term: CondTerm, orTerms: List[CondTerm])
 
 case class CondTerm(factor: CondFactor, andFactors: List[CondFactor])
 
-case class CondFactor(isNot: Boolean, expr: Either[CondPrimary, ExistsExpr])
+case class CondFactor(not: Boolean, expr: Either[CondPrimary, ExistsExpr])
 
 sealed trait CondPrimary
 case class CondPrimary_CondExpr(expr: CondExpr) extends CondPrimary
@@ -112,8 +112,8 @@ case class SimpleCondExpr(expr: Either[ArithExpr, NonArithScalarExpr], rem: Simp
 
 sealed trait SimpleCondExprRem
 case class SimpleCondExprRem_ComparisonExpr(expr: ComparisonExpr) extends SimpleCondExprRem
-case class SimpleCondExprRem_CondWithNotExpr(isNot: Boolean, expr: CondWithNotExpr) extends SimpleCondExprRem
-case class SimpleCondExprRem_IsExpr(isNot: Boolean, expr: IsExpr) extends SimpleCondExprRem
+case class SimpleCondExprRem_CondWithNotExpr(not: Boolean, expr: CondWithNotExpr) extends SimpleCondExprRem
+case class SimpleCondExprRem_IsExpr(not: Boolean, expr: IsExpr) extends SimpleCondExprRem
 
 sealed trait CondWithNotExpr
 case class CondWithNotExpr_BetweenExpr(expr: BetweenExpr) extends CondWithNotExpr

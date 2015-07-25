@@ -32,9 +32,16 @@ class JPQLEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterAl
     "query fields" should {
       val record = initAccount()
       record.put("registerTime", 10000L)
+      record.put("lastLoginTime", 20000L)
 
-      var q = "SELECT a.registerTime FROM account a WHERE a.registerTime >= 10000"
-      evaluate(q, record) should be(List(10000))
+      var q = "SELECT a.registerTime, a.lastLoginTime FROM account a WHERE a.registerTime >= 10000"
+      evaluate(q, record) should be(List(10000, 20000))
+
+      q = "SELECT a.registerTime, a.lastLoginTime FROM account a WHERE a.registerTime >= 10000 AND a.lastLoginTime > 20000"
+      evaluate(q, record) should be(List())
+
+      q = "SELECT a.registerTime, a.lastLoginTime FROM account a WHERE a.registerTime >= 10000 OR a.lastLoginTime > 20000"
+      evaluate(q, record) should be(List(10000, 20000))
 
       q = "SELECT a.registerTime FROM account a WHERE a.registerTime < 10000"
       evaluate(q, record) should be(List())

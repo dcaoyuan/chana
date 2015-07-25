@@ -473,13 +473,13 @@ class JPQLParser(rootNode: Node) {
      NOT? ( CondPrimary / ExistsExpr )
    */
   def condFactor(node: Node) = {
-    val isNot = node.get(0) eq null
+    val not = node.get(0) ne null
     val n = node.getNode(1)
     val expr = n.getName match {
       case "CondPrimary" => Left(visit(n)(condPrimary))
       case "ExistsExpr"  => Right(visit(n)(existsExpr))
     }
-    CondFactor(isNot, expr)
+    CondFactor(not, expr)
   }
 
   /*-
