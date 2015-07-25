@@ -7,7 +7,7 @@ import java.time.LocalTime
 import java.time.temporal.Temporal
 import org.apache.avro.generic.GenericData.Record
 
-object JPQLFunction {
+object JPQLFunctions {
 
   def plus(left: Any, right: Any): Number = {
     (left, right) match {
@@ -501,12 +501,12 @@ class JPQLEvaluator(root: Statement, record: Record) {
         // visitComparisionExpr
         val operand = visitComparsionExprRightOperand(expr.operand)
         expr.op match {
-          case EQ => JPQLFunction.eq(base, operand)
-          case NE => JPQLFunction.ne(base, operand)
-          case GT => JPQLFunction.gt(base, operand)
-          case GE => JPQLFunction.ge(base, operand)
-          case LT => JPQLFunction.lt(base, operand)
-          case LE => JPQLFunction.le(base, operand)
+          case EQ => JPQLFunctions.eq(base, operand)
+          case NE => JPQLFunctions.ne(base, operand)
+          case GT => JPQLFunctions.gt(base, operand)
+          case GE => JPQLFunctions.ge(base, operand)
+          case LT => JPQLFunctions.lt(base, operand)
+          case LE => JPQLFunctions.le(base, operand)
         }
 
       case SimpleCondExprRem_CondWithNotExpr(isNot, expr) =>
@@ -514,13 +514,13 @@ class JPQLEvaluator(root: Statement, record: Record) {
         expr match {
           case CondWithNotExpr_BetweenExpr(expr) =>
             val minMax = visitBetweenExpr(expr)
-            JPQLFunction.between(base, minMax._1, minMax._2)
+            JPQLFunctions.between(base, minMax._1, minMax._2)
 
           case CondWithNotExpr_LikeExpr(expr) =>
             base match {
               case x: String =>
                 val like = visitLikeExpr(expr)
-                JPQLFunction.strLike(x, like._1, like._2)
+                JPQLFunctions.strLike(x, like._1, like._2)
             }
 
           case CondWithNotExpr_InExpr(expr) =>
@@ -607,15 +607,15 @@ class JPQLEvaluator(root: Statement, record: Record) {
 
   def visitSimpleArithExpr(expr: SimpleArithExpr): Any = {
     expr.rightTerms.foldLeft(visitArithTerm(expr.term)) {
-      case (acc, ArithTerm_Plus(term))  => JPQLFunction.plus(acc, visitArithTerm(term))
-      case (acc, ArithTerm_Minus(term)) => JPQLFunction.minus(acc, visitArithTerm(term))
+      case (acc, ArithTerm_Plus(term))  => JPQLFunctions.plus(acc, visitArithTerm(term))
+      case (acc, ArithTerm_Minus(term)) => JPQLFunctions.minus(acc, visitArithTerm(term))
     }
   }
 
   def visitArithTerm(term: ArithTerm): Any = {
     term.rightFactors.foldLeft(visitArithFactor(term.factor)) {
-      case (acc, ArithFactor_Multiply(factor)) => JPQLFunction.multiply(acc, visitArithFactor(factor))
-      case (acc, ArithFactor_Divide(factor))   => JPQLFunction.divide(acc, visitArithFactor(factor))
+      case (acc, ArithFactor_Multiply(factor)) => JPQLFunctions.multiply(acc, visitArithFactor(factor))
+      case (acc, ArithFactor_Divide(factor))   => JPQLFunctions.divide(acc, visitArithFactor(factor))
     }
   }
 
@@ -626,7 +626,7 @@ class JPQLEvaluator(root: Statement, record: Record) {
   def visitPlusOrMinusPrimary(primary: PlusOrMinusPrimary): Any = {
     primary match {
       case ArithPrimary_Plus(primary)  => visitArithPrimary(primary)
-      case ArithPrimary_Minus(primary) => JPQLFunction.neg(visitArithPrimary(primary))
+      case ArithPrimary_Minus(primary) => JPQLFunctions.neg(visitArithPrimary(primary))
     }
   }
 
@@ -782,7 +782,7 @@ class JPQLEvaluator(root: Statement, record: Record) {
     expr match {
       case Abs(expr) =>
         val v = visitSimpleArithExpr(expr)
-        JPQLFunction.abs(v)
+        JPQLFunctions.abs(v)
 
       case Length(expr) =>
         visitScalarExpr(expr) match {
@@ -844,9 +844,9 @@ class JPQLEvaluator(root: Statement, record: Record) {
 
   def visitFuncsReturningDatetime(expr: FuncsReturningDatetime): Temporal = {
     expr match {
-      case CURRENT_DATE      => JPQLFunction.currentDate()
-      case CURRENT_TIME      => JPQLFunction.currentTime()
-      case CURRENT_TIMESTAMP => JPQLFunction.currentDateTime()
+      case CURRENT_DATE      => JPQLFunctions.currentDate()
+      case CURRENT_TIME      => JPQLFunctions.currentTime()
+      case CURRENT_TIMESTAMP => JPQLFunctions.currentDateTime()
     }
   }
 
