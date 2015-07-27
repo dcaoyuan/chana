@@ -7,6 +7,9 @@ import java.time.LocalTime
 import java.time.temporal.Temporal
 import org.apache.avro.generic.GenericData.Record
 
+case class JPQLRuntimeException(value: Any, message: String)
+  extends RuntimeException(value.getClass.getName + " " + message + ":" + value)
+
 object JPQLFunctions {
 
   def plus(left: Any, right: Any): Number = {
@@ -19,7 +22,7 @@ object JPQLFunctions {
       case (x: Number, y: java.lang.Long)    => x.longValue + y
       case (x: java.lang.Integer, y: Number) => x + y.intValue
       case (x: Number, y: java.lang.Integer) => x.intValue + y
-      case _                                 => throw new RuntimeException("not a number")
+      case x                                 => throw JPQLRuntimeException(x, "is not pair of number")
     }
   }
 
@@ -33,7 +36,7 @@ object JPQLFunctions {
       case (x: Number, y: java.lang.Long)    => x.longValue - y
       case (x: java.lang.Integer, y: Number) => x - y.intValue
       case (x: Number, y: java.lang.Integer) => x.intValue - y
-      case _                                 => throw new RuntimeException("not a number")
+      case x                                 => throw JPQLRuntimeException(x, "is not pair of number")
     }
   }
 
@@ -47,7 +50,7 @@ object JPQLFunctions {
       case (x: Number, y: java.lang.Long)    => x.longValue * y
       case (x: java.lang.Integer, y: Number) => x * y.intValue
       case (x: Number, y: java.lang.Integer) => x.intValue * y
-      case _                                 => throw new RuntimeException("not a number")
+      case x                                 => throw JPQLRuntimeException(x, "is not pair of number")
     }
   }
 
@@ -61,7 +64,7 @@ object JPQLFunctions {
       case (x: Number, y: java.lang.Long)    => x.longValue / y
       case (x: java.lang.Integer, y: Number) => x / y.intValue
       case (x: Number, y: java.lang.Integer) => x.intValue / y
-      case _                                 => throw new RuntimeException("not a number")
+      case x                                 => throw JPQLRuntimeException(x, "is not pair of number")
     }
   }
 
@@ -71,7 +74,7 @@ object JPQLFunctions {
       case x: java.lang.Float   => -x
       case x: java.lang.Long    => -x
       case x: java.lang.Integer => -x
-      case _                    => throw new RuntimeException("not a number")
+      case x                    => throw JPQLRuntimeException(x, "is not a number")
     }
   }
 
@@ -81,7 +84,7 @@ object JPQLFunctions {
       case x: java.lang.Long    => math.abs(x)
       case x: java.lang.Float   => math.abs(x)
       case x: java.lang.Double  => math.abs(x)
-      case _                    => throw new RuntimeException("not a number")
+      case x                    => throw JPQLRuntimeException(x, "is not a number")
     }
   }
 
@@ -94,7 +97,7 @@ object JPQLFunctions {
       case (x: LocalDateTime, y: LocalDateTime) => x.isEqual(y)
       case (x: Temporal, y: Temporal) => x == y
       case (x: java.lang.Boolean, y: java.lang.Boolean) => x == y
-      case _ => throw new RuntimeException("can not apply EQ")
+      case x => throw JPQLRuntimeException(x, "can not be applied EQ")
     }
   }
 
@@ -107,7 +110,7 @@ object JPQLFunctions {
       case (x: LocalDateTime, y: LocalDateTime) => !x.isEqual(y)
       case (x: Temporal, y: Temporal) => x != y
       case (x: java.lang.Boolean, y: java.lang.Boolean) => x != y
-      case _ => throw new RuntimeException("can not apply NE")
+      case x => throw JPQLRuntimeException(x, "can not be applied NE")
     }
   }
 
@@ -117,7 +120,7 @@ object JPQLFunctions {
       case (x: LocalTime, y: LocalTime)         => x.isAfter(y)
       case (x: LocalDate, y: LocalDate)         => x.isAfter(y)
       case (x: LocalDateTime, y: LocalDateTime) => x.isAfter(y)
-      case _                                    => throw new RuntimeException("can not apply GT")
+      case x                                    => throw JPQLRuntimeException(x, "can not be applied GT")
     }
   }
 
@@ -127,7 +130,7 @@ object JPQLFunctions {
       case (x: LocalTime, y: LocalTime)         => x.isAfter(y) || !x.isBefore(y)
       case (x: LocalDate, y: LocalDate)         => x.isAfter(y) || x.isEqual(y)
       case (x: LocalDateTime, y: LocalDateTime) => x.isAfter(y) || x.isEqual(y)
-      case _                                    => throw new RuntimeException("can not apply GE")
+      case x                                    => throw JPQLRuntimeException(x, "can not be applied GE")
     }
   }
 
@@ -137,7 +140,7 @@ object JPQLFunctions {
       case (x: LocalTime, y: LocalTime)         => x.isBefore(y)
       case (x: LocalDate, y: LocalDate)         => x.isBefore(y)
       case (x: LocalDateTime, y: LocalDateTime) => x.isBefore(y)
-      case _                                    => throw new RuntimeException("can not apply LT")
+      case x                                    => throw JPQLRuntimeException(x, "can not be applied LT")
     }
   }
 
@@ -147,7 +150,7 @@ object JPQLFunctions {
       case (x: LocalTime, y: LocalTime)         => x.isBefore(y) || !x.isAfter(y)
       case (x: LocalDate, y: LocalDate)         => x.isBefore(y) || x.isEqual(y)
       case (x: LocalDateTime, y: LocalDateTime) => x.isBefore(y) || x.isEqual(y)
-      case _                                    => throw new RuntimeException("can not apply LE")
+      case x                                    => throw JPQLRuntimeException(x, "can not be applied LE")
     }
   }
 
@@ -166,7 +169,7 @@ object JPQLFunctions {
         (x.isAfter(min) || x.isEqual(min)) && (x.isBefore(max) || x.isEqual(max))
       case (x: LocalDateTime, min: LocalDateTime, max: LocalDateTime) =>
         (x.isAfter(min) || x.isEqual(min)) && (x.isBefore(max) || x.isEqual(max))
-      case _ => throw new RuntimeException("can not apply between")
+      case x => throw JPQLRuntimeException(x, "can not be appled BETWEEN")
     }
   }
 
@@ -527,7 +530,7 @@ class JPQLEvaluator(root: Statement, record: Record) {
               case x: CharSequence =>
                 val like = likeExpr(expr)
                 JPQLFunctions.strLike(x.toString, like._1, like._2)
-              case _ => throw new RuntimeException("not a string")
+              case x => throw JPQLRuntimeException(x, "is not a string")
             }
 
           case CondWithNotExpr_InExpr(expr) =>
@@ -583,12 +586,12 @@ class JPQLEvaluator(root: Statement, record: Record) {
           case Some(x) =>
             scalarExpr(x.expr) match {
               case c: CharSequence => Some(c.toString)
-              case _               => throw new RuntimeException("not a string")
+              case x               => throw JPQLRuntimeException(x, "is not a string")
             }
           case None => None
         }
         (like.toString, escape)
-      case _ => throw new RuntimeException("not a string")
+      case x => throw JPQLRuntimeException(x, "is not a string")
     }
   }
 
@@ -778,7 +781,7 @@ class JPQLEvaluator(root: Statement, record: Record) {
       case StringPrimary_StateFieldPathExpr(expr) =>
         pathExpr(expr.path) match {
           case x: CharSequence => Left(x.toString)
-          case _               => throw new RuntimeException("not a StringPrimary")
+          case x               => throw JPQLRuntimeException(x, "is not a StringPrimary")
         }
     }
   }
@@ -799,7 +802,7 @@ class JPQLEvaluator(root: Statement, record: Record) {
       case Length(expr) =>
         scalarExpr(expr) match {
           case x: CharSequence => x.length
-          case _               => throw new RuntimeException("not a string")
+          case x               => throw JPQLRuntimeException(x, "is not a string")
         }
 
       case Mod(expr, divisorExpr) =>
@@ -807,9 +810,9 @@ class JPQLEvaluator(root: Statement, record: Record) {
           case dividend: Number =>
             scalarExpr(divisorExpr) match {
               case divisor: Number => dividend.intValue % divisor.intValue
-              case _               => throw new RuntimeException("divisor not a number")
+              case x               => throw JPQLRuntimeException(x, "divisor is not a number")
             }
-          case _ => throw new RuntimeException("dividend not a number")
+          case x => throw JPQLRuntimeException(x, "dividend is not a number")
         }
 
       case Locate(expr, searchExpr, startExpr) =>
@@ -821,14 +824,14 @@ class JPQLEvaluator(root: Statement, record: Record) {
                   case Some(exprx) =>
                     scalarExpr(exprx) match {
                       case x: java.lang.Integer => x - 1
-                      case _                    => throw new RuntimeException("start is not an integer")
+                      case x                    => throw JPQLRuntimeException(x, "start is not an integer")
                     }
                   case None => 0
                 }
                 base.toString.indexOf(searchStr.toString, start)
-              case _ => throw new RuntimeException("not a string")
+              case x => throw JPQLRuntimeException(x, "is not a string")
             }
-          case _ => throw new RuntimeException("not a string")
+          case x => throw JPQLRuntimeException(x, "is not a string")
         }
 
       case Size(expr) =>
@@ -839,7 +842,7 @@ class JPQLEvaluator(root: Statement, record: Record) {
       case Sqrt(expr) =>
         scalarExpr(expr) match {
           case x: Number => math.sqrt(x.doubleValue)
-          case _         => throw new RuntimeException("not a number")
+          case x         => throw JPQLRuntimeException(x, "is not a number")
         }
 
       case Index(expr) =>
@@ -869,9 +872,9 @@ class JPQLEvaluator(root: Statement, record: Record) {
           case base: CharSequence =>
             (exprs map scalarExpr).foldLeft(new StringBuilder(base.toString)) {
               case (sb, x: CharSequence) => sb.append(x)
-              case x                     => throw new RuntimeException(x + " is not a string")
+              case x                     => throw JPQLRuntimeException(x, "is not a string")
             }.toString
-          case x => throw new RuntimeException(x + " is not a string")
+          case x => throw JPQLRuntimeException(x, "is not a string")
         }
 
       case Substring(expr, startExpr, lengthExpr: Option[ScalarExpr]) =>
@@ -884,9 +887,9 @@ class JPQLEvaluator(root: Statement, record: Record) {
                   case _                    => base.length - 1
                 }
                 base.toString.substring(start.intValue - 1, end)
-              case x => throw new RuntimeException(x + " is not a number")
+              case x => throw JPQLRuntimeException(x, "is not a number")
             }
-          case x => throw new RuntimeException(x + " is not a string")
+          case x => throw JPQLRuntimeException(x, "is not a string")
         }
 
       case Trim(trimSpec: Option[TrimSpec], trimChar: Option[TrimChar], from) =>
@@ -910,13 +913,13 @@ class JPQLEvaluator(root: Statement, record: Record) {
       case Upper(expr) =>
         scalarExpr(expr) match {
           case base: CharSequence => base.toString.toUpperCase
-          case _                  => throw new RuntimeException("not a string")
+          case x                  => throw JPQLRuntimeException(x, "is not a string")
         }
 
       case Lower(expr) =>
         scalarExpr(expr) match {
           case base: CharSequence => base.toString.toLowerCase
-          case _                  => throw new RuntimeException("not a string")
+          case x                  => throw JPQLRuntimeException(x, "is not a string")
         }
     }
   }
