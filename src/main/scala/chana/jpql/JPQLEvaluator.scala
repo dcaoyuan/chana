@@ -88,7 +88,7 @@ object JPQLFunctions {
   def eq(left: Any, right: Any) = {
     (left, right) match {
       case (x: Number, y: Number) => x == y
-      case (x: String, y: String) => x == y
+      case (x: CharSequence, y: CharSequence) => x == y
       case (x: LocalTime, y: LocalTime) => !(x.isAfter(y) || x.isBefore(y)) // ??
       case (x: LocalDate, y: LocalDate) => x.isEqual(y)
       case (x: LocalDateTime, y: LocalDateTime) => x.isEqual(y)
@@ -101,7 +101,7 @@ object JPQLFunctions {
   def ne(left: Any, right: Any) = {
     (left, right) match {
       case (x: Number, y: Number) => x != y
-      case (x: String, y: String) => x != y
+      case (x: CharSequence, y: CharSequence) => x != y
       case (x: LocalTime, y: LocalTime) => x.isAfter(y) || x.isBefore(y)
       case (x: LocalDate, y: LocalDate) => !x.isEqual(y)
       case (x: LocalDateTime, y: LocalDateTime) => !x.isEqual(y)
@@ -524,9 +524,9 @@ class JPQLEvaluator(root: Statement, record: Record) {
 
           case CondWithNotExpr_LikeExpr(expr) =>
             base match {
-              case x: String =>
+              case x: CharSequence =>
                 val like = likeExpr(expr)
-                JPQLFunctions.strLike(x, like._1, like._2)
+                JPQLFunctions.strLike(x.toString, like._1, like._2)
               case _ => throw new RuntimeException("not a string")
             }
 
@@ -578,16 +578,16 @@ class JPQLEvaluator(root: Statement, record: Record) {
 
   def likeExpr(expr: LikeExpr) = {
     scalarOrSubselectExpr(expr.like) match {
-      case like: String =>
+      case like: CharSequence =>
         val escape = expr.escape match {
           case Some(x) =>
             scalarExpr(x.expr) match {
-              case c: String => Some(c)
-              case _         => throw new RuntimeException("not a string")
+              case c: CharSequence => Some(c.toString)
+              case _               => throw new RuntimeException("not a string")
             }
           case None => None
         }
-        (like, escape)
+        (like.toString, escape)
       case _ => throw new RuntimeException("not a string")
     }
   }
@@ -777,8 +777,8 @@ class JPQLEvaluator(root: Statement, record: Record) {
         Right(param => "") // TODO
       case StringPrimary_StateFieldPathExpr(expr) =>
         pathExpr(expr.path) match {
-          case x: String => Left(x)
-          case _         => throw new RuntimeException("not a StringPrimary")
+          case x: CharSequence => Left(x.toString)
+          case _               => throw new RuntimeException("not a StringPrimary")
         }
     }
   }
@@ -798,8 +798,8 @@ class JPQLEvaluator(root: Statement, record: Record) {
 
       case Length(expr) =>
         scalarExpr(expr) match {
-          case x: java.lang.CharSequence => x.length
-          case _                         => throw new RuntimeException("not a string")
+          case x: CharSequence => x.length
+          case _               => throw new RuntimeException("not a string")
         }
 
       case Mod(expr, divisorExpr) =>
@@ -814,9 +814,9 @@ class JPQLEvaluator(root: Statement, record: Record) {
 
       case Locate(expr, searchExpr, startExpr) =>
         scalarExpr(expr) match {
-          case base: String =>
+          case base: CharSequence =>
             scalarExpr(searchExpr) match {
-              case searchStr: String =>
+              case searchStr: CharSequence =>
                 val start = startExpr match {
                   case Some(exprx) =>
                     scalarExpr(exprx) match {
@@ -825,7 +825,7 @@ class JPQLEvaluator(root: Statement, record: Record) {
                     }
                   case None => 0
                 }
-                base.indexOf(searchStr, start)
+                base.toString.indexOf(searchStr.toString, start)
               case _ => throw new RuntimeException("not a string")
             }
           case _ => throw new RuntimeException("not a string")
@@ -866,27 +866,27 @@ class JPQLEvaluator(root: Statement, record: Record) {
     expr match {
       case Concat(expr, exprs: List[ScalarExpr]) =>
         scalarExpr(expr) match {
-          case base: String =>
-            (exprs map scalarExpr).foldLeft(new StringBuilder(base)) {
-              case (sb, x: String) => sb.append(x)
-              case _               => throw new RuntimeException("not a string")
+          case base: CharSequence =>
+            (exprs map scalarExpr).foldLeft(new StringBuilder(base.toString)) {
+              case (sb, x: CharSequence) => sb.append(x)
+              case x                     => throw new RuntimeException(x + " is not a string")
             }.toString
-          case _ => throw new RuntimeException("not a string")
+          case x => throw new RuntimeException(x + " is not a string")
         }
 
       case Substring(expr, startExpr, lengthExpr: Option[ScalarExpr]) =>
         scalarExpr(expr) match {
-          case base: String =>
+          case base: CharSequence =>
             scalarExpr(startExpr) match {
               case start: Number =>
                 val end = (lengthExpr map scalarExpr) match {
-                  case Some(length: Number) => start.intValue + length.intValue
-                  case _                    => base.length
+                  case Some(length: Number) => start.intValue + length.intValue - 1
+                  case _                    => base.length - 1
                 }
-                base.substring(start.intValue - 1, end)
-              case _ => throw new RuntimeException("not a number")
+                base.toString.substring(start.intValue - 1, end)
+              case x => throw new RuntimeException(x + " is not a number")
             }
-          case _ => throw new RuntimeException("not a string")
+          case x => throw new RuntimeException(x + " is not a string")
         }
 
       case Trim(trimSpec: Option[TrimSpec], trimChar: Option[TrimChar], from) =>
@@ -909,14 +909,14 @@ class JPQLEvaluator(root: Statement, record: Record) {
 
       case Upper(expr) =>
         scalarExpr(expr) match {
-          case base: String => base.toUpperCase
-          case _            => throw new RuntimeException("not a string")
+          case base: CharSequence => base.toString.toUpperCase
+          case _                  => throw new RuntimeException("not a string")
         }
 
       case Lower(expr) =>
         scalarExpr(expr) match {
-          case base: String => base.toLowerCase
-          case _            => throw new RuntimeException("not a string")
+          case base: CharSequence => base.toString.toLowerCase
+          case _                  => throw new RuntimeException("not a string")
         }
     }
   }

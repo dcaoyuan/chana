@@ -64,11 +64,19 @@ String LiteralString =
 ;
 
 String LiteralDoubleQuotedString = 
-  void:["] stringChar* void:["] 
+  void:["] v:literalDoubleQuotedString void:["]  { yyValue = v; }
+;
+
+String literalDoubleQuotedString = 
+ stringChar*
 ;
 
 String LiteralSingleQuotedString = 
-  void:['] ( "''" / characterChar )* void:[']
+  void:['] v:literalSingleQuotedString void:['] { yyValue = v; }
+;
+
+String literalSingleQuotedString = 
+( "''" / characterChar )*
 ;
 
 // ----- Date Time literal
