@@ -60,6 +60,7 @@ class JPQLEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterAl
       record.put("registerTime", 10000L)
       record.put("lastLoginTime", 20000L)
       record.put("id", "abCd")
+      record.put("balance", 100.0)
 
       var q = "SELECT a.registerTime + 1 FROM account a WHERE a.registerTime + 1 >= 10001"
       evaluate(q, record) should be(List(10001))
@@ -72,6 +73,15 @@ class JPQLEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterAl
 
       q = "SELECT a.registerTime - 1 FROM account a WHERE a.registerTime + 1 >= 10000"
       evaluate(q, record) should be(List(9999))
+
+      q = "SELECT a.balance / 3 FROM account a WHERE a.balance / 3 < 33.4"
+      evaluate(q, record) should be(List(33.333333333333336))
+
+      q = "SELECT -a.balance FROM account a WHERE -a.balance = -100"
+      evaluate(q, record) should be(List(-100.0))
+
+      q = "SELECT ABS(-a.balance) FROM account a WHERE ABS(-a.balance) = 100"
+      evaluate(q, record) should be(List(100.0))
 
       q = "SELECT CONCAT(a.id, '_efgh') FROM account a WHERE CONCAT(a.id, '_efgh') = 'abCd_efgh'"
       evaluate(q, record) should be(List("abCd_efgh"))

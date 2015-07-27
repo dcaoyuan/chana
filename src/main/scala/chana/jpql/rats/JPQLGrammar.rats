@@ -15,9 +15,9 @@ import State;
 
 // ----- public entrance
 public generic JPQL = 
-  SelectStatement EOF
-/ UpdateStatement EOF
-/ DeleteStatement EOF
+  SelectStatement SKIP EOF
+/ UpdateStatement SKIP EOF
+/ DeleteStatement SKIP EOF
 ;
 
 generic SelectStatement = 

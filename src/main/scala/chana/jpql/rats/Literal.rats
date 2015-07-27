@@ -29,7 +29,7 @@ Integer LiteralInteger =
 ;
 
 Long LiteralLong = 
-  v:integer void:[lL] { yyValue = Long.parseLong(v, 10); }
+  v:integer [lL] { yyValue = Long.parseLong(v, 10); }
 ;
 
 // ----- Decimal literals
@@ -45,11 +45,11 @@ transient String exponent =
 ;
 
 Float LiteralFloat = 
-  v:decimal void:[fF] { yyValue = Float.parseFloat(v); }
+  v:decimal [fF] { yyValue = Float.parseFloat(v); }
 ;
 
 Double LiteralDouble = 
-  v:decimal void:[dD] { yyValue = Double.parseDouble(v); }
+  v:decimal [dD]? { yyValue = Double.parseDouble(v); }
 ;
 
 // ----- Character and String Literals
@@ -64,7 +64,7 @@ String LiteralString =
 ;
 
 String LiteralDoubleQuotedString = 
-  void:["] v:literalDoubleQuotedString void:["]  { yyValue = v; }
+  ["] v:literalDoubleQuotedString ["]  { yyValue = v; }
 ;
 
 String literalDoubleQuotedString = 
@@ -72,7 +72,7 @@ String literalDoubleQuotedString =
 ;
 
 String LiteralSingleQuotedString = 
-  void:['] v:literalSingleQuotedString void:['] { yyValue = v; }
+  ['] v:literalSingleQuotedString ['] { yyValue = v; }
 ;
 
 String literalSingleQuotedString = 

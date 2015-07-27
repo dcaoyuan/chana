@@ -34,6 +34,7 @@ class JPQLGrammarSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
       "with Aggregation functions" in {
         val queris = List(
           "SELECT COUNT(e) FROM Employee e",
+          " SELECT COUNT(e) FROM Employee e  ",
           "SELECT MAX(e.salary) FROM Employee e")
 
         queris foreach parse
@@ -154,6 +155,7 @@ class JPQLGrammarSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
           "SELECT e FROM Employee e WHERE e.name = 'Baie-D''Urfé'",
           "SELECT e FROM Employee e WHERE e.id = 1234",
           "SELECT e FROM Employee e WHERE e.id = 1234L",
+          "SELECT s FROM Stat s WHERE s.ratio > 3.14",
           "SELECT s FROM Stat s WHERE s.ratio > 3.14F",
           "SELECT s FROM Stat s WHERE s.ratio > 3.14e32D",
           "SELECT e FROM Employee e WHERE e.active = TRUE",
