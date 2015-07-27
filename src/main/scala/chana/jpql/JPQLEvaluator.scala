@@ -488,7 +488,7 @@ class JPQLEvaluator(root: Statement, record: Record) {
       case Right(x) => existsExpr(x)
     }
 
-    if (factor.not) !res else res
+    factor.not ^ res
   }
 
   def condPrimary(primary: CondPrimary): Boolean = {
@@ -540,7 +540,7 @@ class JPQLEvaluator(root: Statement, record: Record) {
             collectionMemberExpr(expr)
         }
 
-        if (not) !res else res
+        not ^ res
 
       case SimpleCondExprRem_IsExpr(not, expr) =>
         // isExpr
@@ -557,7 +557,7 @@ class JPQLEvaluator(root: Statement, record: Record) {
             }
         }
 
-        if (not) !res else res
+        not ^ res
     }
   }
 
