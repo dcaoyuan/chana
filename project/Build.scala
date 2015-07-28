@@ -169,7 +169,7 @@ object Dependencies {
     "com.typesafe.akka" %% "akka-http-spray-json-experimental" % AKKA_STREAM_VERSION)
 
   val akka_data_replication = Seq(
-    "com.github.patriknw" %% "akka-data-replication" % "0.10")
+    "com.github.patriknw" %% "akka-data-replication" % "0.11")
 
   val avro = Seq(
     "org.apache.avro" % "avro" % "1.7.7")
