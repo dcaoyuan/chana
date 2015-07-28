@@ -6,7 +6,7 @@ import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.server.Directives
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
-import chana.http.RestRouteAkka
+import chana.rest.RestRouteAkka
 import scala.concurrent.duration._
 
 /**

@@ -1,26 +1,21 @@
-package chana.http
+package chana.rest
 
 import akka.actor.ActorSystem
 import akka.contrib.pattern.ClusterSharding
-import akka.http.scaladsl.model.StatusCode
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.Directives
 import akka.pattern.ask
-import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import chana.jpql.DistributedJPQLBoard
 import chana.schema.DistributedSchemaBoard
 import chana.script.DistributedScriptBoard
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.util.Failure
-import scala.util.Random
-import scala.util.Success
-import scala.util.Try
+import scala.concurrent.forkjoin.ThreadLocalRandom
+import scala.util.{ Failure, Success, Try }
+import spray.http.{ StatusCode, StatusCodes }
+import spray.routing.Directives
 
-trait RestRouteAkka extends Directives {
-  implicit val system: ActorSystem
-  implicit val materializer = ActorMaterializer()
+trait RestRoute extends Directives {
+  val system: ActorSystem
   import system.dispatcher
 
   def readTimeout: Timeout
@@ -38,8 +33,7 @@ trait RestRouteAkka extends Directives {
     complete("pong")
   }
 
-  private val random = new Random()
-  private def nextRandomId(min: Int, max: Int) = random.nextInt(max - min + 1) + min
+  private def nextRandomId(min: Int, max: Int) = ThreadLocalRandom.current.nextInt(max - min + 1) + min
 
   final def schemaApi = {
     path("putschema" / Segment ~ Slash.?) { entityName =>
@@ -57,9 +51,8 @@ trait RestRouteAkka extends Directives {
     } ~ path("delschema" / Segment ~ Slash.?) { entityName =>
       get {
         complete {
-          schemaBoard.ask(chana.RemoveSchema(entityName))(writeTimeout).collect {
-            case Success(_)  => StatusCodes.OK
-            case Failure(ex) => StatusCodes.InternalServerError
+          withStatusCode {
+            schemaBoard.ask(chana.RemoveSchema(entityName))(writeTimeout)
           }
         }
       }
@@ -185,9 +178,8 @@ trait RestRouteAkka extends Directives {
             splitPathAndValue(body) match {
               case List(avpathExpr, valueJson) =>
                 complete {
-                  resolver(entityName).ask(chana.UpdateJson(id, avpathExpr, valueJson))(writeTimeout).collect {
-                    case Success(_)  => StatusCodes.OK
-                    case Failure(ex) => StatusCodes.InternalServerError
+                  withStatusCode {
+                    resolver(entityName).ask(chana.UpdateJson(id, avpathExpr, valueJson))(writeTimeout)
                   }
                 }
               case _ =>
@@ -201,9 +193,8 @@ trait RestRouteAkka extends Directives {
             splitPathAndValue(body) match {
               case List(avpathExpr, json) =>
                 complete {
-                  resolver(entityName).ask(chana.InsertJson(id, avpathExpr, json))(writeTimeout).collect {
-                    case Success(_)  => StatusCodes.OK
-                    case Failure(ex) => StatusCodes.InternalServerError
+                  withStatusCode {
+                    resolver(entityName).ask(chana.InsertJson(id, avpathExpr, json))(writeTimeout)
                   }
                 }
               case _ =>
@@ -217,9 +208,8 @@ trait RestRouteAkka extends Directives {
             splitPathAndValue(body) match {
               case List(avpathExpr, json) =>
                 complete {
-                  resolver(entityName).ask(chana.InsertAllJson(id, avpathExpr, json))(writeTimeout).collect {
-                    case Success(_)  => StatusCodes.OK
-                    case Failure(ex) => StatusCodes.InternalServerError
+                  withStatusCode {
+                    resolver(entityName).ask(chana.InsertAllJson(id, avpathExpr, json))(writeTimeout)
                   }
                 }
               case _ =>
@@ -233,9 +223,8 @@ trait RestRouteAkka extends Directives {
             splitPathAndValue(body) match {
               case List(avpathExpr, _*) =>
                 complete {
-                  resolver(entityName).ask(chana.Delete(id, avpathExpr))(writeTimeout).collect {
-                    case Success(_)  => StatusCodes.OK
-                    case Failure(ex) => StatusCodes.InternalServerError
+                  withStatusCode {
+                    resolver(entityName).ask(chana.Delete(id, avpathExpr))(writeTimeout)
                   }
                 }
               case _ =>
@@ -249,9 +238,8 @@ trait RestRouteAkka extends Directives {
             splitPathAndValue(body) match {
               case List(avpathExpr, _*) =>
                 complete {
-                  resolver(entityName).ask(chana.Clear(id, avpathExpr))(writeTimeout).collect {
-                    case Success(_)  => StatusCodes.OK
-                    case Failure(ex) => StatusCodes.InternalServerError
+                  withStatusCode {
+                    resolver(entityName).ask(chana.Clear(id, avpathExpr))(writeTimeout)
                   }
                 }
               case _ =>
@@ -263,9 +251,8 @@ trait RestRouteAkka extends Directives {
         post {
           entity(as[String]) { script =>
             complete {
-              scriptBoard.ask(chana.PutScript(entityName, field, scriptId, script))(writeTimeout).collect {
-                case Success(_)  => StatusCodes.OK
-                case Failure(ex) => StatusCodes.InternalServerError
+              withStatusCode {
+                scriptBoard.ask(chana.PutScript(entityName, field, scriptId, script))(writeTimeout)
               }
             }
           }
@@ -273,9 +260,8 @@ trait RestRouteAkka extends Directives {
       } ~ path("delscript" / Segment / Segment ~ Slash.?) { (field, scriptId) =>
         get {
           complete {
-            scriptBoard.ask(chana.RemoveScript(entityName, field, scriptId))(writeTimeout).collect {
-              case Success(_)  => StatusCodes.OK
-              case Failure(ex) => StatusCodes.InternalServerError
+            withStatusCode {
+              scriptBoard.ask(chana.RemoveScript(entityName, field, scriptId))(writeTimeout)
             }
           }
         }
@@ -317,4 +303,5 @@ trait RestRouteAkka extends Directives {
     case Success(json: Array[Byte]) => new String(json)
     case Failure(_)                 => ""
   }
+
 }

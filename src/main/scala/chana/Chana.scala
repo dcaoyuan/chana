@@ -4,7 +4,7 @@ import akka.actor._
 import akka.io.IO
 import akka.persistence.Persistence
 import akka.util.Timeout
-import chana.http.RestRoute
+import chana.rest.RestRoute
 import spray.can.Http
 import spray.http.HttpHeaders.RawHeader
 import spray.routing.{ Directives, HttpServiceActor, Route }

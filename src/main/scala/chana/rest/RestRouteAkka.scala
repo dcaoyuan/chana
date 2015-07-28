@@ -1,21 +1,26 @@
-package chana.http
+package chana.rest
 
 import akka.actor.ActorSystem
 import akka.contrib.pattern.ClusterSharding
+import akka.http.scaladsl.model.StatusCode
+import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.server.Directives
 import akka.pattern.ask
+import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import chana.jpql.DistributedJPQLBoard
 import chana.schema.DistributedSchemaBoard
 import chana.script.DistributedScriptBoard
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.concurrent.forkjoin.ThreadLocalRandom
-import scala.util.{ Failure, Success, Try }
-import spray.http.{ StatusCode, StatusCodes }
-import spray.routing.Directives
+import scala.util.Failure
+import scala.util.Random
+import scala.util.Success
+import scala.util.Try
 
-trait RestRoute extends Directives {
-  val system: ActorSystem
+trait RestRouteAkka extends Directives {
+  implicit val system: ActorSystem
+  implicit val materializer = ActorMaterializer()
   import system.dispatcher
 
   def readTimeout: Timeout
@@ -33,7 +38,8 @@ trait RestRoute extends Directives {
     complete("pong")
   }
 
-  private def nextRandomId(min: Int, max: Int) = ThreadLocalRandom.current.nextInt(max - min + 1) + min
+  private val random = new Random()
+  private def nextRandomId(min: Int, max: Int) = random.nextInt(max - min + 1) + min
 
   final def schemaApi = {
     path("putschema" / Segment ~ Slash.?) { entityName =>
@@ -51,8 +57,9 @@ trait RestRoute extends Directives {
     } ~ path("delschema" / Segment ~ Slash.?) { entityName =>
       get {
         complete {
-          withStatusCode {
-            schemaBoard.ask(chana.RemoveSchema(entityName))(writeTimeout)
+          schemaBoard.ask(chana.RemoveSchema(entityName))(writeTimeout).collect {
+            case Success(_)  => StatusCodes.OK
+            case Failure(ex) => StatusCodes.InternalServerError
           }
         }
       }
@@ -178,8 +185,9 @@ trait RestRoute extends Directives {
             splitPathAndValue(body) match {
               case List(avpathExpr, valueJson) =>
                 complete {
-                  withStatusCode {
-                    resolver(entityName).ask(chana.UpdateJson(id, avpathExpr, valueJson))(writeTimeout)
+                  resolver(entityName).ask(chana.UpdateJson(id, avpathExpr, valueJson))(writeTimeout).collect {
+                    case Success(_)  => StatusCodes.OK
+                    case Failure(ex) => StatusCodes.InternalServerError
                   }
                 }
               case _ =>
@@ -193,8 +201,9 @@ trait RestRoute extends Directives {
             splitPathAndValue(body) match {
               case List(avpathExpr, json) =>
                 complete {
-                  withStatusCode {
-                    resolver(entityName).ask(chana.InsertJson(id, avpathExpr, json))(writeTimeout)
+                  resolver(entityName).ask(chana.InsertJson(id, avpathExpr, json))(writeTimeout).collect {
+                    case Success(_)  => StatusCodes.OK
+                    case Failure(ex) => StatusCodes.InternalServerError
                   }
                 }
               case _ =>
@@ -208,8 +217,9 @@ trait RestRoute extends Directives {
             splitPathAndValue(body) match {
               case List(avpathExpr, json) =>
                 complete {
-                  withStatusCode {
-                    resolver(entityName).ask(chana.InsertAllJson(id, avpathExpr, json))(writeTimeout)
+                  resolver(entityName).ask(chana.InsertAllJson(id, avpathExpr, json))(writeTimeout).collect {
+                    case Success(_)  => StatusCodes.OK
+                    case Failure(ex) => StatusCodes.InternalServerError
                   }
                 }
               case _ =>
@@ -223,8 +233,9 @@ trait RestRoute extends Directives {
             splitPathAndValue(body) match {
               case List(avpathExpr, _*) =>
                 complete {
-                  withStatusCode {
-                    resolver(entityName).ask(chana.Delete(id, avpathExpr))(writeTimeout)
+                  resolver(entityName).ask(chana.Delete(id, avpathExpr))(writeTimeout).collect {
+                    case Success(_)  => StatusCodes.OK
+                    case Failure(ex) => StatusCodes.InternalServerError
                   }
                 }
               case _ =>
@@ -238,8 +249,9 @@ trait RestRoute extends Directives {
             splitPathAndValue(body) match {
               case List(avpathExpr, _*) =>
                 complete {
-                  withStatusCode {
-                    resolver(entityName).ask(chana.Clear(id, avpathExpr))(writeTimeout)
+                  resolver(entityName).ask(chana.Clear(id, avpathExpr))(writeTimeout).collect {
+                    case Success(_)  => StatusCodes.OK
+                    case Failure(ex) => StatusCodes.InternalServerError
                   }
                 }
               case _ =>
@@ -251,8 +263,9 @@ trait RestRoute extends Directives {
         post {
           entity(as[String]) { script =>
             complete {
-              withStatusCode {
-                scriptBoard.ask(chana.PutScript(entityName, field, scriptId, script))(writeTimeout)
+              scriptBoard.ask(chana.PutScript(entityName, field, scriptId, script))(writeTimeout).collect {
+                case Success(_)  => StatusCodes.OK
+                case Failure(ex) => StatusCodes.InternalServerError
               }
             }
           }
@@ -260,8 +273,9 @@ trait RestRoute extends Directives {
       } ~ path("delscript" / Segment / Segment ~ Slash.?) { (field, scriptId) =>
         get {
           complete {
-            withStatusCode {
-              scriptBoard.ask(chana.RemoveScript(entityName, field, scriptId))(writeTimeout)
+            scriptBoard.ask(chana.RemoveScript(entityName, field, scriptId))(writeTimeout).collect {
+              case Success(_)  => StatusCodes.OK
+              case Failure(ex) => StatusCodes.InternalServerError
             }
           }
         }
@@ -303,5 +317,4 @@ trait RestRoute extends Directives {
     case Success(json: Array[Byte]) => new String(json)
     case Failure(_)                 => ""
   }
-
 }
