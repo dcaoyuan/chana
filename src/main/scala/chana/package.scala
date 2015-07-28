@@ -54,6 +54,7 @@ package object chana {
    */
   final case class PutJPQL(key: String, schema: String, timeout: Duration) extends Event
   final case class RemoveJPQL(key: String) extends Event
+  final case class AskJPQL(key: String) extends Event
 
   final case class UpdatedFields(updatedFields: List[(Int, Any)]) extends Event
 

@@ -28,6 +28,7 @@ import xtc.tree.Node
 /**
  * Extension that starts a [[DistributedJPQLBoard]] actor
  * with settings defined in config section `chana.jpql-board`.
+ * Don't forget to enable it in "akka.extensions" of config.
  */
 object DistributedJPQLBoard extends ExtensionId[DistributedJPQLBoardExtension] with ExtensionIdProvider {
   // -- implementation of akka extention 
@@ -45,9 +46,14 @@ object DistributedJPQLBoard extends ExtensionId[DistributedJPQLBoardExtension] w
   private val jpqlsLock = new ReentrantReadWriteLock()
   private def keyOf(entity: String, field: String, id: String) = entity + "/" + field + "/" + id
 
-  private def putJPQL(key: String, parsedStatement: Statement, timeout: Duration = Duration.Undefined): Unit = {
+  private def putJPQL(system: ActorSystem, key: String, stmt: Statement, timeout: Duration = Duration.Undefined): Unit = {
     // TODO handle if exisied
-    keyToStatement.putIfAbsent(key, (parsedStatement, timeout))
+    val old = keyToStatement.putIfAbsent(key, (stmt, timeout))
+    if (old == null) {
+      JPQLAggregator.startAggregator(system, JPQLAggregator.role, key, stmt)
+      JPQLAggregator.startAggregatorProxy(system, JPQLAggregator.role, key)
+      //log.info("starting aggregator proxy for {}", key)
+    }
   }
 
   private def removeJPQL(key: String): Unit = {
@@ -76,12 +82,13 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
     case chana.PutJPQL(key, jpql, timeout) =>
       val commander = sender()
       parseJPQL(jpql) match {
-        case Success(parsedStatement) =>
+        case Success(stmt) =>
           replicator.ask(Update(DistributedJPQLBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ + (key -> jpql)))(60.seconds).onComplete {
             case Success(_: UpdateSuccess) =>
-              DistributedJPQLBoard.putJPQL(key, parsedStatement)
+              DistributedJPQLBoard.putJPQL(context.system, key, stmt)
               log.info("put jpql (Update) [{}]:\n{} ", key, jpql)
               commander ! Success(key)
+
             case Success(_: UpdateTimeout) => commander ! Failure(chana.UpdateTimeoutException)
             case Success(x: InvalidUsage)  => commander ! Failure(x)
             case Success(x: ModifyFailure) => commander ! Failure(x)
@@ -91,6 +98,7 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
         case Failure(ex) =>
           log.error(ex, ex.getMessage)
       }
+
     case chana.RemoveJPQL(key) =>
       val commander = sender()
       replicator.ask(Update(DistributedJPQLBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ - key))(60.seconds).onComplete {
@@ -98,11 +106,20 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
           log.info("remove jpql (Update): {}", key)
           DistributedJPQLBoard.removeJPQL(key)
           commander ! Success(key)
+
         case Success(_: UpdateTimeout) => commander ! Failure(chana.UpdateTimeoutException)
         case Success(x: InvalidUsage)  => commander ! Failure(x)
         case Success(x: ModifyFailure) => commander ! Failure(x)
         case failure                   => commander ! failure
       }
+
+    case chana.AskJPQL(key) =>
+      val commander = sender()
+      JPQLAggregator.aggregatorProxy(context.system, key).ask(JPQLAggregator.AskMergedResult)(300.seconds).onComplete {
+        case result => commander ! result
+      }
+
+    // --- commands of akka-data-replication
 
     case Changed(DistributedJPQLBoard.DataKey, LWWMap(entries: Map[String, String] @unchecked)) =>
       // check if there were newly added
@@ -111,8 +128,8 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
           DistributedJPQLBoard.keyToStatement.get(key) match {
             case null =>
               parseJPQL(jpql) match {
-                case Success(parsedStatement) =>
-                  DistributedJPQLBoard.putJPQL(key, parsedStatement)
+                case Success(stmt) =>
+                  DistributedJPQLBoard.putJPQL(context.system, key, stmt)
                   log.info("put jpql (Changed) [{}]:\n{} ", key, jpql)
                 case Failure(ex) =>
                   log.error(ex, ex.getMessage)
@@ -176,4 +193,3 @@ class DistributedJPQLBoardExtension(system: ExtendedActorSystem) extends Extensi
     }
   }
 }
-

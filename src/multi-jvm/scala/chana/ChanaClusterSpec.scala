@@ -84,11 +84,12 @@ object ChanaClusterSpecConfig extends MultiNodeConfig {
       """
         akka.extensions = [
           "chana.schema.DistributedSchemaBoard",
-          "chana.script.DistributedScriptBoard"
+          "chana.script.DistributedScriptBoard",
+          "chana.jpql.DistributedJPQLBoard"
         ]
 
         akka.contrib.cluster.sharding.role = "entity"
-        akka.cluster.roles = ["entity"]
+        akka.cluster.roles = ["entity", "jpql"]
 
         akka.remote.netty.tcp.port = 2551
         web.port = 8081
@@ -100,11 +101,12 @@ object ChanaClusterSpecConfig extends MultiNodeConfig {
       """
         akka.extensions = [
           "chana.schema.DistributedSchemaBoard",
-          "chana.script.DistributedScriptBoard"
+          "chana.script.DistributedScriptBoard",
+          "chana.jpql.DistributedJPQLBoard"
         ]
 
         akka.contrib.cluster.sharding.role = "entity"
-        akka.cluster.roles = ["entity"]
+        akka.cluster.roles = ["entity", "jpql"]
 
         akka.remote.netty.tcp.port = 2552
         web.port = 8082
@@ -380,40 +382,65 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
 
     }
 
-    "do jpql" in within(30.seconds) {
-      enterBarrier("script-done")
+    "put jpql" in within(60.seconds) {
 
       runOn(client1) {
         import spray.httpx.RequestBuilding._
-
         // put jpql
         IO(Http) ! Post(baseUrl1 + "/putjpql/JPQL_NO_1", "SELECT p.age FROM PersonInfo p")
         expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
-        expectNoMsg(5.seconds)
 
-        enterBarrier("jpql-done")
+        enterBarrier("put-jpql")
+        expectNoMsg(10.seconds)
+        enterBarrier("put-jpql-done")
       }
 
       runOn(entity1, entity2) {
-        enterBarrier("jpql-done")
+        enterBarrier("put-jpql")
 
-        import akka.contrib.datareplication.Replicator._
         val replicator = DataReplication(system).replicator
         awaitAssert {
+          import akka.contrib.datareplication.Replicator._
+
           replicator ! Get(DistributedJPQLBoard.DataKey, ReadQuorum(3.seconds), None)
           expectMsgPF(5.seconds) {
             case GetSuccess(DistributedJPQLBoard.DataKey, data: LWWMap[String] @unchecked, _) =>
               data.entries.values.toSet.size should be(1)
           }
         }
+
+        expectNoMsg(10.seconds)
+        enterBarrier("put-jpql-done")
       }
 
       runOn(controller) {
-        enterBarrier("jpql-done")
+        enterBarrier("put-jpql")
+        expectNoMsg(10.seconds)
+        enterBarrier("put-jpql-done")
+      }
+
+    }
+
+    "ask jpql" in within(60.seconds) {
+
+      runOn(client1) {
+        import spray.httpx.RequestBuilding._
+        // ask jpql
+        IO(Http) ! Get(baseUrl1 + "/askjpql/JPQL_NO_1")
+        expectMsgType[HttpResponse](10.seconds).entity.asString should be("List()")
+
+        enterBarrier("ask-jpql-done")
+      }
+
+      runOn(entity1, entity2) {
+        enterBarrier("ask-jpql-done")
+      }
+
+      runOn(controller) {
+        enterBarrier("ask-jpql-done")
       }
 
       enterBarrier("done")
     }
-
   }
 }

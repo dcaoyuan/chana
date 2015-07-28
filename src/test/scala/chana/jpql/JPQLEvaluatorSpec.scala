@@ -13,7 +13,7 @@ import xtc.tree.Node
 class JPQLEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
   import chana.avro.AvroRecords._
 
-  def evaluate(query: String, record: Record) = {
+  def eval(query: String, record: Record) = {
     val reader = new StringReader(query)
     val grammar = new JPQLGrammar(reader, "<current>")
     val r = grammar.pJPQL(0)
@@ -37,25 +37,25 @@ class JPQLEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterAl
       record.put("id", "abcd")
 
       var q = "SELECT a.registerTime, a.lastLoginTime FROM account a WHERE a.registerTime >= 10000"
-      evaluate(q, record) should be(List(10000, 20000))
+      eval(q, record) should be(List(10000, 20000))
 
       q = "SELECT a.registerTime, a.lastLoginTime FROM account a WHERE a.registerTime >= 10000 AND a.lastLoginTime > 20000"
-      evaluate(q, record) should be(List())
+      eval(q, record) should be(List())
 
       q = "SELECT a.registerTime, a.lastLoginTime FROM account a WHERE a.registerTime >= 10000 OR a.lastLoginTime > 20000"
-      evaluate(q, record) should be(List(10000, 20000))
+      eval(q, record) should be(List(10000, 20000))
 
       q = "SELECT a.registerTime FROM account a WHERE a.registerTime <> 0"
-      evaluate(q, record) should be(List(10000))
+      eval(q, record) should be(List(10000))
 
       q = "SELECT a.registerTime FROM account a WHERE a.registerTime < 10000"
-      evaluate(q, record) should be(List())
+      eval(q, record) should be(List())
 
       q = "SELECT a.chargeRecords FROM account a WHERE a.registerTime >= 10000"
-      evaluate(q, record).asInstanceOf[List[GenericData.Array[_]]](0).size should be(2)
+      eval(q, record).asInstanceOf[List[GenericData.Array[_]]](0).size should be(2)
 
       q = "SELECT a.id FROM account a WHERE a.id = 'abcd'"
-      evaluate(q, record) should be(List("abcd"))
+      eval(q, record) should be(List("abcd"))
     }
 
     "select with atith calculating and functions" when {
@@ -66,43 +66,43 @@ class JPQLEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterAl
       record.put("balance", 100.0)
 
       var q = "SELECT a.registerTime + 1 FROM account a WHERE a.registerTime + 1 >= 10001"
-      evaluate(q, record) should be(List(10001))
+      eval(q, record) should be(List(10001))
 
       q = "SELECT a.registerTime * 2 FROM account a WHERE a.registerTime * 1 >= 10000"
-      evaluate(q, record) should be(List(20000))
+      eval(q, record) should be(List(20000))
 
       q = "SELECT a.registerTime / 3 FROM account a WHERE a.registerTime + 1 >= 10001"
-      evaluate(q, record) should be(List(3333))
+      eval(q, record) should be(List(3333))
 
       q = "SELECT a.registerTime - 1 FROM account a WHERE a.registerTime + 1 >= 10000"
-      evaluate(q, record) should be(List(9999))
+      eval(q, record) should be(List(9999))
 
       q = "SELECT a.balance / 3 FROM account a WHERE a.balance / 3 < 33.4"
-      evaluate(q, record) should be(List(33.333333333333336))
+      eval(q, record) should be(List(33.333333333333336))
 
       q = "SELECT -a.balance FROM account a WHERE -a.balance = -100"
-      evaluate(q, record) should be(List(-100.0))
+      eval(q, record) should be(List(-100.0))
 
       q = "SELECT ABS(-a.balance) FROM account a WHERE ABS(-a.balance) = 100"
-      evaluate(q, record) should be(List(100.0))
+      eval(q, record) should be(List(100.0))
 
       q = "SELECT SQRT(a.balance) FROM account a WHERE SQRT(a.balance) = 10"
-      evaluate(q, record) should be(List(10.0))
+      eval(q, record) should be(List(10.0))
 
       q = "SELECT CONCAT(a.id, '_efgh') FROM account a WHERE CONCAT(a.id, '_efgh') = 'abCd_efgh'"
-      evaluate(q, record) should be(List("abCd_efgh"))
+      eval(q, record) should be(List("abCd_efgh"))
 
       q = "SELECT LENGTH(a.id) FROM account a WHERE LENGTH(a.id) = 4"
-      evaluate(q, record) should be(List(4))
+      eval(q, record) should be(List(4))
 
       q = "SELECT UPPER(a.id) FROM account a WHERE UPPER(a.id) = 'ABCD'"
-      evaluate(q, record) should be(List("ABCD"))
+      eval(q, record) should be(List("ABCD"))
 
       q = "SELECT LOWER(a.id) FROM account a WHERE LOWER(a.id) = 'abcd'"
-      evaluate(q, record) should be(List("abcd"))
+      eval(q, record) should be(List("abcd"))
 
       q = "SELECT SUBSTRING(a.id, 2, 2) FROM account a WHERE SUBSTRING(a.id, 2, 2) = 'bC'"
-      evaluate(q, record) should be(List("bC"))
+      eval(q, record) should be(List("bC"))
     }
   }
 

@@ -80,6 +80,15 @@ trait RestRoute extends Directives {
           }
         }
       }
+    } ~ path("askjpql" / Segment ~ Slash.?) { key =>
+      get {
+        complete {
+          jpqlBoard.ask(chana.AskJPQL(key))(writeTimeout).collect {
+            case Success(x) => x.toString
+            case Failure(x) => x.toString
+          }
+        }
+      }
     }
   }
 
