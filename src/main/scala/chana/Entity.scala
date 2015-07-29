@@ -6,6 +6,7 @@ import akka.event.LoggingAdapter
 import akka.persistence._
 import chana.avpath.Evaluator.Ctx
 import chana.avro.RecordBuilder
+import chana.jpql.JPQLReporting
 import chana.script.Scriptable
 import chana.serializer.AvroMarshaler
 import org.apache.avro.Schema
@@ -48,6 +49,7 @@ object Entity {
 class AEntity(val entityName: String, val schema: Schema, val builder: RecordBuilder, idleTimeout: Duration)
     extends Entity
     with Scriptable
+    with JPQLReporting
     with Actor
     with ActorLogging {
 
@@ -58,7 +60,9 @@ class AEntity(val entityName: String, val schema: Schema, val builder: RecordBui
     case _ =>
   }
 
-  override def receiveCommand: Receive = super.receiveCommand
+  override def receiveCommand: Receive = super.receiveCommand orElse {
+    case JPQLReporting.Reporting => onQuery(id, record)
+  }
 }
 
 trait Entity extends Actor with Stash with PersistentActor {
@@ -85,7 +89,7 @@ trait Entity extends Actor with Stash with PersistentActor {
   }
 
   protected var limitedSize = Int.MaxValue // TODO
-  protected val persistent = context.system.settings.config.getBoolean("chana.persistence.persistent")
+  protected val isPersistent = context.system.settings.config.getBoolean("chana.persistence.persistent")
   protected var persistParams = context.system.settings.config.getInt("chana.persistence.nrOfEventsBetweenSnapshots")
   protected var persistCount = 0
 
@@ -231,7 +235,7 @@ trait Entity extends Actor with Stash with PersistentActor {
       resetIdleTimeout()
       val commander = sender()
       avpath.select(parser)(record, path) match {
-        case x @ Success(ctxList: List[Ctx]) =>
+        case Success(ctxList: List[Ctx]) =>
           commander ! Success(ctxList.map { ctx =>
             Ctx(GenericData.get().deepCopy(ctx.schema, ctx.value), ctx.schema, ctx.topLevelField, ctx.target)
           })
@@ -440,7 +444,7 @@ trait Entity extends Actor with Stash with PersistentActor {
     val event = UpdatedFields(updatedFields map { case (field, value) => (field.pos, value) })
 
     // TODO options to persistAsync etc.
-    if (persistent) {
+    if (isPersistent) {
       persist(event)(commitUpdatedEvent(fieldsBefore, commander))
     } else {
       commitUpdatedEvent(fieldsBefore, commander)(event)
@@ -450,7 +454,7 @@ trait Entity extends Actor with Stash with PersistentActor {
   private def commitUpdatedEvent(fieldsBefore: Array[(Schema.Field, Any)], commander: ActorRef)(event: Event): Unit = {
     doUpdateRecord(event)
     if (persistCount >= persistParams) {
-      if (persistent) {
+      if (isPersistent) {
         saveSnapshot(avroMarshaler.marshal(record))
       }
       // if saveSnapshot failed, we don't care about it, since we've got 

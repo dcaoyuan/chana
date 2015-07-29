@@ -40,7 +40,7 @@ trait Scriptable extends Actor {
   }
 
   /**
-   * Note: jdk.nashorn.internal.runtime.ConsString is CharSequence instead of String
+   * NOTE: jdk.nashorn.internal.runtime.ConsString is CharSequence instead of String
    */
   val http_get = {
     (url: CharSequence) =>

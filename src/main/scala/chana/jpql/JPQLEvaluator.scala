@@ -204,7 +204,7 @@ class JPQLEvaluator(root: Statement, record: Record) {
     current
   }
 
-  def visit() = {
+  def visit(): List[Any] = {
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         fromClause(from)
@@ -236,8 +236,8 @@ class JPQLEvaluator(root: Statement, record: Record) {
         }
 
         res
-      case UpdateStatement(update, set, where) => // NOT YET
-      case DeleteStatement(delete, where)      => // NOT YET
+      case UpdateStatement(update, set, where) => List() // NOT YET
+      case DeleteStatement(delete, where)      => List() // NOT YET
     }
   }
 

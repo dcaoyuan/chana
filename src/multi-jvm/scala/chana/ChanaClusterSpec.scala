@@ -387,7 +387,7 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
       runOn(client1) {
         import spray.httpx.RequestBuilding._
         // put jpql
-        IO(Http) ! Post(baseUrl1 + "/putjpql/JPQL_NO_1", "SELECT p.age FROM PersonInfo p")
+        IO(Http) ! Post(baseUrl1 + "/putjpql/JPQL_NO_1", "SELECT p.age FROM PersonInfo p WHERE p.age >= 100")
         expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
 
         enterBarrier("put-jpql")
@@ -421,13 +421,17 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
 
     }
 
-    "ask jpql" in within(60.seconds) {
+    "ask jpql" in within(30.seconds) {
 
       runOn(client1) {
         import spray.httpx.RequestBuilding._
-        // ask jpql
-        IO(Http) ! Get(baseUrl1 + "/askjpql/JPQL_NO_1")
-        expectMsgType[HttpResponse](10.seconds).entity.asString should be("List()")
+
+        awaitAssert {
+          // ask jpql
+          IO(Http) ! Get(baseUrl1 + "/askjpql/JPQL_NO_1")
+          val ret = expectMsgType[HttpResponse](10.seconds).entity.asString.replaceAll("\\s+","").length // List(100,800) no order guarantee
+          ret should be(13)
+        }
 
         enterBarrier("ask-jpql-done")
       }

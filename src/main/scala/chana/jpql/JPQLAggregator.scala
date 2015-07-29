@@ -73,7 +73,6 @@ class JPQLAggregator(jqplKey: String, statement: Statement) extends Actor with S
     case SelectToAggregator((entityId, res)) =>
       isResultUpdated = true
       result = result + (entityId -> res)
-      log.info("Result:\n{}", result.toString)
 
     case AskResult =>
       val commander = sender()
