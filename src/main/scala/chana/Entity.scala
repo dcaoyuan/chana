@@ -78,6 +78,7 @@ trait Entity extends Actor with Stash with PersistentActor {
   lazy val avroMarshaler = new AvroMarshaler(schema)
 
   protected val id = self.path.name
+  protected var isDeleted: Boolean = _
   protected val encoderDecoder = new avro.EncoderDecoder()
   protected def parser = new avpath.Parser()
 

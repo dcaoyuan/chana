@@ -1,7 +1,6 @@
 package chana.jpql
 
-import akka.actor.Actor
-import akka.event.LoggingAdapter
+import chana.Entity
 import chana.jpql.nodes.Statement
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData.Record
@@ -11,12 +10,13 @@ object JPQLReporting {
   case object Reporting
 }
 
-trait JPQLReporting extends Actor {
-  def log: LoggingAdapter
-  def entityName: String
+trait JPQLReporting extends Entity {
 
   import context.dispatcher
-  // TODO change to onUpated 
+  // TODO: 
+  // 1. report once when new-created/new-jpql 
+  // 2. report once when deleted 
+  // 3. report only on updated 
   val reportingTask = Some(context.system.scheduler.schedule(0.seconds, 1.seconds, self, JPQLReporting.Reporting))
 
   def eval(stmt: Statement, record: Record) = {
@@ -30,7 +30,7 @@ trait JPQLReporting extends Actor {
       val entry = jpqls.next
       val key = entry.getKey
       val jpql = entry.getValue._1
-      val res = eval(jpql, record)
+      val res = if (isDeleted) List() else eval(jpql, record)
       JPQLAggregator.aggregatorProxy(context.system, key) ! JPQLAggregator.SelectToAggregator(id, res)
     }
   }

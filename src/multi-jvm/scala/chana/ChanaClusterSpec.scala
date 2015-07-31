@@ -429,7 +429,7 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
         awaitAssert {
           // ask jpql
           IO(Http) ! Get(baseUrl1 + "/askjpql/JPQL_NO_1")
-          val ret = expectMsgType[HttpResponse](10.seconds).entity.asString.replaceAll("\\s+","").length // List(100,800) no order guarantee
+          val ret = expectMsgType[HttpResponse](10.seconds).entity.asString.replaceAll("\\s+","").length // List(100,888) no order guarantee
           ret should be(13)
         }
 

@@ -14,9 +14,14 @@ import scala.concurrent.duration._
 object JPQLAggregator {
   def props(jpqlKey: String, stmt: Statement): Props = Props(classOf[JPQLAggregator], jpqlKey, stmt)
 
+
+  /**
+   * @param entityId
+   * @param result    list of selected terms. It's deleted when empty
+   */
+  final case class SelectToAggregator(entityId: String, result: List[Any])
   case object AskResult
   case object AskMergedResult
-  final case class SelectToAggregator(selectInfo: (String, List[Any]))
 
   val role = Some("jpql")
 
@@ -70,9 +75,13 @@ class JPQLAggregator(jqplKey: String, statement: Statement) extends Actor with S
   }
 
   def receive: Receive = {
-    case SelectToAggregator((entityId, res)) =>
+    case SelectToAggregator(entityId, res) =>
       isResultUpdated = true
-      result = result + (entityId -> res)
+      if (res.isEmpty) {
+        result = result - entityId // deleted
+      } else {
+        result = result + (entityId -> res)
+      }
 
     case AskResult =>
       val commander = sender()
