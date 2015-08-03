@@ -2,7 +2,6 @@ package chana.jpql
 
 import chana.Entity
 import chana.jpql.nodes.Statement
-import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData.Record
 import scala.concurrent.duration._
 import scala.concurrent.forkjoin.ThreadLocalRandom
@@ -61,16 +60,6 @@ trait JPQLReporting extends Entity {
       context.system.scheduler.scheduleOnce(interval, self, ReportingTick(jpqlKey))
     } catch {
       case ex: Throwable => log.error(ex, ex.getMessage)
-    }
-  }
-
-  // TODO
-  def onUpdated_(fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record) {
-    val jpqls = DistributedJPQLBoard.keyToStatement.entrySet.iterator
-    while (jpqls.hasNext) {
-      val entry = jpqls.next
-      val jpqlId = entry.getKey
-      val jpql = entry.getValue._1
     }
   }
 

@@ -8,7 +8,12 @@ import java.time.temporal.Temporal
 import org.apache.avro.generic.GenericData.Record
 
 case class JPQLRuntimeException(value: Any, message: String)
-  extends RuntimeException(value.getClass.getName + " " + message + ":" + value)
+  extends RuntimeException(
+    (value match {
+      case null      => null
+      case x: AnyRef => x.getClass.getName
+      case _         => value
+    }) + " " + message + ":" + value)
 
 object JPQLFunctions {
 
@@ -191,17 +196,30 @@ class JPQLEvaluator(root: Statement, record: Record) {
   private var selectMapEntries = List[Any]()
   private var selectNewInstances = List[Any]()
 
+  private var placeholds = List[Any]()
+
   final def entityOf(as: String): Option[String] = asToEntity.get(as)
 
-  final def valueOf(_paths: List[String]) = {
-    var paths = _paths
-    var current: Any = record
-    while (paths.nonEmpty) {
-      val path = paths.head
-      current = record.get(path)
-      paths = paths.tail
+  private val EntityName = record.getSchema.getName.toLowerCase
+
+  final def valueOf(qual: String, attrPaths: List[String]) = {
+    asToEntity.get(qual) match {
+      case Some(EntityName) =>
+        var paths = attrPaths
+        var curr: Any = record
+        while (paths.nonEmpty) {
+          curr match {
+            case null => throw JPQLRuntimeException(curr, "is null when fetch its attribute: " + paths)
+            case x: Record =>
+              val path = paths.head
+              paths = paths.tail
+              curr = x.get(path)
+            case _ => throw JPQLRuntimeException(curr, "is not a record when fetch its attribute: " + paths)
+          }
+        }
+        curr
+      case _ => throw JPQLRuntimeException(qual, "is not an AS alias of entity: " + EntityName)
     }
-    current
   }
 
   def visit(): List[Any] = {
@@ -300,9 +318,9 @@ class JPQLEvaluator(root: Statement, record: Record) {
   }
 
   def pathExprOrVarAccess(expr: PathExprOrVarAccess): Any = {
-    val field = qualIdentVar(expr.qual)
-    val paths = field :: (expr.attributes map attribute)
-    valueOf(paths)
+    val qual = qualIdentVar(expr.qual)
+    val paths = expr.attributes map attribute
+    valueOf(qual, paths)
   }
 
   def qualIdentVar(qual: QualIdentVar) = {
@@ -363,7 +381,7 @@ class JPQLEvaluator(root: Statement, record: Record) {
   }
 
   def rangeVarDecl(range: RangeVarDecl): Unit = {
-    asToEntity += (range.as.ident -> range.entityName.ident)
+    asToEntity += (range.as.ident.toLowerCase -> range.entityName.ident.toLowerCase)
   }
 
   def join(join: Join) = {
@@ -443,14 +461,9 @@ class JPQLEvaluator(root: Statement, record: Record) {
   }
 
   def pathExpr(expr: PathExpr): Any = {
-    val fieldName = qualIdentVar(expr.qual)
-    var field = record.get(fieldName)
-    var attrs = expr.attributes map attribute
-    while (attrs.nonEmpty && (field ne null)) {
-      field.asInstanceOf[Record].get(attrs.head)
-      attrs = attrs.tail
-    }
-    field
+    val qual = qualIdentVar(expr.qual)
+    val paths = expr.attributes map attribute
+    valueOf(qual, paths)
   }
 
   def attribute(attr: Attribute): String = {
