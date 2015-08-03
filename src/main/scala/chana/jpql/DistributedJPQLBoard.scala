@@ -49,8 +49,8 @@ object DistributedJPQLBoard extends ExtensionId[DistributedJPQLBoardExtension] w
   private def putJPQL(system: ActorSystem, key: String, stmt: Statement, interval: FiniteDuration = 1.seconds): Unit = {
     keyToStatement.putIfAbsent(key, (stmt, interval)) match {
       case null =>
-        JPQLAggregator.startAggregator(system, JPQLAggregator.role, key, stmt)
-        JPQLAggregator.startAggregatorProxy(system, JPQLAggregator.role, key)
+        JPQLReducer.startReducer(system, JPQLReducer.role, key, stmt)
+        JPQLReducer.startReducerProxy(system, JPQLReducer.role, key)
       case old => // TODO if existed
     }
   }
@@ -114,7 +114,7 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
 
     case chana.AskJPQL(key) =>
       val commander = sender()
-      JPQLAggregator.aggregatorProxy(context.system, key).ask(JPQLAggregator.AskMergedResult)(300.seconds).onComplete {
+      JPQLReducer.reducerProxy(context.system, key).ask(JPQLReducer.AskReducedResult)(300.seconds).onComplete {
         case result => commander ! result
       }
 

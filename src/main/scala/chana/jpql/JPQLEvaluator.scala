@@ -183,28 +183,48 @@ object JPQLFunctions {
   def currentDateTime() = LocalDateTime.now()
 }
 
+object JPQLEvaluator {
+
+  def keyOf(qual: String, attrPaths: List[String]) = {
+    val key = new StringBuilder(qual)
+    var paths = attrPaths
+    while (paths.nonEmpty) {
+      key.append(".").append(paths.head)
+      paths = paths.tail
+    }
+    key.toString
+  }
+
+}
 class JPQLEvaluator(root: Statement, record: Record) {
 
   private var asToEntity = Map[String, String]()
   private var asToItem = Map[String, Any]()
   private var asToCollectionMember = Map[String, Any]()
 
-  private var selectIsDistinct = false
   private var selectAggregates = List[Any]()
-  private var selectScalars = List[Any]()
   private var selectObjects = List[Any]()
   private var selectMapEntries = List[Any]()
   private var selectNewInstances = List[Any]()
 
-  private var placeholds = List[Any]()
+  protected var selectScalars = List[Any]()
+  protected var selectIsDistinct: Boolean = _
+  protected var isInSelectItem: Boolean = _
+  // TODO compose a minimal avro record, and should be serializable without schema
+  protected var values = Map[String, Any]()
 
   final def entityOf(as: String): Option[String] = asToEntity.get(as)
 
-  private val EntityName = record.getSchema.getName.toLowerCase
+  private val EntityName = if (record eq null) {
+    "" // TODO get entityNames from DistributedSchemaBoard
+  } else {
+    record.getSchema.getName.toLowerCase
+  }
 
-  final def valueOf(qual: String, attrPaths: List[String]) = {
+  def valueOf(qual: String, attrPaths: List[String]): Any = {
     asToEntity.get(qual) match {
       case Some(EntityName) =>
+        var key = if (isInSelectItem) new StringBuilder(qual) else null
         var paths = attrPaths
         var curr: Any = record
         while (paths.nonEmpty) {
@@ -214,15 +234,21 @@ class JPQLEvaluator(root: Statement, record: Record) {
               val path = paths.head
               paths = paths.tail
               curr = x.get(path)
+              if (isInSelectItem) {
+                key.append(".").append(path)
+              }
             case _ => throw JPQLRuntimeException(curr, "is not a record when fetch its attribute: " + paths)
           }
+        }
+        if (isInSelectItem) {
+          values += (key.toString -> curr)
         }
         curr
       case _ => throw JPQLRuntimeException(qual, "is not an AS alias of entity: " + EntityName)
     }
   }
 
-  def visit(): List[Any] = {
+  def pseudoVisit(): List[Any] = {
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         fromClause(from)
@@ -251,6 +277,37 @@ class JPQLEvaluator(root: Statement, record: Record) {
         res
       case UpdateStatement(update, set, where) => List() // NOT YET
       case DeleteStatement(delete, where)      => List() // NOT YET
+    }
+  }
+
+  def visit(): Map[String, Any] = {
+    root match {
+      case SelectStatement(select, from, where, groupby, having, orderby) =>
+        fromClause(from)
+        selectClause(select)
+
+        val res = where match {
+          case None                      => Map[String, Any]()
+          case Some(x) if whereClause(x) => values
+          case Some(x)                   => Map[String, Any]()
+        }
+
+        groupby match {
+          case Some(x) => groupbyClause(x)
+          case None    =>
+        }
+        having match {
+          case Some(x) => havingClause(x)
+          case None    =>
+        }
+        orderby match {
+          case Some(x) => orderbyClause(x)
+          case None    =>
+        }
+
+        res
+      case UpdateStatement(update, set, where) => Map() // NOT YET
+      case DeleteStatement(delete, where)      => Map() // NOT YET
     }
   }
 
@@ -298,8 +355,10 @@ class JPQLEvaluator(root: Statement, record: Record) {
   }
 
   def selectItem(item: SelectItem) = {
+    isInSelectItem = true
     val item1 = selectExpr(item.expr)
     item.as foreach { x => asToItem += (x.ident -> item1) }
+    isInSelectItem = false
     item1
   }
 

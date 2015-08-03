@@ -1,6 +1,5 @@
 package chana 
 
-import java.io.File
 
 import akka.actor.{ActorIdentity, Identify, _}
 import akka.cluster.{Cluster, MemberStatus}
@@ -14,6 +13,7 @@ import akka.testkit.ImplicitSender
 import chana.jpql.DistributedJPQLBoard
 import chana.script.DistributedScriptBoard
 import com.typesafe.config.ConfigFactory
+import java.io.File
 import org.iq80.leveldb.util.FileUtils
 import scala.concurrent.duration._
 import spray.can.Http
