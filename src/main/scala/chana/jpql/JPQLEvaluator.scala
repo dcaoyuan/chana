@@ -212,14 +212,9 @@ class JPQLEvaluator(root: Statement, record: Record) {
         selectScalars = selectScalars.reverse
 
         val res = where match {
-          case Some(x) =>
-            if (whereClause(x)) {
-              selectScalars
-            } else {
-              List()
-            }
-          case None =>
-            selectScalars
+          case None                      => selectScalars
+          case Some(x) if whereClause(x) => selectScalars
+          case Some(x)                   => List()
         }
 
         groupby match {

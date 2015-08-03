@@ -69,11 +69,11 @@ trait RestRouteAkka extends Directives {
   final def jpqlApi = {
     path("putjpql" / Segment ~ Slash.?) { key =>
       post {
-        parameters('timeout.as[Long].?) { timeout =>
+        parameters('interval.as[Long].?) { interval =>
           entity(as[String]) { jpql =>
             complete {
               withStatusCode {
-                jpqlBoard.ask(chana.PutJPQL(key, jpql, timeout.fold(Duration.Undefined: Duration)(_.milliseconds)))(writeTimeout)
+                jpqlBoard.ask(chana.PutJPQL(key, jpql, interval.fold(Duration.Undefined: Duration)(_.milliseconds)))(writeTimeout)
               }
             }
           }

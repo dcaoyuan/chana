@@ -1,9 +1,8 @@
 package chana.script
 
-import akka.actor.Actor
-import akka.event.LoggingAdapter
 import akka.io.IO
 import akka.pattern.ask
+import chana.Entity
 import javax.script.SimpleBindings
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData.Record
@@ -11,14 +10,13 @@ import scala.concurrent.duration._
 import spray.can.Http
 import spray.httpx.RequestBuilding._
 
-trait Scriptable extends Actor {
-
-  def log: LoggingAdapter
-  def entityName: String
+trait Scriptable extends Entity {
 
   import context.dispatcher
 
-  def onUpdated(id: String, fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record) {
+  override def onUpdated(fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record) {
+    super.onUpdated(fieldsBefore, recordAfter)
+
     val scripts = for {
       (field, _) <- fieldsBefore
       (_, script) <- DistributedScriptBoard.scriptsOf(entityName, field.name)

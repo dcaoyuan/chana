@@ -37,10 +37,10 @@ object DistributedSchemaBoard extends ExtensionId[DistributedSchemaBoardExtensio
    * TODO support multiple versions of schema
    */
   private def putSchema(system: ActorSystem, entityName: String, schema: Schema, idleTimeout: Duration = Duration.Undefined): Unit = {
-    // If existed, do nothing, or upgrade to new schema ? TODO
-    val old = entityToSchema.putIfAbsent(entityName, (schema, idleTimeout))
-    if (old == null) {
-      Entity.startSharding(system, entityName, Some(Entity.props(entityName, schema, RecordBuilder(schema), idleTimeout)))
+    entityToSchema.putIfAbsent(entityName, (schema, idleTimeout)) match {
+      case null =>
+        Entity.startSharding(system, entityName, Some(Entity.props(entityName, schema, RecordBuilder(schema), idleTimeout)))
+      case old => // If existed, do nothing, or upgrade to new schema ? TODO
     }
   }
 

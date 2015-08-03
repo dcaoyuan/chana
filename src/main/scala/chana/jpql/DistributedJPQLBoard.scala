@@ -42,17 +42,16 @@ object DistributedJPQLBoard extends ExtensionId[DistributedJPQLBoardExtension] w
    */
   def props(): Props = Props(classOf[DistributedJPQLBoard])
 
-  val keyToStatement = new ConcurrentHashMap[String, (Statement, Duration)]()
+  val keyToStatement = new ConcurrentHashMap[String, (Statement, FiniteDuration)]()
   private val jpqlsLock = new ReentrantReadWriteLock()
   private def keyOf(entity: String, field: String, id: String) = entity + "/" + field + "/" + id
 
-  private def putJPQL(system: ActorSystem, key: String, stmt: Statement, timeout: Duration = Duration.Undefined): Unit = {
-    // TODO handle if exisied
-    val old = keyToStatement.putIfAbsent(key, (stmt, timeout))
-    if (old == null) {
-      JPQLAggregator.startAggregator(system, JPQLAggregator.role, key, stmt)
-      JPQLAggregator.startAggregatorProxy(system, JPQLAggregator.role, key)
-      //log.info("starting aggregator proxy for {}", key)
+  private def putJPQL(system: ActorSystem, key: String, stmt: Statement, interval: FiniteDuration = 1.seconds): Unit = {
+    keyToStatement.putIfAbsent(key, (stmt, interval)) match {
+      case null =>
+        JPQLAggregator.startAggregator(system, JPQLAggregator.role, key, stmt)
+        JPQLAggregator.startAggregatorProxy(system, JPQLAggregator.role, key)
+      case old => // TODO if existed
     }
   }
 
@@ -79,7 +78,7 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
   replicator ! Subscribe(DistributedJPQLBoard.DataKey, self)
 
   def receive = {
-    case chana.PutJPQL(key, jpql, timeout) =>
+    case chana.PutJPQL(key, jpql, interval) =>
       val commander = sender()
       parseJPQL(jpql) match {
         case Success(stmt) =>

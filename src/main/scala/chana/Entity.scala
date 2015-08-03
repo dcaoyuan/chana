@@ -60,9 +60,7 @@ class AEntity(val entityName: String, val schema: Schema, val builder: RecordBui
     case _ =>
   }
 
-  override def receiveCommand: Receive = super.receiveCommand orElse {
-    case JPQLReporting.Reporting => onQuery(id, record)
-  }
+  override def receiveCommand: Receive = accessBehavior orElse persistBehavior orElse JPQLReportingBehavior
 }
 
 trait Entity extends Actor with Stash with PersistentActor {
@@ -73,14 +71,22 @@ trait Entity extends Actor with Stash with PersistentActor {
   def entityName: String
   def schema: Schema
   def builder: RecordBuilder
-  def onUpdated(id: String, fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record)
+
+  def onUpdated(fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record) {}
+  def onDeleted() {}
 
   lazy val avroMarshaler = new AvroMarshaler(schema)
 
   protected val id = self.path.name
-  protected var isDeleted: Boolean = _
   protected val encoderDecoder = new avro.EncoderDecoder()
   protected def parser = new avpath.Parser()
+
+  private var _isDeleted: Boolean = _
+  protected def isDeleted = _isDeleted
+  protected def isDeleted(b: Boolean) = {
+    _isDeleted = b
+    onDeleted()
+  }
 
   val persistenceId: String = entityName + "_" + id
 
@@ -129,9 +135,12 @@ trait Entity extends Actor with Stash with PersistentActor {
     case RecoveryCompleted => log.debug("Recovery completed: {}", id)
   }
 
-  override def receiveCommand: Receive = accessBehavior orElse {
+  override def receiveCommand: Receive = accessBehavior orElse persistBehavior
+
+  def persistBehavior: Receive = {
     case f: PersistenceFailure  => log.error("persist failed: {}", f.cause)
     case f: SaveSnapshotFailure => log.error("saving snapshot failed: {}", f.cause)
+
   }
 
   def accessBehavior: Receive = {
@@ -466,14 +475,15 @@ trait Entity extends Actor with Stash with PersistentActor {
     }
 
     commander ! Success(id)
-    onUpdated(id, fieldsBefore, record)
+    onUpdated(fieldsBefore, record)
   }
 
-  private def doUpdateRecord(event: Event): Unit =
+  private def doUpdateRecord(event: Event): Unit = {
     event match {
       case UpdatedFields(updatedFields) =>
         updatedFields foreach { case (pos, value) => record.put(pos, value) }
     }
+  }
 
   /** for test only */
   def dummyPersist[A](event: A)(handler: A => Unit): Unit = handler(event)
