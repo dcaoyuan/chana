@@ -9,8 +9,6 @@ import akka.actor.Stash
 import akka.contrib.pattern.{ ClusterReceptionistExtension, ClusterSingletonManager, ClusterSingletonProxy }
 import chana.jpql.nodes.Statement
 import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.LocalTime
 import scala.concurrent.duration._
 import scala.util.Sorting
 
@@ -18,15 +16,20 @@ object DataSetOrdering extends Ordering[(String, DataSet)] {
   def compare(x: (String, DataSet), y: (String, DataSet)) = {
     var xs = x._2.orderby
     var ys = y._2.orderby
-    if (xs.nonEmpty) {
-      (xs.head, ys.head) match {
-        case (a: Number, b: Number)               => a.doubleValue.compareTo(b.doubleValue)
-        case (a: String, b: String)               => a.compareToIgnoreCase(b)
-        case (a: LocalTime, b: LocalTime)         => if (a.isBefore(b)) -1 else if (a.isAfter(b)) 1 else 0
-        case (a: LocalDate, b: LocalDate)         => if (a.isBefore(b)) -1 else if (a.isAfter(b)) 1 else 0
-        case (a: LocalDateTime, b: LocalDateTime) => if (a.isBefore(b)) -1 else if (a.isAfter(b)) 1 else 0
+
+    var hint = 0
+    while (hint == 0 && xs.nonEmpty) {
+      hint = (xs.head, ys.head) match {
+        case (a: Number, b: Number) => a.doubleValue.compareTo(b.doubleValue)
+        case ((isAsc: Boolean, a: CharSequence), (_: Boolean, b: CharSequence)) =>
+          (if (isAsc) 1 else -1) * a.toString.compareToIgnoreCase(b.toString)
+        case _ => 0
       }
-    } else 0
+      xs = xs.tail
+      ys = ys.tail
+    }
+
+    hint
   }
 }
 
@@ -91,12 +94,12 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
   }
 
   def receive: Receive = {
-    case SelectToReducer(entityId, res) =>
+    case SelectToReducer(entityId, dataset) =>
       isResultUpdated = true
-      if (res eq null) {
+      if (dataset eq null) {
         idToDataSet -= entityId // remove
       } else {
-        idToDataSet += (entityId -> res)
+        idToDataSet += (entityId -> dataset)
       }
 
     case AskResult =>
@@ -105,12 +108,12 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
 
     case AskReducedResult =>
       val commander = sender()
-      commander ! reduceValues().toString
+      commander ! reduceValues().mkString("Array(", ",", ")")
 
     case _ =>
   }
 
-  def reduceValues() /*: Array[List[_]]*/ = {
+  def reduceValues(): Array[List[Any]] = {
     val shouldSort = idToDataSet.headOption.fold(false) { _._2.orderby.nonEmpty }
     val dataset = idToDataSet.toArray
     if (shouldSort) {
@@ -128,6 +131,6 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
       i += 1
     }
     log.debug("reduced: {}", reduced.mkString("Array(", ",", ")"))
-    reduced.mkString("Array(", ",", ")")
+    reduced
   }
 }

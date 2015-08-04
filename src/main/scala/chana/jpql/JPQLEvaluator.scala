@@ -4,6 +4,7 @@ import chana.jpql.nodes._
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.ZoneId
 import java.time.temporal.Temporal
 import org.apache.avro.generic.GenericData.Record
 
@@ -1060,13 +1061,12 @@ class JPQLEvaluator {
       case Left(x)  => simpleArithExpr(x, record)
       case Right(x) => scalarExpr(x, record)
     }
-    // TODO item.isAsc
     orderingItem match {
-      case x: String        => x // TODO an agerithm for reverting order
+      case x: CharSequence  => (item.isAsc, x)
       case x: Number        => if (item.isAsc) x else JPQLFunctions.neg(x)
-      case x: LocalTime     => // TODO
-      case x: LocalDate     => (if (item.isAsc) 1 else -1) * x.getYear * 12 * 31 + x.getMonthValue * 12 + x.getDayOfMonth
-      case x: LocalDateTime => // TODO
+      case x: LocalTime     => (if (item.isAsc) 1 else -1) * (x.toNanoOfDay)
+      case x: LocalDate     => (if (item.isAsc) 1 else -1) * (x.getYear * 12 * 31 + x.getMonthValue * 12 + x.getDayOfMonth)
+      case x: LocalDateTime => (if (item.isAsc) 1 else -1) * (x.atZone(ZoneId.systemDefault).toInstant.toEpochMilli)
       case x                => throw JPQLRuntimeException(x, "can not be ordering")
     }
   }
