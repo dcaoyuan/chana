@@ -55,8 +55,8 @@ trait JPQLReporting extends Entity {
 
   def report(jpqlKey: String, jpql: Statement, interval: FiniteDuration, record: Record) {
     try {
-      val values = if (isDeleted) null else eval(jpql, record)
-      JPQLReducer.reducerProxy(context.system, jpqlKey) ! JPQLReducer.SelectToReducer(id, values)
+      val dataset = if (isDeleted) null else eval(jpql, record)
+      JPQLReducer.reducerProxy(context.system, jpqlKey) ! JPQLReducer.SelectToReducer(id, dataset)
       context.system.scheduler.scheduleOnce(interval, self, ReportingTick(jpqlKey))
     } catch {
       case ex: Throwable => log.error(ex, ex.getMessage)

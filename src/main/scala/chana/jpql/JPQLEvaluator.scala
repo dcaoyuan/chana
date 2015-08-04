@@ -15,6 +15,8 @@ case class JPQLRuntimeException(value: Any, message: String)
       case _         => value
     }) + " " + message + ":" + value)
 
+final case class DataSet(values: Map[String, Any], groupby: List[Any], orderby: List[Any])
+
 object JPQLFunctions {
 
   def plus(left: Any, right: Any): Number = {
@@ -282,34 +284,40 @@ class JPQLEvaluator {
     }
   }
 
-  def visit(root: Statement, record: Any): Map[String, Any] = {
+  def visit(root: Statement, record: Any): DataSet = {
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         fromClause(from, record)
         selectClause(select, record)
 
-        val res = where match {
+        val items = where match {
           case None                              => values
           case Some(x) if whereClause(x, record) => values
           case Some(x)                           => null // an empty data may be used to COUNT
         }
 
-        groupby match {
-          case Some(x) => groupbyClause(x, record)
-          case None    =>
-        }
-        having match {
-          case Some(x) => havingClause(x, record)
-          case None    =>
-        }
-        orderby match {
-          case Some(x) => orderbyClause(x, record)
-          case None    =>
-        }
+        if (items eq null) {
+          null
+        } else {
+          val groupbys = groupby match {
+            case Some(x) => groupbyClause(x, record)
+            case None    => List()
+          }
 
-        res
-      case UpdateStatement(update, set, where) => Map() // NOT YET
-      case DeleteStatement(delete, where)      => Map() // NOT YET
+          having match {
+            case Some(x) => havingClause(x, record)
+            case None    =>
+          }
+
+          val orderbys = orderby match {
+            case Some(x) => orderbyClause(x, record)
+            case None    => List()
+          }
+
+          DataSet(items, groupbys, orderbys)
+        }
+      case UpdateStatement(update, set, where) => null // NOT YET
+      case DeleteStatement(delete, where)      => null // NOT YET
     }
   }
 
@@ -1043,23 +1051,25 @@ class JPQLEvaluator {
     }
   }
 
-  def orderbyClause(orderbyClause: OrderbyClause, record: Any) = {
-    val orderby = orderbyItem(orderbyClause.orderby, record)
-    orderbyClause.orderbys map { x => orderbyItem(x, record) }
+  def orderbyClause(orderbyClause: OrderbyClause, record: Any): List[Any] = {
+    orderbyItem(orderbyClause.orderby, record) :: (orderbyClause.orderbys map { x => orderbyItem(x, record) })
   }
 
-  def orderbyItem(item: OrderbyItem, record: Any) = {
-    item.expr match {
+  def orderbyItem(item: OrderbyItem, record: Any): Any = {
+    val orderingItem = item.expr match {
       case Left(x)  => simpleArithExpr(x, record)
       case Right(x) => scalarExpr(x, record)
     }
-
-    item.isAsc
+    // TODO item.isAsc
+    orderingItem match {
+      case x: String => x // TODO an agerithm for reverting order
+      case x: Number => if (item.isAsc) x else JPQLFunctions.neg(x)
+      case x         => throw JPQLRuntimeException(x, "can not be ordering")
+    }
   }
 
-  def groupbyClause(groupbyClause: GroupbyClause, record: Any) = {
-    val expr = scalarExpr(groupbyClause.expr, record)
-    val exprs = groupbyClause.exprs map { x => scalarExpr(x, record) }
+  def groupbyClause(groupbyClause: GroupbyClause, record: Any): List[Any] = {
+    scalarExpr(groupbyClause.expr, record) :: (groupbyClause.exprs map { x => scalarExpr(x, record) })
   }
 
   def havingClause(having: HavingClause, record: Any) = {

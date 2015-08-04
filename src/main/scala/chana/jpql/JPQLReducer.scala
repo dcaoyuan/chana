@@ -10,6 +10,20 @@ import akka.contrib.pattern.{ ClusterReceptionistExtension, ClusterSingletonMana
 import chana.jpql.nodes.Statement
 import java.time.LocalDate
 import scala.concurrent.duration._
+import scala.util.Sorting
+
+object DataSetOrdering extends Ordering[(String, DataSet)] {
+  def compare(x: (String, DataSet), y: (String, DataSet)) = {
+    var xs = x._2.orderby
+    var ys = y._2.orderby
+    if (xs.nonEmpty) {
+      (xs.head, ys.head) match {
+        case (a: Number, b: Number) => a.doubleValue.compareTo(b.doubleValue)
+        case (a: String, b: String) => a.compareToIgnoreCase(b)
+      }
+    } else 0
+  }
+}
 
 object JPQLReducer {
   def props(jpqlKey: String, stmt: Statement): Props = Props(classOf[JPQLReducer], jpqlKey, stmt)
@@ -18,7 +32,7 @@ object JPQLReducer {
    * @param entityId  id of reporting entity
    * @param values    values that are needed to reduce. It's deleted when null
    */
-  final case class SelectToReducer(entityId: String, values: Map[String, Any])
+  final case class SelectToReducer(entityId: String, dataset: DataSet)
   case object AskResult
   case object AskReducedResult
 
@@ -57,7 +71,7 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
   log.info("Aggregator {} started", jqplKey)
   ClusterReceptionistExtension(context.system).registerService(self)
 
-  private var idToValues = Map[String, Map[String, Any]]()
+  private var idToDataSet = Map[String, DataSet]()
   private var isResultUpdated = false
   private var prevUpdateTime: LocalDate = _
   private var today: LocalDate = _
@@ -75,14 +89,14 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
     case SelectToReducer(entityId, res) =>
       isResultUpdated = true
       if (res eq null) {
-        idToValues -= entityId // remove
+        idToDataSet -= entityId // remove
       } else {
-        idToValues += (entityId -> res)
+        idToDataSet += (entityId -> res)
       }
 
     case AskResult =>
       val commander = sender()
-      commander ! idToValues.toString
+      commander ! idToDataSet.toString
 
     case AskReducedResult =>
       val commander = sender()
@@ -92,14 +106,23 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
   }
 
   def reduceValues() = {
+    val shouldSort = idToDataSet.headOption.fold(false) { _._2.orderby.nonEmpty }
+    val dataset = idToDataSet.toArray
+    if (shouldSort) {
+      Sorting.quickSort(dataset)(DataSetOrdering)
+      log.debug("sorted by {} etc", idToDataSet.head._2.orderby)
+    }
+
+    evaluator.reset(idToDataSet)
     var reduced = List[List[Any]]()
-    idToValues foreach {
-      case (id, values) =>
-        val xs = evaluator.visit(statement, values, idToValues)
+    dataset foreach {
+      case (id, dataset) =>
+        val xs = evaluator.visit(statement, dataset.values)
         reduced = xs :: reduced
       case _ =>
     }
     log.debug("reduced: {}", reduced)
-    reduced
+    reduced.reverse
   }
+
 }

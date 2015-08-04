@@ -5,13 +5,16 @@ import chana.jpql.nodes._
 
 class JPQLReduceEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
 
-  private var idToValues = Map[String, Map[String, Any]]()
+  private var idToDataSet = Map[String, DataSet]()
   private var aggrCaches = Map[AggregateExpr, Number]()
 
-  def visit(root: Statement, record: Map[String, Any], _idToValues: Map[String, Map[String, Any]]) = {
-    selectedItems = List()
-    idToValues = _idToValues
+  def reset(_idToDataSet: Map[String, DataSet]) {
+    idToDataSet = _idToDataSet
     aggrCaches = Map()
+  }
+
+  def visit(root: Statement, record: Map[String, Any]) = {
+    selectedItems = List()
 
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
@@ -54,9 +57,9 @@ class JPQLReduceEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
           case AggregateExpr_AVG(isDistinct, expr) =>
             var sum = 0.0
             var count = 0
-            for { (id, values) <- idToValues } {
+            for { (id, dataset) <- idToDataSet } {
               count += 1
-              scalarExpr(expr, values) match {
+              scalarExpr(expr, dataset.values) match {
                 case x: Number => sum += x.doubleValue
                 case x         => throw new JPQLRuntimeException(x, "is not a number")
               }
@@ -65,8 +68,8 @@ class JPQLReduceEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
 
           case AggregateExpr_MAX(isDistinct, expr) =>
             var max = 0.0
-            for { (id, values) <- idToValues } {
-              scalarExpr(expr, values) match {
+            for { (id, dataset) <- idToDataSet } {
+              scalarExpr(expr, dataset.values) match {
                 case x: Number => max = math.max(max, x.doubleValue)
                 case x         => throw new JPQLRuntimeException(x, "is not a number")
               }
@@ -75,8 +78,8 @@ class JPQLReduceEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
 
           case AggregateExpr_MIN(isDistinct, expr) =>
             var min = 0.0
-            for { (id, values) <- idToValues } {
-              scalarExpr(expr, values) match {
+            for { (id, dataset) <- idToDataSet } {
+              scalarExpr(expr, dataset.values) match {
                 case x: Number => min = math.min(min, x.doubleValue)
                 case x         => throw new JPQLRuntimeException(x, "is not a number")
               }
@@ -85,8 +88,8 @@ class JPQLReduceEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
 
           case AggregateExpr_SUM(isDistinct, expr) =>
             var sum = 0.0
-            for { (id, values) <- idToValues } {
-              scalarExpr(expr, values) match {
+            for { (id, dataset) <- idToDataSet } {
+              scalarExpr(expr, dataset.values) match {
                 case x: Number => sum += x.doubleValue
                 case x         => throw new JPQLRuntimeException(x, "is not a number")
               }
@@ -95,7 +98,7 @@ class JPQLReduceEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
 
           case AggregateExpr_COUNT(isDistinct, expr) =>
             var count = 0
-            for { (id, values) <- idToValues } {
+            for { _ <- idToDataSet } {
               count += 1
             }
             count
