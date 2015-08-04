@@ -15,11 +15,12 @@ Core Design
 
 -  Each record is an actor (non-blocking)
 -  Akka sharding cluster (easy to scale-out)
--  Locate field/value deeply via
+-  Locate field/value via
    `avpath <https://github.com/wandoulabs/avpath>`__
 -  Scripting triggered by field updating events (JDK 8 JavaScript engine
    -
    `Nashorn <http://docs.oracle.com/javase/8/docs/technotes/guides/scripting/nashorn/>`__)
+-  JPQL query on cluster (under heavy developing)
 
 Run chana
 ^^^^^^^^^^
@@ -340,7 +341,7 @@ parameters:
   you should provide the full name of main entry. **Optional**
 - ``timeout``: idle timeout in milliseconds. **Optional** 
 
-Del schame
+Del schema
 ~~~~~~~~~~
 
 ::
