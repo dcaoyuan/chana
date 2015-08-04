@@ -34,8 +34,8 @@ trait JPQLReporting extends Entity {
   }
 
   def eval(stmt: Statement, record: Record) = {
-    val e = new JPQLEvaluator(stmt, record)
-    e.visit()
+    val e = new JPQLEvaluator()
+    e.visit(stmt, record)
   }
 
   def scheduleJpqls() {

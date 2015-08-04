@@ -196,16 +196,16 @@ object JPQLEvaluator {
   }
 
 }
-class JPQLEvaluator(root: Statement, record: Record) {
+class JPQLEvaluator {
 
   private var asToEntity = Map[String, String]()
   private var asToItem = Map[String, Any]()
   private var asToCollectionMember = Map[String, Any]()
 
-  private var selectAggregates = List[Any]()
-  private var selectObjects = List[Any]()
-  private var selectMapEntries = List[Any]()
-  private var selectNewInstances = List[Any]()
+  protected var selectAggregates = List[Any]()
+  protected var selectObjects = List[Any]()
+  protected var selectMapEntries = List[Any]()
+  protected var selectNewInstances = List[Any]()
 
   protected var selectScalars = List[Any]()
   protected var selectIsDistinct: Boolean = _
@@ -215,62 +215,64 @@ class JPQLEvaluator(root: Statement, record: Record) {
 
   final def entityOf(as: String): Option[String] = asToEntity.get(as)
 
-  private val EntityName = if (record eq null) {
-    "" // TODO get entityNames from DistributedSchemaBoard
-  } else {
-    record.getSchema.getName.toLowerCase
-  }
-
-  def valueOf(qual: String, attrPaths: List[String]): Any = {
-    asToEntity.get(qual) match {
-      case Some(EntityName) =>
-        var key = if (isInSelectItem) new StringBuilder(qual) else null
-        var paths = attrPaths
-        var curr: Any = record
-        while (paths.nonEmpty) {
-          curr match {
-            case null => throw JPQLRuntimeException(curr, "is null when fetch its attribute: " + paths)
-            case x: Record =>
-              val path = paths.head
-              paths = paths.tail
-              curr = x.get(path)
-              if (isInSelectItem) {
-                key.append(".").append(path)
+  def valueOf(qual: String, attrPaths: List[String], record: Any): Any = {
+    // TODO in case of record does not contain schema, get entityNames from DistributedSchemaBoard?
+    record match {
+      case x: Record =>
+        val EntityName = x.getSchema.getName.toLowerCase
+        asToEntity.get(qual) match {
+          case Some(EntityName) =>
+            var key = if (isInSelectItem) new StringBuilder(qual) else null
+            var paths = attrPaths
+            var curr: Any = x
+            while (paths.nonEmpty) {
+              curr match {
+                case null => throw JPQLRuntimeException(curr, "is null when fetch its attribute: " + paths)
+                case x: Record =>
+                  val path = paths.head
+                  paths = paths.tail
+                  curr = x.get(path)
+                  if (isInSelectItem) {
+                    key.append(".").append(path)
+                  }
+                case _ => throw JPQLRuntimeException(curr, "is not a record when fetch its attribute: " + paths)
               }
-            case _ => throw JPQLRuntimeException(curr, "is not a record when fetch its attribute: " + paths)
-          }
+            }
+            if (isInSelectItem) {
+              values += (key.toString -> curr)
+            }
+            curr
+          case _ => throw JPQLRuntimeException(qual, "is not an AS alias of entity: " + EntityName)
         }
-        if (isInSelectItem) {
-          values += (key.toString -> curr)
-        }
-        curr
-      case _ => throw JPQLRuntimeException(qual, "is not an AS alias of entity: " + EntityName)
+
+      case values: Map[String, Map[String, Any]] @unchecked =>
+        values(JPQLEvaluator.keyOf(qual, attrPaths))
     }
   }
 
-  def pseudoVisit(): List[Any] = {
+  def pseudoVisit(root: Statement, record: Any): List[Any] = {
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
-        fromClause(from)
-        selectClause(select)
+        fromClause(from, record)
+        selectClause(select, record)
         selectScalars = selectScalars.reverse
 
         val res = where match {
-          case None                      => selectScalars
-          case Some(x) if whereClause(x) => selectScalars
-          case Some(x)                   => List()
+          case None                              => selectScalars
+          case Some(x) if whereClause(x, record) => selectScalars
+          case Some(x)                           => List()
         }
 
         groupby match {
-          case Some(x) => groupbyClause(x)
+          case Some(x) => groupbyClause(x, record)
           case None    =>
         }
         having match {
-          case Some(x) => havingClause(x)
+          case Some(x) => havingClause(x, record)
           case None    =>
         }
         orderby match {
-          case Some(x) => orderbyClause(x)
+          case Some(x) => orderbyClause(x, record)
           case None    =>
         }
 
@@ -280,28 +282,28 @@ class JPQLEvaluator(root: Statement, record: Record) {
     }
   }
 
-  def visit(): Map[String, Any] = {
+  def visit(root: Statement, record: Any): Map[String, Any] = {
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
-        fromClause(from)
-        selectClause(select)
+        fromClause(from, record)
+        selectClause(select, record)
 
         val res = where match {
-          case None                      => Map[String, Any]()
-          case Some(x) if whereClause(x) => values
-          case Some(x)                   => Map[String, Any]()
+          case None                              => Map[String, Any]()
+          case Some(x) if whereClause(x, record) => values
+          case Some(x)                           => Map[String, Any]()
         }
 
         groupby match {
-          case Some(x) => groupbyClause(x)
+          case Some(x) => groupbyClause(x, record)
           case None    =>
         }
         having match {
-          case Some(x) => havingClause(x)
+          case Some(x) => havingClause(x, record)
           case None    =>
         }
         orderby match {
-          case Some(x) => orderbyClause(x)
+          case Some(x) => orderbyClause(x, record)
           case None    =>
         }
 
@@ -311,139 +313,139 @@ class JPQLEvaluator(root: Statement, record: Record) {
     }
   }
 
-  def updateClause(updateClause: UpdateClause) = {
+  def updateClause(updateClause: UpdateClause, record: Any) = {
     val entityName = updateClause.entityName.ident
     updateClause.as foreach { x =>
       x.ident
     }
   }
 
-  def setClause(setClause: SetClause) = {
-    val assign = setAssignClause(setClause.assign)
+  def setClause(setClause: SetClause, record: Any) = {
+    val assign = setAssignClause(setClause.assign, record)
     setClause.assigns foreach { x =>
-      setAssignClause(x)
+      setAssignClause(x, record)
     }
   }
 
-  def setAssignClause(assign: SetAssignClause) = {
-    val target = setAssignTarget(assign.target)
-    val value = newValue(assign.value)
+  def setAssignClause(assign: SetAssignClause, record: Any) = {
+    val target = setAssignTarget(assign.target, record)
+    val value = newValue(assign.value, record)
   }
 
-  def setAssignTarget(target: SetAssignTarget) = {
+  def setAssignTarget(target: SetAssignTarget, record: Any) = {
     target.path match {
-      case Left(x)  => pathExpr(x)
-      case Right(x) => attribute(x)
+      case Left(x)  => pathExpr(x, record)
+      case Right(x) => attribute(x, record)
     }
   }
 
-  def newValue(expr: NewValue) = {
-    scalarExpr(expr.v)
+  def newValue(expr: NewValue, record: Any) = {
+    scalarExpr(expr.v, record)
   }
 
-  def deleteClause(deleteClause: DeleteClause) = {
+  def deleteClause(deleteClause: DeleteClause, record: Any) = {
     val from = deleteClause.from.ident
     deleteClause.as foreach { x =>
       x.ident
     }
   }
 
-  def selectClause(select: SelectClause): Unit = {
+  def selectClause(select: SelectClause, record: Any): Unit = {
     selectIsDistinct = select.isDistinct
-    selectItem(select.item)
-    select.items foreach selectItem
+    selectItem(select.item, record)
+    select.items foreach { x => selectItem(x, record) }
   }
 
-  def selectItem(item: SelectItem) = {
+  def selectItem(item: SelectItem, record: Any) = {
     isInSelectItem = true
-    val item1 = selectExpr(item.expr)
+    val item1 = selectExpr(item.expr, record)
     item.as foreach { x => asToItem += (x.ident -> item1) }
     isInSelectItem = false
     item1
   }
 
-  def selectExpr(expr: SelectExpr) = {
+  def selectExpr(expr: SelectExpr, record: Any) = {
     expr match {
-      case SelectExpr_AggregateExpr(expr)   => selectAggregates ::= aggregateExpr(expr)
-      case SelectExpr_ScalarExpr(expr)      => selectScalars ::= scalarExpr(expr)
-      case SelectExpr_OBJECT(expr)          => selectObjects ::= varAccessOrTypeConstant(expr)
-      case SelectExpr_ConstructorExpr(expr) => selectNewInstances ::= constructorExpr(expr)
-      case SelectExpr_MapEntryExpr(expr)    => selectMapEntries ::= mapEntryExpr(expr)
+      case SelectExpr_AggregateExpr(expr)   => selectAggregates ::= aggregateExpr(expr, record)
+      case SelectExpr_ScalarExpr(expr)      => selectScalars ::= scalarExpr(expr, record)
+      case SelectExpr_OBJECT(expr)          => selectObjects ::= varAccessOrTypeConstant(expr, record)
+      case SelectExpr_ConstructorExpr(expr) => selectNewInstances ::= constructorExpr(expr, record)
+      case SelectExpr_MapEntryExpr(expr)    => selectMapEntries ::= mapEntryExpr(expr, record)
     }
   }
 
-  def mapEntryExpr(expr: MapEntryExpr): Any = {
-    varAccessOrTypeConstant(expr.entry)
+  def mapEntryExpr(expr: MapEntryExpr, record: Any): Any = {
+    varAccessOrTypeConstant(expr.entry, record)
   }
 
-  def pathExprOrVarAccess(expr: PathExprOrVarAccess): Any = {
-    val qual = qualIdentVar(expr.qual)
-    val paths = expr.attributes map attribute
-    valueOf(qual, paths)
+  def pathExprOrVarAccess(expr: PathExprOrVarAccess, record: Any): Any = {
+    val qual = qualIdentVar(expr.qual, record)
+    val paths = expr.attributes map { x => attribute(x, record) }
+    valueOf(qual, paths, record)
   }
 
-  def qualIdentVar(qual: QualIdentVar) = {
+  def qualIdentVar(qual: QualIdentVar, record: Any) = {
     qual match {
-      case QualIdentVar_VarAccessOrTypeConstant(v) => varAccessOrTypeConstant(v)
-      case QualIdentVar_KEY(v)                     => varAccessOrTypeConstant(v)
-      case QualIdentVar_VALUE(v)                   => varAccessOrTypeConstant(v)
+      case QualIdentVar_VarAccessOrTypeConstant(v) => varAccessOrTypeConstant(v, record)
+      case QualIdentVar_KEY(v)                     => varAccessOrTypeConstant(v, record)
+      case QualIdentVar_VALUE(v)                   => varAccessOrTypeConstant(v, record)
     }
   }
 
-  def aggregateExpr(expr: AggregateExpr) = {
+  def aggregateExpr(expr: AggregateExpr, record: Any) = {
     expr match {
       case AggregateExpr_AVG(isDistinct, expr) =>
-        scalarExpr(expr)
+        scalarExpr(expr, record)
       case AggregateExpr_MAX(isDistinct, expr) =>
-        scalarExpr(expr)
+        scalarExpr(expr, record)
       case AggregateExpr_MIN(isDistinct, expr) =>
-        scalarExpr(expr)
+        scalarExpr(expr, record)
       case AggregateExpr_SUM(isDistinct, expr) =>
-        scalarExpr(expr)
+        scalarExpr(expr, record)
       case AggregateExpr_COUNT(isDistinct, expr) =>
-        scalarExpr(expr)
+        scalarExpr(expr, record)
     }
   }
 
-  def constructorExpr(expr: ConstructorExpr) = {
-    val fullname = constructorName(expr.name)
-    val args = constructorItem(expr.arg) :: (expr.args map constructorItem)
+  def constructorExpr(expr: ConstructorExpr, record: Any) = {
+    val fullname = constructorName(expr.name, record)
+    val args = constructorItem(expr.arg, record) :: (expr.args map { x => constructorItem(x, record) })
     null // NOT YET 
   }
 
-  def constructorName(name: ConstructorName): String = {
+  def constructorName(name: ConstructorName, record: Any): String = {
     val fullname = new StringBuilder(name.id.ident)
     name.ids foreach fullname.append(".").append
     fullname.toString
   }
 
-  def constructorItem(item: ConstructorItem) = {
+  def constructorItem(item: ConstructorItem, record: Any) = {
     item match {
-      case ConstructorItem_ScalarExpr(expr)    => scalarExpr(expr)
-      case ConstructorItem_AggregateExpr(expr) => aggregateExpr(expr) // TODO aggregate here!?
+      case ConstructorItem_ScalarExpr(expr)    => scalarExpr(expr, record)
+      case ConstructorItem_AggregateExpr(expr) => aggregateExpr(expr, record) // TODO aggregate here!?
     }
   }
 
-  def fromClause(from: FromClause) = {
-    identVarDecl(from.from)
+  def fromClause(from: FromClause, record: Any) = {
+    identVarDecl(from.from, record)
     from.froms foreach {
-      case Left(x)  => identVarDecl(x)
-      case Right(x) => collectionMemberDecl(x)
+      case Left(x)  => identVarDecl(x, record)
+      case Right(x) => collectionMemberDecl(x, record)
     }
   }
 
-  def identVarDecl(ident: IdentVarDecl) = {
-    rangeVarDecl(ident.range)
+  def identVarDecl(ident: IdentVarDecl, record: Any) = {
+    rangeVarDecl(ident.range, record)
     ident.joins foreach { x =>
-      join(x)
+      join(x, record)
     }
   }
 
-  def rangeVarDecl(range: RangeVarDecl): Unit = {
+  def rangeVarDecl(range: RangeVarDecl, record: Any): Unit = {
     asToEntity += (range.as.ident.toLowerCase -> range.entityName.ident.toLowerCase)
   }
 
-  def join(join: Join) = {
+  def join(join: Join, record: Any) = {
     join match {
       case Join_General(spec, expr, as, cond) =>
         spec match {
@@ -452,10 +454,10 @@ class JPQLEvaluator(root: Statement, record: Record) {
           case LEFT_OUTER_JOIN =>
           case INNER_JOIN      =>
         }
-        joinAssocPathExpr(expr)
+        joinAssocPathExpr(expr, record)
         val as_ = as.ident
         cond match {
-          case Some(x) => joinCond(x)
+          case Some(x) => joinCond(x, record)
           case None    =>
         }
       case Join_TREAT(spec, expr, exprAs, as, cond) =>
@@ -465,10 +467,10 @@ class JPQLEvaluator(root: Statement, record: Record) {
           case LEFT_OUTER_JOIN =>
           case INNER_JOIN      =>
         }
-        joinAssocPathExpr(expr)
+        joinAssocPathExpr(expr, record)
         val as_ = as.ident
         cond match {
-          case Some(x) => joinCond(x)
+          case Some(x) => joinCond(x, record)
           case None    =>
         }
       case Join_FETCH(spec, expr, alias, cond) =>
@@ -478,104 +480,104 @@ class JPQLEvaluator(root: Statement, record: Record) {
           case LEFT_OUTER_JOIN =>
           case INNER_JOIN      =>
         }
-        joinAssocPathExpr(expr)
+        joinAssocPathExpr(expr, record)
         alias foreach { x =>
           x.ident
         }
         cond match {
-          case Some(x) => joinCond(x)
+          case Some(x) => joinCond(x, record)
           case None    =>
         }
     }
   }
 
-  def joinCond(joinCond: JoinCond) = {
-    condExpr(joinCond.expr)
+  def joinCond(joinCond: JoinCond, record: Any) = {
+    condExpr(joinCond.expr, record)
   }
 
-  def collectionMemberDecl(expr: CollectionMemberDecl): Unit = {
-    val member = collectionValuedPathExpr(expr.in)
+  def collectionMemberDecl(expr: CollectionMemberDecl, record: Any): Unit = {
+    val member = collectionValuedPathExpr(expr.in, record)
     asToCollectionMember += (expr.as.ident -> member)
   }
 
-  def collectionValuedPathExpr(expr: CollectionValuedPathExpr) = {
-    pathExpr(expr.path)
+  def collectionValuedPathExpr(expr: CollectionValuedPathExpr, record: Any) = {
+    pathExpr(expr.path, record)
   }
 
-  def assocPathExpr(expr: AssocPathExpr) = {
-    pathExpr(expr.path)
+  def assocPathExpr(expr: AssocPathExpr, record: Any) = {
+    pathExpr(expr.path, record)
   }
 
-  def joinAssocPathExpr(expr: JoinAssocPathExpr) = {
-    val qualId = qualIdentVar(expr.qualId)
-    val attrbutes = expr.attrbutes map attribute
+  def joinAssocPathExpr(expr: JoinAssocPathExpr, record: Any) = {
+    val qualId = qualIdentVar(expr.qualId, record)
+    val attrbutes = expr.attrbutes map { x => attribute(x, record) }
   }
 
-  def singleValuedPathExpr(expr: SingleValuedPathExpr) = {
-    pathExpr(expr.path)
+  def singleValuedPathExpr(expr: SingleValuedPathExpr, record: Any) = {
+    pathExpr(expr.path, record)
   }
 
-  def stateFieldPathExpr(expr: StateFieldPathExpr) = {
-    pathExpr(expr.path)
+  def stateFieldPathExpr(expr: StateFieldPathExpr, record: Any) = {
+    pathExpr(expr.path, record)
   }
 
-  def pathExpr(expr: PathExpr): Any = {
-    val qual = qualIdentVar(expr.qual)
-    val paths = expr.attributes map attribute
-    valueOf(qual, paths)
+  def pathExpr(expr: PathExpr, record: Any): Any = {
+    val qual = qualIdentVar(expr.qual, record)
+    val paths = expr.attributes map { x => attribute(x, record) }
+    valueOf(qual, paths, record)
   }
 
-  def attribute(attr: Attribute): String = {
+  def attribute(attr: Attribute, record: Any): String = {
     attr.name
   }
 
-  def varAccessOrTypeConstant(expr: VarAccessOrTypeConstant): String = {
+  def varAccessOrTypeConstant(expr: VarAccessOrTypeConstant, record: Any): String = {
     expr.id.ident
   }
 
-  def whereClause(where: WhereClause): Boolean = {
-    condExpr(where.expr)
+  def whereClause(where: WhereClause, record: Any): Boolean = {
+    condExpr(where.expr, record)
   }
 
-  def condExpr(expr: CondExpr): Boolean = {
-    expr.orTerms.foldLeft(condTerm(expr.term)) { (res, orTerm) =>
-      res || condTerm(orTerm)
+  def condExpr(expr: CondExpr, record: Any): Boolean = {
+    expr.orTerms.foldLeft(condTerm(expr.term, record)) { (res, orTerm) =>
+      res || condTerm(orTerm, record)
     }
   }
 
-  def condTerm(term: CondTerm): Boolean = {
-    term.andFactors.foldLeft(condFactor(term.factor)) { (res, andFactor) =>
-      res && condFactor(andFactor)
+  def condTerm(term: CondTerm, record: Any): Boolean = {
+    term.andFactors.foldLeft(condFactor(term.factor, record)) { (res, andFactor) =>
+      res && condFactor(andFactor, record)
     }
   }
 
-  def condFactor(factor: CondFactor): Boolean = {
+  def condFactor(factor: CondFactor, record: Any): Boolean = {
     val res = factor.expr match {
-      case Left(x)  => condPrimary(x)
-      case Right(x) => existsExpr(x)
+      case Left(x)  => condPrimary(x, record)
+      case Right(x) => existsExpr(x, record)
     }
 
     factor.not ^ res
   }
 
-  def condPrimary(primary: CondPrimary): Boolean = {
+  def condPrimary(primary: CondPrimary, record: Any): Boolean = {
     primary match {
-      case CondPrimary_CondExpr(expr)       => condExpr(expr)
-      case CondPrimary_SimpleCondExpr(expr) => simpleCondExpr(expr)
+      case CondPrimary_CondExpr(expr)       => condExpr(expr, record)
+      case CondPrimary_SimpleCondExpr(expr) => simpleCondExpr(expr, record)
     }
   }
 
-  def simpleCondExpr(expr: SimpleCondExpr): Boolean = {
+  def simpleCondExpr(expr: SimpleCondExpr, record: Any): Boolean = {
     val base = expr.expr match {
-      case Left(x)  => arithExpr(x)
-      case Right(x) => nonArithScalarExpr(x)
+      case Left(x)  => arithExpr(x, record)
+      case Right(x) => nonArithScalarExpr(x, record)
     }
 
     // simpleCondExprRem
     expr.rem match {
       case SimpleCondExprRem_ComparisonExpr(expr) =>
         // comparisionExpr
-        val operand = comparsionExprRightOperand(expr.operand)
+        val operand = comparsionExprRightOperand(expr.operand, record)
         expr.op match {
           case EQ => JPQLFunctions.eq(base, operand)
           case NE => JPQLFunctions.ne(base, operand)
@@ -589,22 +591,22 @@ class JPQLEvaluator(root: Statement, record: Record) {
         // condWithNotExpr
         val res = expr match {
           case CondWithNotExpr_BetweenExpr(expr) =>
-            val minMax = betweenExpr(expr)
+            val minMax = betweenExpr(expr, record)
             JPQLFunctions.between(base, minMax._1, minMax._2)
 
           case CondWithNotExpr_LikeExpr(expr) =>
             base match {
               case x: CharSequence =>
-                val like = likeExpr(expr)
+                val like = likeExpr(expr, record)
                 JPQLFunctions.strLike(x.toString, like._1, like._2)
               case x => throw JPQLRuntimeException(x, "is not a string")
             }
 
           case CondWithNotExpr_InExpr(expr) =>
-            inExpr(expr)
+            inExpr(expr, record)
 
           case CondWithNotExpr_CollectionMemberExpr(expr) =>
-            collectionMemberExpr(expr)
+            collectionMemberExpr(expr, record)
         }
 
         not ^ res
@@ -628,30 +630,30 @@ class JPQLEvaluator(root: Statement, record: Record) {
     }
   }
 
-  def betweenExpr(expr: BetweenExpr) = {
-    (scalarOrSubselectExpr(expr.min), scalarOrSubselectExpr(expr.max))
+  def betweenExpr(expr: BetweenExpr, record: Any) = {
+    (scalarOrSubselectExpr(expr.min, record), scalarOrSubselectExpr(expr.max, record))
   }
 
-  def inExpr(expr: InExpr): Boolean = {
+  def inExpr(expr: InExpr, record: Any): Boolean = {
     expr match {
       case InExpr_InputParam(expr) =>
-        inputParam(expr)
+        inputParam(expr, record)
       case InExpr_ScalarOrSubselectExpr(expr, exprs) =>
-        scalarOrSubselectExpr(expr)
-        exprs map scalarOrSubselectExpr
+        scalarOrSubselectExpr(expr, record)
+        exprs map { x => scalarOrSubselectExpr(x, record) }
       case InExpr_Subquery(expr: Subquery) =>
-        subquery(expr)
+        subquery(expr, record)
     }
     true
     // TODO
   }
 
-  def likeExpr(expr: LikeExpr) = {
-    scalarOrSubselectExpr(expr.like) match {
+  def likeExpr(expr: LikeExpr, record: Any) = {
+    scalarOrSubselectExpr(expr.like, record) match {
       case like: CharSequence =>
         val escape = expr.escape match {
           case Some(x) =>
-            scalarExpr(x.expr) match {
+            scalarExpr(x.expr, record) match {
               case c: CharSequence => Some(c.toString)
               case x               => throw JPQLRuntimeException(x, "is not a string")
             }
@@ -662,94 +664,94 @@ class JPQLEvaluator(root: Statement, record: Record) {
     }
   }
 
-  def collectionMemberExpr(expr: CollectionMemberExpr): Boolean = {
-    collectionValuedPathExpr(expr.of)
+  def collectionMemberExpr(expr: CollectionMemberExpr, record: Any): Boolean = {
+    collectionValuedPathExpr(expr.of, record)
     true // TODO
   }
 
-  def existsExpr(expr: ExistsExpr): Boolean = {
-    subquery(expr.subquery)
+  def existsExpr(expr: ExistsExpr, record: Any): Boolean = {
+    subquery(expr.subquery, record)
     true // TODO
   }
 
-  def comparsionExprRightOperand(expr: ComparsionExprRightOperand) = {
+  def comparsionExprRightOperand(expr: ComparsionExprRightOperand, record: Any) = {
     expr match {
-      case ComparsionExprRightOperand_ArithExpr(expr)          => arithExpr(expr)
-      case ComparsionExprRightOperand_NonArithScalarExpr(expr) => nonArithScalarExpr(expr)
-      case ComparsionExprRightOperand_AnyOrAllExpr(expr)       => anyOrAllExpr(expr)
+      case ComparsionExprRightOperand_ArithExpr(expr)          => arithExpr(expr, record)
+      case ComparsionExprRightOperand_NonArithScalarExpr(expr) => nonArithScalarExpr(expr, record)
+      case ComparsionExprRightOperand_AnyOrAllExpr(expr)       => anyOrAllExpr(expr, record)
     }
   }
 
-  def arithExpr(expr: ArithExpr) = {
+  def arithExpr(expr: ArithExpr, record: Any) = {
     expr.expr match {
-      case Left(expr)  => simpleArithExpr(expr)
-      case Right(expr) => subquery(expr)
+      case Left(expr)  => simpleArithExpr(expr, record)
+      case Right(expr) => subquery(expr, record)
     }
   }
 
-  def simpleArithExpr(expr: SimpleArithExpr): Any = {
-    expr.rightTerms.foldLeft(arithTerm(expr.term)) {
-      case (acc, ArithTerm_Plus(term))  => JPQLFunctions.plus(acc, arithTerm(term))
-      case (acc, ArithTerm_Minus(term)) => JPQLFunctions.minus(acc, arithTerm(term))
+  def simpleArithExpr(expr: SimpleArithExpr, record: Any): Any = {
+    expr.rightTerms.foldLeft(arithTerm(expr.term, record)) {
+      case (acc, ArithTerm_Plus(term))  => JPQLFunctions.plus(acc, arithTerm(term, record))
+      case (acc, ArithTerm_Minus(term)) => JPQLFunctions.minus(acc, arithTerm(term, record))
     }
   }
 
-  def arithTerm(term: ArithTerm): Any = {
-    term.rightFactors.foldLeft(arithFactor(term.factor)) {
-      case (acc, ArithFactor_Multiply(factor)) => JPQLFunctions.multiply(acc, arithFactor(factor))
-      case (acc, ArithFactor_Divide(factor))   => JPQLFunctions.divide(acc, arithFactor(factor))
+  def arithTerm(term: ArithTerm, record: Any): Any = {
+    term.rightFactors.foldLeft(arithFactor(term.factor, record)) {
+      case (acc, ArithFactor_Multiply(factor)) => JPQLFunctions.multiply(acc, arithFactor(factor, record))
+      case (acc, ArithFactor_Divide(factor))   => JPQLFunctions.divide(acc, arithFactor(factor, record))
     }
   }
 
-  def arithFactor(factor: ArithFactor): Any = {
-    plusOrMinusPrimary(factor.primary)
+  def arithFactor(factor: ArithFactor, record: Any): Any = {
+    plusOrMinusPrimary(factor.primary, record)
   }
 
-  def plusOrMinusPrimary(primary: PlusOrMinusPrimary): Any = {
+  def plusOrMinusPrimary(primary: PlusOrMinusPrimary, record: Any): Any = {
     primary match {
-      case ArithPrimary_Plus(primary)  => arithPrimary(primary)
-      case ArithPrimary_Minus(primary) => JPQLFunctions.neg(arithPrimary(primary))
+      case ArithPrimary_Plus(primary)  => arithPrimary(primary, record)
+      case ArithPrimary_Minus(primary) => JPQLFunctions.neg(arithPrimary(primary, record))
     }
   }
 
-  def arithPrimary(primary: ArithPrimary) = {
+  def arithPrimary(primary: ArithPrimary, record: Any) = {
     primary match {
-      case ArithPrimary_PathExprOrVarAccess(expr)    => pathExprOrVarAccess(expr)
-      case ArithPrimary_InputParam(expr)             => inputParam(expr)
-      case ArithPrimary_CaseExpr(expr)               => caseExpr(expr)
-      case ArithPrimary_FuncsReturningNumerics(expr) => funcsReturningNumerics(expr)
-      case ArithPrimary_SimpleArithExpr(expr)        => simpleArithExpr(expr)
+      case ArithPrimary_PathExprOrVarAccess(expr)    => pathExprOrVarAccess(expr, record)
+      case ArithPrimary_InputParam(expr)             => inputParam(expr, record)
+      case ArithPrimary_CaseExpr(expr)               => caseExpr(expr, record)
+      case ArithPrimary_FuncsReturningNumerics(expr) => funcsReturningNumerics(expr, record)
+      case ArithPrimary_SimpleArithExpr(expr)        => simpleArithExpr(expr, record)
       case ArithPrimary_LiteralNumeric(expr)         => expr
     }
   }
 
-  def scalarExpr(expr: ScalarExpr): Any = {
+  def scalarExpr(expr: ScalarExpr, record: Any): Any = {
     expr match {
-      case ScalarExpr_SimpleArithExpr(expr)    => simpleArithExpr(expr)
-      case ScalarExpr_NonArithScalarExpr(expr) => nonArithScalarExpr(expr)
+      case ScalarExpr_SimpleArithExpr(expr)    => simpleArithExpr(expr, record)
+      case ScalarExpr_NonArithScalarExpr(expr) => nonArithScalarExpr(expr, record)
     }
   }
 
-  def scalarOrSubselectExpr(expr: ScalarOrSubselectExpr) = {
+  def scalarOrSubselectExpr(expr: ScalarOrSubselectExpr, record: Any) = {
     expr match {
-      case ScalarOrSubselectExpr_ArithExpr(expr)          => arithExpr(expr)
-      case ScalarOrSubselectExpr_NonArithScalarExpr(expr) => nonArithScalarExpr(expr)
+      case ScalarOrSubselectExpr_ArithExpr(expr)          => arithExpr(expr, record)
+      case ScalarOrSubselectExpr_NonArithScalarExpr(expr) => nonArithScalarExpr(expr, record)
     }
   }
 
-  def nonArithScalarExpr(expr: NonArithScalarExpr): Any = {
+  def nonArithScalarExpr(expr: NonArithScalarExpr, record: Any): Any = {
     expr match {
-      case NonArithScalarExpr_FuncsReturningDatetime(expr) => funcsReturningDatetime(expr)
-      case NonArithScalarExpr_FuncsReturningStrings(expr)  => funcsReturningStrings(expr)
+      case NonArithScalarExpr_FuncsReturningDatetime(expr) => funcsReturningDatetime(expr, record)
+      case NonArithScalarExpr_FuncsReturningStrings(expr)  => funcsReturningStrings(expr, record)
       case NonArithScalarExpr_LiteralString(expr)          => expr
       case NonArithScalarExpr_LiteralBoolean(expr)         => expr
       case NonArithScalarExpr_LiteralTemporal(expr)        => expr
-      case NonArithScalarExpr_EntityTypeExpr(expr)         => entityTypeExpr(expr)
+      case NonArithScalarExpr_EntityTypeExpr(expr)         => entityTypeExpr(expr, record)
     }
   }
 
-  def anyOrAllExpr(expr: AnyOrAllExpr) = {
-    val subq = subquery(expr.subquery)
+  def anyOrAllExpr(expr: AnyOrAllExpr, record: Any) = {
+    val subq = subquery(expr.subquery, record)
     expr.anyOrAll match {
       case ALL  =>
       case ANY  =>
@@ -757,125 +759,125 @@ class JPQLEvaluator(root: Statement, record: Record) {
     }
   }
 
-  def entityTypeExpr(expr: EntityTypeExpr) = {
-    typeDiscriminator(expr.typeDis)
+  def entityTypeExpr(expr: EntityTypeExpr, record: Any) = {
+    typeDiscriminator(expr.typeDis, record)
   }
 
-  def typeDiscriminator(expr: TypeDiscriminator) = {
+  def typeDiscriminator(expr: TypeDiscriminator, record: Any) = {
     expr.expr match {
-      case Left(expr1)  => varOrSingleValuedPath(expr1)
-      case Right(expr1) => inputParam(expr1)
+      case Left(expr1)  => varOrSingleValuedPath(expr1, record)
+      case Right(expr1) => inputParam(expr1, record)
     }
   }
 
-  def caseExpr(expr: CaseExpr): Any = {
+  def caseExpr(expr: CaseExpr, record: Any): Any = {
     expr match {
       case CaseExpr_SimpleCaseExpr(expr) =>
-        simpleCaseExpr(expr)
+        simpleCaseExpr(expr, record)
       case CaseExpr_GeneralCaseExpr(expr) =>
-        generalCaseExpr(expr)
+        generalCaseExpr(expr, record)
       case CaseExpr_CoalesceExpr(expr) =>
-        coalesceExpr(expr)
+        coalesceExpr(expr, record)
       case CaseExpr_NullifExpr(expr) =>
-        nullifExpr(expr)
+        nullifExpr(expr, record)
     }
   }
 
-  def simpleCaseExpr(expr: SimpleCaseExpr) = {
-    caseOperand(expr.caseOperand)
-    simpleWhenClause(expr.when)
+  def simpleCaseExpr(expr: SimpleCaseExpr, record: Any) = {
+    caseOperand(expr.caseOperand, record)
+    simpleWhenClause(expr.when, record)
     expr.whens foreach { when =>
-      simpleWhenClause(when)
+      simpleWhenClause(when, record)
     }
-    val elseExpr = scalarExpr(expr.elseExpr)
+    val elseExpr = scalarExpr(expr.elseExpr, record)
   }
 
-  def generalCaseExpr(expr: GeneralCaseExpr) = {
-    whenClause(expr.when)
+  def generalCaseExpr(expr: GeneralCaseExpr, record: Any) = {
+    whenClause(expr.when, record)
     expr.whens foreach { when =>
-      whenClause(when)
+      whenClause(when, record)
     }
-    val elseExpr = scalarExpr(expr.elseExpr)
+    val elseExpr = scalarExpr(expr.elseExpr, record)
   }
 
-  def coalesceExpr(expr: CoalesceExpr) = {
-    scalarExpr(expr.expr)
-    expr.exprs map scalarExpr
+  def coalesceExpr(expr: CoalesceExpr, record: Any) = {
+    scalarExpr(expr.expr, record)
+    expr.exprs map { x => scalarExpr(x, record) }
   }
 
-  def nullifExpr(expr: NullifExpr) = {
-    val left = scalarExpr(expr.leftExpr)
-    val right = scalarExpr(expr.rightExpr)
+  def nullifExpr(expr: NullifExpr, record: Any) = {
+    val left = scalarExpr(expr.leftExpr, record)
+    val right = scalarExpr(expr.rightExpr, record)
     left // TODO
   }
 
-  def caseOperand(expr: CaseOperand) = {
+  def caseOperand(expr: CaseOperand, record: Any) = {
     expr.expr match {
-      case Left(x)  => stateFieldPathExpr(x)
-      case Right(x) => typeDiscriminator(x)
+      case Left(x)  => stateFieldPathExpr(x, record)
+      case Right(x) => typeDiscriminator(x, record)
     }
   }
 
-  def whenClause(whenClause: WhenClause) = {
-    val when = condExpr(whenClause.when)
-    val thenExpr = scalarExpr(whenClause.thenExpr)
+  def whenClause(whenClause: WhenClause, record: Any) = {
+    val when = condExpr(whenClause.when, record)
+    val thenExpr = scalarExpr(whenClause.thenExpr, record)
   }
 
-  def simpleWhenClause(whenClause: SimpleWhenClause) = {
-    val when = scalarExpr(whenClause.when)
-    val thenExpr = scalarExpr(whenClause.thenExpr)
+  def simpleWhenClause(whenClause: SimpleWhenClause, record: Any) = {
+    val when = scalarExpr(whenClause.when, record)
+    val thenExpr = scalarExpr(whenClause.thenExpr, record)
   }
 
-  def varOrSingleValuedPath(expr: VarOrSingleValuedPath) = {
+  def varOrSingleValuedPath(expr: VarOrSingleValuedPath, record: Any) = {
     expr.expr match {
-      case Left(x)  => singleValuedPathExpr(x)
-      case Right(x) => varAccessOrTypeConstant(x)
+      case Left(x)  => singleValuedPathExpr(x, record)
+      case Right(x) => varAccessOrTypeConstant(x, record)
     }
   }
 
-  def stringPrimary(expr: StringPrimary): Either[String, Any => String] = {
+  def stringPrimary(expr: StringPrimary, record: Any): Either[String, Any => String] = {
     expr match {
       case StringPrimary_LiteralString(expr) => Left(expr)
       case StringPrimary_FuncsReturningStrings(expr) =>
         try {
-          Left(funcsReturningStrings(expr))
+          Left(funcsReturningStrings(expr, record))
         } catch {
           case ex: Throwable => throw ex
         }
       case StringPrimary_InputParam(expr) =>
-        val param = inputParam(expr)
+        val param = inputParam(expr, record)
         Right(param => "") // TODO
       case StringPrimary_StateFieldPathExpr(expr) =>
-        pathExpr(expr.path) match {
+        pathExpr(expr.path, record) match {
           case x: CharSequence => Left(x.toString)
           case x               => throw JPQLRuntimeException(x, "is not a StringPrimary")
         }
     }
   }
 
-  def inputParam(expr: InputParam) = {
+  def inputParam(expr: InputParam, record: Any) = {
     expr match {
       case InputParam_Named(name)   => name
       case InputParam_Position(pos) => pos
     }
   }
 
-  def funcsReturningNumerics(expr: FuncsReturningNumerics): Number = {
+  def funcsReturningNumerics(expr: FuncsReturningNumerics, record: Any): Number = {
     expr match {
       case Abs(expr) =>
-        val v = simpleArithExpr(expr)
+        val v = simpleArithExpr(expr, record)
         JPQLFunctions.abs(v)
 
       case Length(expr) =>
-        scalarExpr(expr) match {
+        scalarExpr(expr, record) match {
           case x: CharSequence => x.length
           case x               => throw JPQLRuntimeException(x, "is not a string")
         }
 
       case Mod(expr, divisorExpr) =>
-        scalarExpr(expr) match {
+        scalarExpr(expr, record) match {
           case dividend: Number =>
-            scalarExpr(divisorExpr) match {
+            scalarExpr(divisorExpr, record) match {
               case divisor: Number => dividend.intValue % divisor.intValue
               case x               => throw JPQLRuntimeException(x, "divisor is not a number")
             }
@@ -883,13 +885,13 @@ class JPQLEvaluator(root: Statement, record: Record) {
         }
 
       case Locate(expr, searchExpr, startExpr) =>
-        scalarExpr(expr) match {
+        scalarExpr(expr, record) match {
           case base: CharSequence =>
-            scalarExpr(searchExpr) match {
+            scalarExpr(searchExpr, record) match {
               case searchStr: CharSequence =>
                 val start = startExpr match {
                   case Some(exprx) =>
-                    scalarExpr(exprx) match {
+                    scalarExpr(exprx, record) match {
                       case x: java.lang.Integer => x - 1
                       case x                    => throw JPQLRuntimeException(x, "start is not an integer")
                     }
@@ -902,29 +904,29 @@ class JPQLEvaluator(root: Statement, record: Record) {
         }
 
       case Size(expr) =>
-        collectionValuedPathExpr(expr)
+        collectionValuedPathExpr(expr, record)
         // todo return size of elements of the collection member TODO
         0
 
       case Sqrt(expr) =>
-        scalarExpr(expr) match {
+        scalarExpr(expr, record) match {
           case x: Number => math.sqrt(x.doubleValue)
           case x         => throw JPQLRuntimeException(x, "is not a number")
         }
 
       case Index(expr) =>
-        varAccessOrTypeConstant(expr)
+        varAccessOrTypeConstant(expr, record)
         // TODO
         0
 
       case Func(name, args) =>
         // try to call function: name(as: _*) TODO
-        val as = args map newValue
+        val as = args map { x => newValue(x, record) }
         0
     }
   }
 
-  def funcsReturningDatetime(expr: FuncsReturningDatetime): Temporal = {
+  def funcsReturningDatetime(expr: FuncsReturningDatetime, record: Any): Temporal = {
     expr match {
       case CURRENT_DATE      => JPQLFunctions.currentDate()
       case CURRENT_TIME      => JPQLFunctions.currentTime()
@@ -932,12 +934,12 @@ class JPQLEvaluator(root: Statement, record: Record) {
     }
   }
 
-  def funcsReturningStrings(expr: FuncsReturningStrings): String = {
+  def funcsReturningStrings(expr: FuncsReturningStrings, record: Any): String = {
     expr match {
       case Concat(expr, exprs: List[ScalarExpr]) =>
-        scalarExpr(expr) match {
+        scalarExpr(expr, record) match {
           case base: CharSequence =>
-            (exprs map scalarExpr).foldLeft(new StringBuilder(base.toString)) {
+            (exprs map { x => scalarExpr(x, record) }).foldLeft(new StringBuilder(base.toString)) {
               case (sb, x: CharSequence) => sb.append(x)
               case x                     => throw JPQLRuntimeException(x, "is not a string")
             }.toString
@@ -945,11 +947,11 @@ class JPQLEvaluator(root: Statement, record: Record) {
         }
 
       case Substring(expr, startExpr, lengthExpr: Option[ScalarExpr]) =>
-        scalarExpr(expr) match {
+        scalarExpr(expr, record) match {
           case base: CharSequence =>
-            scalarExpr(startExpr) match {
+            scalarExpr(startExpr, record) match {
               case start: Number =>
-                val end = (lengthExpr map scalarExpr) match {
+                val end = (lengthExpr map { x => scalarExpr(x, record) }) match {
                   case Some(length: Number) => start.intValue + length.intValue - 1
                   case _                    => base.length - 1
                 }
@@ -960,14 +962,14 @@ class JPQLEvaluator(root: Statement, record: Record) {
         }
 
       case Trim(trimSpec: Option[TrimSpec], trimChar: Option[TrimChar], from) =>
-        val base = stringPrimary(from) match {
+        val base = stringPrimary(from, record) match {
           case Left(x)  => x
           case Right(x) => x("") // TODO
         }
         val trimC = trimChar match {
           case Some(TrimChar_String(char)) => char
           case Some(TrimChar_InputParam(param)) =>
-            inputParam(param)
+            inputParam(param, record)
             "" // TODO
           case None => ""
         }
@@ -978,24 +980,24 @@ class JPQLEvaluator(root: Statement, record: Record) {
         }
 
       case Upper(expr) =>
-        scalarExpr(expr) match {
+        scalarExpr(expr, record) match {
           case base: CharSequence => base.toString.toUpperCase
           case x                  => throw JPQLRuntimeException(x, "is not a string")
         }
 
       case Lower(expr) =>
-        scalarExpr(expr) match {
+        scalarExpr(expr, record) match {
           case base: CharSequence => base.toString.toLowerCase
           case x                  => throw JPQLRuntimeException(x, "is not a string")
         }
     }
   }
 
-  def subquery(subquery: Subquery) = {
-    val select = simpleSelectClause(subquery.select)
-    val from = subqueryFromClause(subquery.from)
+  def subquery(subquery: Subquery, record: Any) = {
+    val select = simpleSelectClause(subquery.select, record)
+    val from = subqueryFromClause(subquery.from, record)
     val where = subquery.where match {
-      case Some(x) => whereClause(x)
+      case Some(x) => whereClause(x, record)
       case None    =>
     }
     subquery.groupby match {
@@ -1008,60 +1010,60 @@ class JPQLEvaluator(root: Statement, record: Record) {
     }
   }
 
-  def simpleSelectClause(select: SimpleSelectClause) = {
+  def simpleSelectClause(select: SimpleSelectClause, record: Any) = {
     val isDistinct = select.isDistinct
-    simpleSelectExpr(select.expr)
+    simpleSelectExpr(select.expr, record)
   }
 
-  def simpleSelectExpr(expr: SimpleSelectExpr) = {
+  def simpleSelectExpr(expr: SimpleSelectExpr, record: Any) = {
     expr match {
-      case SimpleSelectExpr_SingleValuedPathExpr(expr)    => singleValuedPathExpr(expr)
-      case SimpleSelectExpr_AggregateExpr(expr)           => aggregateExpr(expr)
-      case SimpleSelectExpr_VarAccessOrTypeConstant(expr) => varAccessOrTypeConstant(expr)
+      case SimpleSelectExpr_SingleValuedPathExpr(expr)    => singleValuedPathExpr(expr, record)
+      case SimpleSelectExpr_AggregateExpr(expr)           => aggregateExpr(expr, record)
+      case SimpleSelectExpr_VarAccessOrTypeConstant(expr) => varAccessOrTypeConstant(expr, record)
     }
   }
 
-  def subqueryFromClause(fromClause: SubqueryFromClause) = {
-    val from = subselectIdentVarDecl(fromClause.from)
+  def subqueryFromClause(fromClause: SubqueryFromClause, record: Any) = {
+    val from = subselectIdentVarDecl(fromClause.from, record)
     val froms = fromClause.froms map {
-      case Left(x)  => subselectIdentVarDecl(x)
-      case Right(x) => collectionMemberDecl(x)
+      case Left(x)  => subselectIdentVarDecl(x, record)
+      case Right(x) => collectionMemberDecl(x, record)
     }
   }
 
-  def subselectIdentVarDecl(ident: SubselectIdentVarDecl) = {
+  def subselectIdentVarDecl(ident: SubselectIdentVarDecl, record: Any) = {
     ident match {
       case SubselectIdentVarDecl_IdentVarDecl(expr) =>
-        identVarDecl(expr)
+        identVarDecl(expr, record)
       case SubselectIdentVarDecl_AssocPathExpr(expr, as) =>
-        assocPathExpr(expr)
+        assocPathExpr(expr, record)
         as.ident
       case SubselectIdentVarDecl_CollectionMemberDecl(expr) =>
-        collectionMemberDecl(expr)
+        collectionMemberDecl(expr, record)
     }
   }
 
-  def orderbyClause(orderbyClause: OrderbyClause) = {
-    val orderby = orderbyItem(orderbyClause.orderby)
-    orderbyClause.orderbys map orderbyItem
+  def orderbyClause(orderbyClause: OrderbyClause, record: Any) = {
+    val orderby = orderbyItem(orderbyClause.orderby, record)
+    orderbyClause.orderbys map { x => orderbyItem(x, record) }
   }
 
-  def orderbyItem(item: OrderbyItem) = {
+  def orderbyItem(item: OrderbyItem, record: Any) = {
     item.expr match {
-      case Left(x)  => simpleArithExpr(x)
-      case Right(x) => scalarExpr(x)
+      case Left(x)  => simpleArithExpr(x, record)
+      case Right(x) => scalarExpr(x, record)
     }
 
     item.isAsc
   }
 
-  def groupbyClause(groupbyClause: GroupbyClause) = {
-    val expr = scalarExpr(groupbyClause.expr)
-    val exprs = groupbyClause.exprs map scalarExpr
+  def groupbyClause(groupbyClause: GroupbyClause, record: Any) = {
+    val expr = scalarExpr(groupbyClause.expr, record)
+    val exprs = groupbyClause.exprs map { x => scalarExpr(x, record) }
   }
 
-  def havingClause(having: HavingClause) = {
-    condExpr(having.condExpr)
+  def havingClause(having: HavingClause, record: Any) = {
+    condExpr(having.condExpr, record)
   }
 
 }

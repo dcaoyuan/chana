@@ -16,7 +16,7 @@ object JPQLReducer {
 
   /**
    * @param entityId  id of reporting entity
-   * @param result    list of selected terms. It's deleted when null
+   * @param values    values that are needed to reduce. It's deleted when null
    */
   final case class SelectToReducer(entityId: String, values: Map[String, Any])
   case object AskResult
@@ -61,7 +61,7 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
   private var isResultUpdated = false
   private var prevUpdateTime: LocalDate = _
   private var today: LocalDate = _
-  private val evaluator = new JPQLReduceEvaluator(statement, log)
+  private val evaluator = new JPQLReduceEvaluator(log)
 
   override def preStart {
     prevUpdateTime = LocalDate.now()
@@ -92,13 +92,14 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
   }
 
   def reduceValues() = {
-    var reduced = List[Any]()
+    var reduced = List[List[Any]]()
     idToValues foreach {
       case (id, values) if values.nonEmpty =>
-        val xs = evaluator.visit(values)
-        reduced = xs ::: reduced
+        val xs = evaluator.visit(statement, values, idToValues)
+        reduced = xs :: reduced
       case _ =>
     }
+    log.debug("reduced: {}", reduced)
     reduced
   }
 }

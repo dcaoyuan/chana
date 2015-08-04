@@ -22,8 +22,8 @@ class JPQLEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterAl
     val parser = new JPQLParser(rootNode)
     val stmt = parser.visitRoot()
     info("\nParsed:\n" + stmt)
-    val e = new JPQLEvaluator(stmt, record)
-    val res = e.pseudoVisit()
+    val e = new JPQLEvaluator()
+    val res = e.pseudoVisit(stmt, record)
     info("\nResult:\n" + res)
     res
   }
