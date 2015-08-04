@@ -75,7 +75,7 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
     case SelectToReducer(entityId, res) =>
       isResultUpdated = true
       if (res eq null) {
-        idToValues -= entityId // deleted
+        idToValues -= entityId // remove
       } else {
         idToValues += (entityId -> res)
       }
@@ -94,7 +94,7 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
   def reduceValues() = {
     var reduced = List[List[Any]]()
     idToValues foreach {
-      case (id, values) if values.nonEmpty =>
+      case (id, values) =>
         val xs = evaluator.visit(statement, values, idToValues)
         reduced = xs :: reduced
       case _ =>

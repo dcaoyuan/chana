@@ -207,7 +207,7 @@ class JPQLEvaluator {
   protected var selectMapEntries = List[Any]()
   protected var selectNewInstances = List[Any]()
 
-  protected var selectScalars = List[Any]()
+  protected var selectedItems = List[Any]()
   protected var selectIsDistinct: Boolean = _
   protected var isInSelectItem: Boolean = _
   // TODO compose a minimal avro record, and should be serializable without schema
@@ -255,11 +255,11 @@ class JPQLEvaluator {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         fromClause(from, record)
         selectClause(select, record)
-        selectScalars = selectScalars.reverse
+        selectedItems = selectedItems.reverse
 
         val res = where match {
-          case None                              => selectScalars
-          case Some(x) if whereClause(x, record) => selectScalars
+          case None                              => selectedItems
+          case Some(x) if whereClause(x, record) => selectedItems
           case Some(x)                           => List()
         }
 
@@ -289,9 +289,9 @@ class JPQLEvaluator {
         selectClause(select, record)
 
         val res = where match {
-          case None                              => Map[String, Any]()
+          case None                              => values
           case Some(x) if whereClause(x, record) => values
-          case Some(x)                           => Map[String, Any]()
+          case Some(x)                           => null // an empty data may be used to COUNT
         }
 
         groupby match {
@@ -367,7 +367,7 @@ class JPQLEvaluator {
   def selectExpr(expr: SelectExpr, record: Any) = {
     expr match {
       case SelectExpr_AggregateExpr(expr)   => selectAggregates ::= aggregateExpr(expr, record)
-      case SelectExpr_ScalarExpr(expr)      => selectScalars ::= scalarExpr(expr, record)
+      case SelectExpr_ScalarExpr(expr)      => selectedItems ::= scalarExpr(expr, record)
       case SelectExpr_OBJECT(expr)          => selectObjects ::= varAccessOrTypeConstant(expr, record)
       case SelectExpr_ConstructorExpr(expr) => selectNewInstances ::= constructorExpr(expr, record)
       case SelectExpr_MapEntryExpr(expr)    => selectMapEntries ::= mapEntryExpr(expr, record)
