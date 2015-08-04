@@ -9,6 +9,8 @@ import akka.actor.Stash
 import akka.contrib.pattern.{ ClusterReceptionistExtension, ClusterSingletonManager, ClusterSingletonProxy }
 import chana.jpql.nodes.Statement
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
 import scala.concurrent.duration._
 import scala.util.Sorting
 
@@ -18,8 +20,11 @@ object DataSetOrdering extends Ordering[(String, DataSet)] {
     var ys = y._2.orderby
     if (xs.nonEmpty) {
       (xs.head, ys.head) match {
-        case (a: Number, b: Number) => a.doubleValue.compareTo(b.doubleValue)
-        case (a: String, b: String) => a.compareToIgnoreCase(b)
+        case (a: Number, b: Number)               => a.doubleValue.compareTo(b.doubleValue)
+        case (a: String, b: String)               => a.compareToIgnoreCase(b)
+        case (a: LocalTime, b: LocalTime)         => if (a.isBefore(b)) -1 else if (a.isAfter(b)) 1 else 0
+        case (a: LocalDate, b: LocalDate)         => if (a.isBefore(b)) -1 else if (a.isAfter(b)) 1 else 0
+        case (a: LocalDateTime, b: LocalDateTime) => if (a.isBefore(b)) -1 else if (a.isAfter(b)) 1 else 0
       }
     } else 0
   }
@@ -105,7 +110,7 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
     case _ =>
   }
 
-  def reduceValues() = {
+  def reduceValues() /*: Array[List[_]]*/ = {
     val shouldSort = idToDataSet.headOption.fold(false) { _._2.orderby.nonEmpty }
     val dataset = idToDataSet.toArray
     if (shouldSort) {
@@ -114,15 +119,15 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
     }
 
     evaluator.reset(idToDataSet)
-    var reduced = List[List[Any]]()
-    dataset foreach {
-      case (id, dataset) =>
-        val xs = evaluator.visit(statement, dataset.values)
-        reduced = xs :: reduced
-      case _ =>
+    val len = dataset.length
+    val reduced = Array.ofDim[List[Any]](len)
+    var i = 0
+    while (i < len) {
+      val entry = dataset(i)
+      reduced(i) = evaluator.visit(statement, entry._2.values)
+      i += 1
     }
-    log.debug("reduced: {}", reduced)
-    reduced.reverse
+    log.debug("reduced: {}", reduced.mkString("Array(", ",", ")"))
+    reduced.mkString("Array(", ",", ")")
   }
-
 }

@@ -293,11 +293,11 @@ class JPQLEvaluator {
         val items = where match {
           case None                              => values
           case Some(x) if whereClause(x, record) => values
-          case Some(x)                           => null // an empty data may be used to COUNT
+          case Some(x)                           => null
         }
 
         if (items eq null) {
-          null
+          null // an empty data may be used to COUNT
         } else {
           val groupbys = groupby match {
             case Some(x) => groupbyClause(x, record)
@@ -1062,9 +1062,12 @@ class JPQLEvaluator {
     }
     // TODO item.isAsc
     orderingItem match {
-      case x: String => x // TODO an agerithm for reverting order
-      case x: Number => if (item.isAsc) x else JPQLFunctions.neg(x)
-      case x         => throw JPQLRuntimeException(x, "can not be ordering")
+      case x: String        => x // TODO an agerithm for reverting order
+      case x: Number        => if (item.isAsc) x else JPQLFunctions.neg(x)
+      case x: LocalTime     => // TODO
+      case x: LocalDate     => (if (item.isAsc) 1 else -1) * x.getYear * 12 * 31 + x.getMonthValue * 12 + x.getDayOfMonth
+      case x: LocalDateTime => // TODO
+      case x                => throw JPQLRuntimeException(x, "can not be ordering")
     }
   }
 
