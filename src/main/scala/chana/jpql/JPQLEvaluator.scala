@@ -16,7 +16,7 @@ case class JPQLRuntimeException(value: Any, message: String)
       case _         => value
     }) + " " + message + ":" + value)
 
-final case class DataSet(values: Map[String, Any], groupby: List[Any], orderby: List[Any])
+final case class DataSet(values: Map[String, Any], groupbys: List[Any])
 
 object JPQLFunctions {
 
@@ -198,6 +198,8 @@ object JPQLEvaluator {
     key.toString
   }
 
+  val timeZone = ZoneId.systemDefault
+
 }
 class JPQLEvaluator {
 
@@ -212,9 +214,9 @@ class JPQLEvaluator {
 
   protected var selectedItems = List[Any]()
   protected var selectIsDistinct: Boolean = _
-  protected var isInSelectItem: Boolean = _
+  protected var isToCollect: Boolean = _
   // TODO compose a minimal avro record, and should be serializable without schema
-  protected var values = Map[String, Any]()
+  protected var dataset = Map[String, Any]()
 
   final def entityOf(as: String): Option[String] = asToEntity.get(as)
 
@@ -225,7 +227,7 @@ class JPQLEvaluator {
         val EntityName = x.getSchema.getName.toLowerCase
         asToEntity.get(qual) match {
           case Some(EntityName) =>
-            var key = if (isInSelectItem) new StringBuilder(qual) else null
+            var key = if (isToCollect) new StringBuilder(qual) else null
             var paths = attrPaths
             var curr: Any = x
             while (paths.nonEmpty) {
@@ -235,14 +237,14 @@ class JPQLEvaluator {
                   val path = paths.head
                   paths = paths.tail
                   curr = x.get(path)
-                  if (isInSelectItem) {
+                  if (isToCollect) {
                     key.append(".").append(path)
                   }
                 case _ => throw JPQLRuntimeException(curr, "is not a record when fetch its attribute: " + paths)
               }
             }
-            if (isInSelectItem) {
-              values += (key.toString -> curr)
+            if (isToCollect) {
+              dataset += (key.toString -> curr)
             }
             curr
           case _ => throw JPQLRuntimeException(qual, "is not an AS alias of entity: " + EntityName)
@@ -291,14 +293,15 @@ class JPQLEvaluator {
         fromClause(from, record)
         selectClause(select, record)
 
+        // Aggregate function can not be applied in WhereClause, so we can decide here
         val items = where match {
-          case None                              => values
-          case Some(x) if whereClause(x, record) => values
+          case None                              => dataset
+          case Some(x) if whereClause(x, record) => dataset
           case Some(x)                           => null
         }
 
         if (items eq null) {
-          null // an empty data may be used to COUNT
+          null // an empty data may be used to COUNT, but null won't
         } else {
           val groupbys = groupby match {
             case Some(x) => groupbyClause(x, record)
@@ -310,12 +313,12 @@ class JPQLEvaluator {
             case None    =>
           }
 
-          val orderbys = orderby match {
+          orderby match {
             case Some(x) => orderbyClause(x, record)
-            case None    => List()
+            case None    =>
           }
 
-          DataSet(items, groupbys, orderbys)
+          DataSet(items, groupbys)
         }
       case UpdateStatement(update, set, where) => null // NOT YET
       case DeleteStatement(delete, where)      => null // NOT YET
@@ -360,16 +363,16 @@ class JPQLEvaluator {
   }
 
   def selectClause(select: SelectClause, record: Any): Unit = {
+    isToCollect = true
     selectIsDistinct = select.isDistinct
     selectItem(select.item, record)
     select.items foreach { x => selectItem(x, record) }
+    isToCollect = false
   }
 
   def selectItem(item: SelectItem, record: Any) = {
-    isInSelectItem = true
     val item1 = selectExpr(item.expr, record)
     item.as foreach { x => asToItem += (x.ident -> item1) }
-    isInSelectItem = false
     item1
   }
 
@@ -1053,7 +1056,10 @@ class JPQLEvaluator {
   }
 
   def orderbyClause(orderbyClause: OrderbyClause, record: Any): List[Any] = {
-    orderbyItem(orderbyClause.orderby, record) :: (orderbyClause.orderbys map { x => orderbyItem(x, record) })
+    isToCollect = true
+    val items = orderbyItem(orderbyClause.orderby, record) :: (orderbyClause.orderbys map { x => orderbyItem(x, record) })
+    isToCollect = false
+    items
   }
 
   def orderbyItem(item: OrderbyItem, record: Any): Any = {
@@ -1066,8 +1072,8 @@ class JPQLEvaluator {
       case x: Number        => if (item.isAsc) x else JPQLFunctions.neg(x)
       case x: LocalTime     => (if (item.isAsc) 1 else -1) * (x.toNanoOfDay)
       case x: LocalDate     => (if (item.isAsc) 1 else -1) * (x.getYear * 12 * 31 + x.getMonthValue * 12 + x.getDayOfMonth)
-      case x: LocalDateTime => (if (item.isAsc) 1 else -1) * (x.atZone(ZoneId.systemDefault).toInstant.toEpochMilli)
-      case x                => throw JPQLRuntimeException(x, "can not be ordering")
+      case x: LocalDateTime => (if (item.isAsc) 1 else -1) * (x.atZone(JPQLEvaluator.timeZone).toInstant.toEpochMilli)
+      case x                => throw JPQLRuntimeException(x, "can not order")
     }
   }
 
@@ -1075,8 +1081,11 @@ class JPQLEvaluator {
     scalarExpr(groupbyClause.expr, record) :: (groupbyClause.exprs map { x => scalarExpr(x, record) })
   }
 
-  def havingClause(having: HavingClause, record: Any) = {
-    condExpr(having.condExpr, record)
+  def havingClause(having: HavingClause, record: Any): Boolean = {
+    isToCollect = true
+    val cond = condExpr(having.condExpr, record)
+    isToCollect = false
+    cond
   }
 
 }

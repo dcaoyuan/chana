@@ -12,10 +12,10 @@ import java.time.LocalDate
 import scala.concurrent.duration._
 import scala.util.Sorting
 
-object DataSetOrdering extends Ordering[(String, DataSet)] {
-  def compare(x: (String, DataSet), y: (String, DataSet)) = {
-    var xs = x._2.orderby
-    var ys = y._2.orderby
+object ResultItemOrdering extends Ordering[WorkingSet] {
+  def compare(x: WorkingSet, y: WorkingSet) = {
+    var xs = x.orderbys
+    var ys = y.orderbys
 
     var hint = 0
     while (hint == 0 && xs.nonEmpty) {
@@ -36,13 +36,13 @@ object DataSetOrdering extends Ordering[(String, DataSet)] {
 object JPQLReducer {
   def props(jpqlKey: String, stmt: Statement): Props = Props(classOf[JPQLReducer], jpqlKey, stmt)
 
+  case object AskResult
+  case object AskReducedResult
   /**
    * @param entityId  id of reporting entity
    * @param values    values that are needed to reduce. It's deleted when null
    */
   final case class SelectToReducer(entityId: String, dataset: DataSet)
-  case object AskResult
-  case object AskReducedResult
 
   val role = Some("jpql")
 
@@ -104,33 +104,62 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
 
     case AskResult =>
       val commander = sender()
-      commander ! idToDataSet.toString
+      commander ! idToDataSet
 
     case AskReducedResult =>
       val commander = sender()
-      commander ! reduceValues().mkString("Array(", ",", ")")
+      commander ! reduce().mkString("Array(", ",", ")")
 
     case _ =>
   }
 
-  def reduceValues(): Array[List[Any]] = {
-    val shouldSort = idToDataSet.headOption.fold(false) { _._2.orderby.nonEmpty }
-    val dataset = idToDataSet.toArray
-    if (shouldSort) {
-      Sorting.quickSort(dataset)(DataSetOrdering)
-      log.debug("sorted by {} etc", idToDataSet.head._2.orderby)
-    }
+  private def reduce(): Array[List[Any]] = {
+    if (idToDataSet.isEmpty) {
+      Array()
+    } else {
+      val datasets = idToDataSet.toArray
 
-    evaluator.reset(idToDataSet)
-    val n = dataset.length
-    val reduced = Array.ofDim[List[Any]](n)
+      val isGroupby = idToDataSet.headOption.fold(false) { _._2.groupbys.nonEmpty }
+      val reduced = if (isGroupby) {
+        val grouped = datasets.groupBy {
+          case (id, dataset) => dataset.groupbys
+        } map {
+          case (groupKey, subDatasets) => reduceDataSet(subDatasets).head
+        }
+        grouped.toArray
+      } else {
+        reduceDataSet(datasets)
+      }
+
+      val isOrderby = reduced.headOption.fold(false) { _.orderbys.nonEmpty }
+      if (isOrderby) {
+        Sorting.quickSort(reduced)(ResultItemOrdering)
+        log.debug("sorted by {} etc", reduced.head.orderbys)
+      }
+
+      val n = reduced.length
+      val result = Array.ofDim[List[Any]](n)
+      var i = 0
+      while (i < n) {
+        result(i) = reduced(i).selectedItems
+        i += 1
+      }
+      result
+    }
+  }
+
+  def reduceDataSet(datasets: Array[(String, DataSet)]): Array[WorkingSet] = {
+    evaluator.reset(datasets)
+    val n = datasets.length
+    val reduced = Array.ofDim[WorkingSet](n)
     var i = 0
     while (i < n) {
-      val entry = dataset(i)
+      val entry = datasets(i)
       reduced(i) = evaluator.visit(statement, entry._2.values)
       i += 1
     }
     log.debug("reduced: {}", reduced.mkString("Array(", ",", ")"))
+
     reduced
   }
 }

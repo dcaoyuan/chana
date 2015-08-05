@@ -3,17 +3,47 @@ package chana.jpql
 import akka.event.LoggingAdapter
 import chana.jpql.nodes._
 
+final case class WorkingSet(selectedItems: List[Any], groupbys: List[Any], orderbys: List[Any])
+
 class JPQLReduceEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
 
-  private var idToDataSet = Map[String, DataSet]()
+  private var idToDataSet = Array[(String, DataSet)]()
   private var aggrCaches = Map[AggregateExpr, Number]()
 
-  def reset(_idToDataSet: Map[String, DataSet]) {
+  def reset(_idToDataSet: Array[(String, DataSet)]) {
     idToDataSet = _idToDataSet
     aggrCaches = Map()
   }
 
-  def visit(root: Statement, record: Map[String, Any]) = {
+  def visit(root: Statement, record: Map[String, Any]): WorkingSet = {
+    selectedItems = List()
+
+    root match {
+      case SelectStatement(select, from, where, groupby, having, orderby) =>
+        selectClause(select, record)
+
+        val groupbys = groupby match {
+          case Some(x) => groupbyClause(x, record)
+          case None    => List()
+        }
+
+        val havingCond = having match {
+          case Some(x) => havingClause(x, record)
+          case None    =>
+        }
+
+        val orderbys = orderby match {
+          case Some(x) => orderbyClause(x, record)
+          case None    => List()
+        }
+
+        WorkingSet(selectedItems.reverse, groupbys, orderbys)
+      case UpdateStatement(update, set, where) => null // NOT YET
+      case DeleteStatement(delete, where)      => null // NOT YET
+    }
+  }
+
+  def visitOld(root: Statement, record: Map[String, Any]) = {
     selectedItems = List()
 
     root match {
@@ -53,55 +83,68 @@ class JPQLReduceEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
     aggrCaches.get(expr) match {
       case Some(x) => x
       case None =>
+        // TODO isDistinct
         val value = expr match {
           case AggregateExpr_AVG(isDistinct, expr) =>
             var sum = 0.0
             var count = 0
-            for { (id, dataset) <- idToDataSet } {
+            var i = 0
+            val n = idToDataSet.length
+            while (i < n) {
+              val dataset = idToDataSet(i)._2
               count += 1
               scalarExpr(expr, dataset.values) match {
                 case x: Number => sum += x.doubleValue
                 case x         => throw new JPQLRuntimeException(x, "is not a number")
               }
+              i += 1
             }
             if (count != 0) sum / count else 0
 
           case AggregateExpr_MAX(isDistinct, expr) =>
             var max = 0.0
-            for { (id, dataset) <- idToDataSet } {
+            var i = 0
+            val n = idToDataSet.length
+            while (i < n) {
+              val dataset = idToDataSet(i)._2
               scalarExpr(expr, dataset.values) match {
                 case x: Number => max = math.max(max, x.doubleValue)
                 case x         => throw new JPQLRuntimeException(x, "is not a number")
               }
+              i += 1
             }
             max
 
           case AggregateExpr_MIN(isDistinct, expr) =>
             var min = 0.0
-            for { (id, dataset) <- idToDataSet } {
+            var i = 0
+            val n = idToDataSet.length
+            while (i < n) {
+              val dataset = idToDataSet(i)._2
               scalarExpr(expr, dataset.values) match {
                 case x: Number => min = math.min(min, x.doubleValue)
                 case x         => throw new JPQLRuntimeException(x, "is not a number")
               }
+              i += 1
             }
             min
 
           case AggregateExpr_SUM(isDistinct, expr) =>
             var sum = 0.0
-            for { (id, dataset) <- idToDataSet } {
+            var i = 0
+            val n = idToDataSet.length
+            while (i < n) {
+              val dataset = idToDataSet(i)._2
               scalarExpr(expr, dataset.values) match {
                 case x: Number => sum += x.doubleValue
                 case x         => throw new JPQLRuntimeException(x, "is not a number")
               }
+              i += 1
             }
             sum
 
           case AggregateExpr_COUNT(isDistinct, expr) =>
-            var count = 0
-            for { _ <- idToDataSet } {
-              count += 1
-            }
-            count
+            idToDataSet.length
         }
         aggrCaches += (expr -> value)
 
