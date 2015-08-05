@@ -39,11 +39,6 @@ object JPQLReducer {
 
   case object AskResult
   case object AskReducedResult
-  /**
-   * @param entityId  id of reporting entity
-   * @param values    values that are needed to reduce. It's deleted when null
-   */
-  final case class SelectToReducer(entityId: String, dataset: DataSet)
 
   val role = Some("jpql")
 
@@ -81,7 +76,6 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
   ClusterReceptionistExtension(context.system).registerService(self)
 
   private var idToDataSet = Map[String, DataSet]()
-  private var isResultUpdated = false
   private var prevUpdateTime: LocalDate = _
   private var today: LocalDate = _
   private val evaluator = new JPQLReduceEvaluator(log)
@@ -95,13 +89,10 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
   }
 
   def receive: Receive = {
-    case SelectToReducer(entityId, dataset) =>
-      isResultUpdated = true
-      if (dataset eq null) {
-        idToDataSet -= entityId // remove
-      } else {
-        idToDataSet += (entityId -> dataset)
-      }
+    case x: VoidDataSet =>
+      idToDataSet -= x.id // remove
+    case x: DataSet =>
+      idToDataSet += (x.id -> x)
 
     case AskResult =>
       val commander = sender()
@@ -118,12 +109,10 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
     if (idToDataSet.isEmpty) {
       Array()
     } else {
-      val datasets = idToDataSet.toArray
-
       val isGroupby = idToDataSet.headOption.fold(false) { _._2.groupbys.nonEmpty }
       val reduced = if (isGroupby) {
         val grouped = new ArrayBuffer[WorkingSet]()
-        datasets.groupBy {
+        idToDataSet.groupBy {
           case (id, dataset) => dataset.groupbys
         } foreach {
           case (groupKey, subDatasets) => reduceDataSet(subDatasets).find { _ ne null } foreach { x =>
@@ -132,7 +121,7 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
         }
         grouped.toArray
       } else {
-        reduceDataSet(datasets)
+        reduceDataSet(idToDataSet)
       }
 
       val isOrderby = reduced.headOption.fold(false) { _.orderbys.nonEmpty }
@@ -152,13 +141,14 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
     }
   }
 
-  def reduceDataSet(datasets: Array[(String, DataSet)]): Array[WorkingSet] = {
+  def reduceDataSet(datasets: Map[String, DataSet]): Array[WorkingSet] = {
     evaluator.reset(datasets)
-    val n = datasets.length
+    val n = datasets.size
     val reduced = Array.ofDim[WorkingSet](n)
     var i = 0
-    while (i < n) {
-      val entry = datasets(i)
+    val itr = datasets.iterator
+    while (itr.hasNext) {
+      val entry = itr.next
       reduced(i) = evaluator.visit(statement, entry._2.values)
       i += 1
     }

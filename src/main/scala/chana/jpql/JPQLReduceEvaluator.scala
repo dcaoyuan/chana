@@ -7,10 +7,10 @@ final case class WorkingSet(selectedItems: List[Any], orderbys: List[Any])
 
 class JPQLReduceEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
 
-  private var idToDataSet = Array[(String, DataSet)]()
+  private var idToDataSet = Map[String, DataSet]()
   private var aggrCaches = Map[AggregateExpr, Number]()
 
-  def reset(_idToDataSet: Array[(String, DataSet)]) {
+  def reset(_idToDataSet: Map[String, DataSet]) {
     idToDataSet = _idToDataSet
     aggrCaches = Map()
   }
@@ -56,63 +56,55 @@ class JPQLReduceEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
           case AggregateExpr_AVG(isDistinct, expr) =>
             var sum = 0.0
             var count = 0
-            var i = 0
-            val n = idToDataSet.length
-            while (i < n) {
-              val dataset = idToDataSet(i)._2
+            val itr = idToDataSet.iterator
+            while (itr.hasNext) {
+              val dataset = itr.next._2
               count += 1
               scalarExpr(expr, dataset.values) match {
                 case x: Number => sum += x.doubleValue
                 case x         => throw new JPQLRuntimeException(x, "is not a number")
               }
-              i += 1
             }
             if (count != 0) sum / count else 0
 
           case AggregateExpr_MAX(isDistinct, expr) =>
             var max = 0.0
-            var i = 0
-            val n = idToDataSet.length
-            while (i < n) {
-              val dataset = idToDataSet(i)._2
+            val itr = idToDataSet.iterator
+            while (itr.hasNext) {
+              val dataset = itr.next._2
               scalarExpr(expr, dataset.values) match {
                 case x: Number => max = math.max(max, x.doubleValue)
                 case x         => throw new JPQLRuntimeException(x, "is not a number")
               }
-              i += 1
             }
             max
 
           case AggregateExpr_MIN(isDistinct, expr) =>
             var min = 0.0
-            var i = 0
-            val n = idToDataSet.length
-            while (i < n) {
-              val dataset = idToDataSet(i)._2
+            val itr = idToDataSet.iterator
+            while (itr.hasNext) {
+              val dataset = itr.next._2
               scalarExpr(expr, dataset.values) match {
                 case x: Number => min = math.min(min, x.doubleValue)
                 case x         => throw new JPQLRuntimeException(x, "is not a number")
               }
-              i += 1
             }
             min
 
           case AggregateExpr_SUM(isDistinct, expr) =>
             var sum = 0.0
-            var i = 0
-            val n = idToDataSet.length
-            while (i < n) {
-              val dataset = idToDataSet(i)._2
+            val itr = idToDataSet.iterator
+            while (itr.hasNext) {
+              val dataset = itr.next._2
               scalarExpr(expr, dataset.values) match {
                 case x: Number => sum += x.doubleValue
                 case x         => throw new JPQLRuntimeException(x, "is not a number")
               }
-              i += 1
             }
             sum
 
           case AggregateExpr_COUNT(isDistinct, expr) =>
-            idToDataSet.length
+            idToDataSet.size
         }
         aggrCaches += (expr -> value)
 

@@ -36,7 +36,7 @@ trait JPQLReporting extends Entity {
 
   def eval(stmt: Statement, record: Record) = {
     val e = new JPQLEvaluator()
-    e.visit(stmt, record)
+    e.collect(id, stmt, record)
   }
 
   def reportAll(force: Boolean) {
@@ -57,7 +57,7 @@ trait JPQLReporting extends Entity {
   def report(jpqlKey: String, jpql: Statement, interval: FiniteDuration, record: Record) {
     try {
       val dataset = if (isDeleted) null else eval(jpql, record)
-      JPQLReducer.reducerProxy(context.system, jpqlKey) ! JPQLReducer.SelectToReducer(id, dataset)
+      JPQLReducer.reducerProxy(context.system, jpqlKey) ! dataset
       context.system.scheduler.scheduleOnce(interval, self, ReportingTick(jpqlKey))
     } catch {
       case ex: Throwable => log.error(ex, ex.getMessage)

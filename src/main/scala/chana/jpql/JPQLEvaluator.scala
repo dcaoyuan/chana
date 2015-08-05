@@ -8,6 +8,12 @@ import java.time.ZoneId
 import java.time.temporal.Temporal
 import org.apache.avro.generic.GenericData.Record
 
+sealed trait DataSetWithId {
+  def id: String
+}
+final case class DataSet(id: String, values: Map[String, Any], groupbys: List[Any]) extends DataSetWithId
+final case class VoidDataSet(id: String) extends DataSetWithId // used to remove
+
 case class JPQLRuntimeException(value: Any, message: String)
   extends RuntimeException(
     (value match {
@@ -15,8 +21,6 @@ case class JPQLRuntimeException(value: Any, message: String)
       case x: AnyRef => x.getClass.getName
       case _         => value
     }) + " " + message + ":" + value)
-
-final case class DataSet(values: Map[String, Any], groupbys: List[Any])
 
 object JPQLFunctions {
 
@@ -199,8 +203,8 @@ object JPQLEvaluator {
   }
 
   val timeZone = ZoneId.systemDefault
-
 }
+
 class JPQLEvaluator {
 
   private var asToEntity = Map[String, String]()
@@ -255,7 +259,10 @@ class JPQLEvaluator {
     }
   }
 
-  def pseudoVisit(root: Statement, record: Any): List[Any] = {
+  /**
+   * For test
+   */
+  def visit(root: Statement, record: Any): List[Any] = {
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         fromClause(from, record)
@@ -279,7 +286,10 @@ class JPQLEvaluator {
     }
   }
 
-  def visit(root: Statement, record: Any): DataSet = {
+  /**
+   * Major entrence
+   */
+  def collect(id: String, root: Statement, record: Any): DataSetWithId = {
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         fromClause(from, record)
@@ -295,9 +305,9 @@ class JPQLEvaluator {
           having foreach { x => havingClause(x, record) }
           orderby foreach { x => orderbyClause(x, record) }
 
-          DataSet(dataset, groupbys)
+          DataSet(id, dataset, groupbys)
         } else {
-          null // an empty data may be used to COUNT, but null won't
+          VoidDataSet(id) // an empty data may be used to COUNT, but null won't
         }
       case UpdateStatement(update, set, where) => null // NOT YET
       case DeleteStatement(delete, where)      => null // NOT YET
