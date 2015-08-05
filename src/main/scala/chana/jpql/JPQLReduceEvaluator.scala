@@ -3,7 +3,7 @@ package chana.jpql
 import akka.event.LoggingAdapter
 import chana.jpql.nodes._
 
-final case class WorkingSet(selectedItems: List[Any], groupbys: List[Any], orderbys: List[Any])
+final case class WorkingSet(selectedItems: List[Any], orderbys: List[Any])
 
 class JPQLReduceEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
 
@@ -20,52 +20,20 @@ class JPQLReduceEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
 
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
-        selectClause(select, record)
 
-        val groupbys = groupby match {
-          case Some(x) => groupbyClause(x, record)
-          case None    => List()
+        val havingCond = having.fold(true) { x => havingClause(x, record) }
+        if (havingCond) {
+          selectClause(select, record)
+
+          val orderbys = orderby.fold(List[Any]()) { x => orderbyClause(x, record) }
+
+          WorkingSet(selectedItems.reverse, orderbys)
+        } else {
+          null
         }
 
-        val havingCond = having match {
-          case Some(x) => havingClause(x, record)
-          case None    =>
-        }
-
-        val orderbys = orderby match {
-          case Some(x) => orderbyClause(x, record)
-          case None    => List()
-        }
-
-        WorkingSet(selectedItems.reverse, groupbys, orderbys)
       case UpdateStatement(update, set, where) => null // NOT YET
       case DeleteStatement(delete, where)      => null // NOT YET
-    }
-  }
-
-  def visitOld(root: Statement, record: Map[String, Any]) = {
-    selectedItems = List()
-
-    root match {
-      case SelectStatement(select, from, where, groupby, having, orderby) =>
-        selectClause(select, record)
-        selectedItems = selectedItems.reverse
-
-        groupby match {
-          case Some(x) => groupbyClause(x, record)
-          case None    =>
-        }
-        having match {
-          case Some(x) => havingClause(x, record)
-          case None    =>
-        }
-        orderby match {
-          case Some(x) => orderbyClause(x, record)
-          case None    =>
-        }
-
-        selectedItems
-      case _ => List()
     }
   }
 

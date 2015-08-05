@@ -259,29 +259,21 @@ class JPQLEvaluator {
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         fromClause(from, record)
-        selectClause(select, record)
-        selectedItems = selectedItems.reverse
 
-        val res = where match {
-          case None                              => selectedItems
-          case Some(x) if whereClause(x, record) => selectedItems
-          case Some(x)                           => List()
-        }
+        val whereCond = where.fold(true) { x => whereClause(x, record) }
+        if (whereCond) {
+          selectClause(select, record)
 
-        groupby match {
-          case Some(x) => groupbyClause(x, record)
-          case None    =>
-        }
-        having match {
-          case Some(x) => havingClause(x, record)
-          case None    =>
-        }
-        orderby match {
-          case Some(x) => orderbyClause(x, record)
-          case None    =>
+          groupby.fold(List[Any]()) { x => groupbyClause(x, record) }
+
+          having.fold(true) { x => havingClause(x, record) }
+          orderby.fold(List[Any]()) { x => orderbyClause(x, record) }
+
+          selectedItems.reverse
+        } else {
+          List()
         }
 
-        res
       case UpdateStatement(update, set, where) => List() // NOT YET
       case DeleteStatement(delete, where)      => List() // NOT YET
     }
@@ -291,34 +283,21 @@ class JPQLEvaluator {
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         fromClause(from, record)
-        selectClause(select, record)
 
         // Aggregate function can not be applied in WhereClause, so we can decide here
-        val items = where match {
-          case None                              => dataset
-          case Some(x) if whereClause(x, record) => dataset
-          case Some(x)                           => null
-        }
+        val whereCond = where.fold(true) { x => whereClause(x, record) }
+        if (whereCond) {
+          selectClause(select, record)
 
-        if (items eq null) {
-          null // an empty data may be used to COUNT, but null won't
+          val groupbys = groupby.fold(List[Any]()) { x => groupbyClause(x, record) }
+
+          // visit having and orderby to collect necessary dataset
+          having foreach { x => havingClause(x, record) }
+          orderby foreach { x => orderbyClause(x, record) }
+
+          DataSet(dataset, groupbys)
         } else {
-          val groupbys = groupby match {
-            case Some(x) => groupbyClause(x, record)
-            case None    => List()
-          }
-
-          having match {
-            case Some(x) => havingClause(x, record)
-            case None    =>
-          }
-
-          orderby match {
-            case Some(x) => orderbyClause(x, record)
-            case None    =>
-          }
-
-          DataSet(items, groupbys)
+          null // an empty data may be used to COUNT, but null won't
         }
       case UpdateStatement(update, set, where) => null // NOT YET
       case DeleteStatement(delete, where)      => null // NOT YET
@@ -370,7 +349,7 @@ class JPQLEvaluator {
     isToCollect = false
   }
 
-  def selectItem(item: SelectItem, record: Any) = {
+  def selectItem(item: SelectItem, record: Any): Any = {
     val item1 = selectExpr(item.expr, record)
     item.as foreach { x => asToItem += (x.ident -> item1) }
     item1
@@ -1010,7 +989,7 @@ class JPQLEvaluator {
     val from = subqueryFromClause(subquery.from, record)
     val where = subquery.where match {
       case Some(x) => whereClause(x, record)
-      case None    =>
+      case None    => true
     }
     subquery.groupby match {
       case Some(x: GroupbyClause) =>

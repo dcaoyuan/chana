@@ -9,6 +9,7 @@ import akka.actor.Stash
 import akka.contrib.pattern.{ ClusterReceptionistExtension, ClusterSingletonManager, ClusterSingletonProxy }
 import chana.jpql.nodes.Statement
 import java.time.LocalDate
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration._
 import scala.util.Sorting
 
@@ -121,10 +122,13 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
 
       val isGroupby = idToDataSet.headOption.fold(false) { _._2.groupbys.nonEmpty }
       val reduced = if (isGroupby) {
-        val grouped = datasets.groupBy {
+        val grouped = new ArrayBuffer[WorkingSet]()
+        datasets.groupBy {
           case (id, dataset) => dataset.groupbys
-        } map {
-          case (groupKey, subDatasets) => reduceDataSet(subDatasets).head
+        } foreach {
+          case (groupKey, subDatasets) => reduceDataSet(subDatasets).find { _ ne null } foreach { x =>
+            grouped += x
+          }
         }
         grouped.toArray
       } else {
