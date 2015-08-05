@@ -122,10 +122,10 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
     }
 
     evaluator.reset(idToDataSet)
-    val len = dataset.length
-    val reduced = Array.ofDim[List[Any]](len)
+    val n = dataset.length
+    val reduced = Array.ofDim[List[Any]](n)
     var i = 0
-    while (i < len) {
+    while (i < n) {
       val entry = dataset(i)
       reduced(i) = evaluator.visit(statement, entry._2.values)
       i += 1

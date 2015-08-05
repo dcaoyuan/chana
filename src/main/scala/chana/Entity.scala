@@ -60,7 +60,12 @@ class AEntity(val entityName: String, val schema: Schema, val builder: RecordBui
     case _ =>
   }
 
-  override def receiveCommand: Receive = accessBehavior orElse persistBehavior orElse JPQLReportingBehavior
+  override def receiveCommand = accessBehavior orElse persistBehavior orElse JPQLReportingBehavior
+
+  override def onUpdated(fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record) {
+    super[Scriptable].onUpdated(fieldsBefore, recordAfter)
+    super[JPQLReporting].onUpdated(fieldsBefore, recordAfter)
+  }
 }
 
 trait Entity extends Actor with Stash with PersistentActor {
@@ -128,11 +133,13 @@ trait Entity extends Actor with Stash with PersistentActor {
   }
 
   override def receiveRecover: Receive = {
-    case SnapshotOffer(metadata, offeredSnapshot: Array[Byte]) => record = avroMarshaler.unmarshal(offeredSnapshot).asInstanceOf[Record]
-    case x: SnapshotOffer => log.warning("Recovery received unknown: {}", x)
-    case event: Event => doUpdateRecord(event)
+    case SnapshotOffer(metadata, offeredSnapshot: Array[Byte]) =>
+      record = avroMarshaler.unmarshal(offeredSnapshot).asInstanceOf[Record]
+    case x: SnapshotOffer       => log.warning("Recovery received unknown: {}", x)
+    case x: UpdatedFields       => doUpdateRecord(x)
     case RecoveryFailure(cause) => log.error("Recovery failure: {}", cause)
-    case RecoveryCompleted => log.debug("Recovery completed: {}", id)
+    case RecoveryCompleted      => log.debug("Recovery completed: {}", id)
+    case e: Event               =>
   }
 
   override def receiveCommand: Receive = accessBehavior orElse persistBehavior
@@ -461,8 +468,9 @@ trait Entity extends Actor with Stash with PersistentActor {
     }
   }
 
-  private def commitUpdatedEvent(fieldsBefore: Array[(Schema.Field, Any)], commander: ActorRef)(event: Event): Unit = {
+  private def commitUpdatedEvent(fieldsBefore: Array[(Schema.Field, Any)], commander: ActorRef)(event: UpdatedFields): Unit = {
     doUpdateRecord(event)
+
     if (persistCount >= persistParams) {
       if (isPersistent) {
         saveSnapshot(avroMarshaler.marshal(record))
@@ -478,11 +486,8 @@ trait Entity extends Actor with Stash with PersistentActor {
     onUpdated(fieldsBefore, record)
   }
 
-  private def doUpdateRecord(event: Event): Unit = {
-    event match {
-      case UpdatedFields(updatedFields) =>
-        updatedFields foreach { case (pos, value) => record.put(pos, value) }
-    }
+  private def doUpdateRecord(event: UpdatedFields): Unit = {
+    event.updatedFields foreach { case (pos, value) => record.put(pos, value) }
   }
 
   /** for test only */

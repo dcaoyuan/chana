@@ -2,6 +2,7 @@ package chana.jpql
 
 import chana.Entity
 import chana.jpql.nodes.Statement
+import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData.Record
 import scala.concurrent.duration._
 import scala.concurrent.forkjoin.ThreadLocalRandom
@@ -15,7 +16,7 @@ object JPQLReporting {
 trait JPQLReporting extends Entity {
   import JPQLReporting._
 
-  private var scheduledJpqls = List[String]()
+  private var reportingJpqls = List[String]()
 
   import context.dispatcher
   // TODO: 
@@ -25,7 +26,7 @@ trait JPQLReporting extends Entity {
   context.system.scheduler.schedule(1.seconds, 1.seconds, self, ReportingTick(""))
 
   def JPQLReportingBehavior: Receive = {
-    case ReportingTick("") => scheduleJpqls()
+    case ReportingTick("") => reportAll(false)
     case ReportingTick(jpqlKey) =>
       DistributedJPQLBoard.keyToStatement.get(jpqlKey) match {
         case null             =>
@@ -38,19 +39,19 @@ trait JPQLReporting extends Entity {
     e.visit(stmt, record)
   }
 
-  def scheduleJpqls() {
-    var newScheduledJpqls = List[String]()
+  def reportAll(force: Boolean) {
+    var newReportingJpqls = List[String]()
     val jpqls = DistributedJPQLBoard.keyToStatement.entrySet.iterator
     while (jpqls.hasNext) {
       val entry = jpqls.next
       val key = entry.getKey
-      if (!scheduledJpqls.contains(key)) {
+      if (force || !reportingJpqls.contains(key)) {
         val value = entry.getValue
         report(key, value._1, value._2, record) // report at once
       }
-      newScheduledJpqls ::= key
+      newReportingJpqls ::= key
     }
-    scheduledJpqls = newScheduledJpqls
+    reportingJpqls = newReportingJpqls
   }
 
   def report(jpqlKey: String, jpql: Statement, interval: FiniteDuration, record: Record) {
@@ -63,7 +64,8 @@ trait JPQLReporting extends Entity {
     }
   }
 
-  override def onDeleted() {
-    super.onDeleted()
+  override def onUpdated(fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record) {
+    reportAll(true)
   }
+
 }
