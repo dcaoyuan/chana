@@ -115,7 +115,8 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
     case chana.AskJPQL(key) =>
       val commander = sender()
       JPQLReducer.reducerProxy(context.system, key).ask(JPQLReducer.AskReducedResult)(300.seconds).onComplete {
-        case result => commander ! result
+        case Success(result: Array[_]) => commander ! Success(result.mkString("Array(", ",", ")")) // TODO
+        case failure                   => commander ! failure
       }
 
     // --- commands of akka-data-replication

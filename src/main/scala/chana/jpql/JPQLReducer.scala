@@ -72,7 +72,7 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
   import chana.jpql.JPQLReducer._
   import context.dispatcher
 
-  log.info("Aggregator {} started", jqplKey)
+  log.info("JPQLReducer {} started", jqplKey)
   ClusterReceptionistExtension(context.system).registerService(self)
 
   private var idToDataSet = Map[String, DataSet]()
@@ -92,6 +92,7 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
     case x: VoidDataSet =>
       idToDataSet -= x.id // remove
     case x: DataSet =>
+      log.info("got {}", x)
       idToDataSet += (x.id -> x)
 
     case AskResult =>
@@ -100,12 +101,12 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
 
     case AskReducedResult =>
       val commander = sender()
-      commander ! reduce().mkString("Array(", ",", ")")
+      commander ! reduce(idToDataSet)
 
     case _ =>
   }
 
-  private def reduce(): Array[List[Any]] = {
+  def reduce(idToDataSet: Map[String, DataSet]): Array[List[Any]] = {
     if (idToDataSet.isEmpty) {
       Array()
     } else {
