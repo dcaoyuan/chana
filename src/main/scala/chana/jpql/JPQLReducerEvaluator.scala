@@ -5,7 +5,7 @@ import chana.jpql.nodes._
 
 final case class WorkingSet(selectedItems: List[Any], orderbys: List[Any])
 
-class JPQLReduceEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
+final class JPQLReducerEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
 
   private var idToDataSet = Map[String, DataSet]()
   private var aggrCaches = Map[AggregateExpr, Number]()

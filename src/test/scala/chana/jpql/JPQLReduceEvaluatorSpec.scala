@@ -42,8 +42,8 @@ class JPQLReduceEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with I
   }
 
   def collect(id: String, stmt: Statement, record: Record) = {
-    val e = new JPQLEvaluator()
-    val res = e.collect(id, stmt, record)
+    val e = new JPQLMapperEvaluator()
+    val res = e.collectDataSet(id, stmt, record)
     info("\nCollected:\n" + res)
     res
   }

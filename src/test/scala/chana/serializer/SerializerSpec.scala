@@ -5,7 +5,7 @@ import akka.testkit.{ ImplicitSender, TestKit }
 import akka.serialization.SerializationExtension
 import chana.PutSchema
 import chana.UpdatedFields
-import chana.avro.RecordBuilder
+import chana.avro.DefaultRecordBuilder
 import com.typesafe.config.ConfigFactory
 import java.util.concurrent.TimeUnit
 import org.apache.avro.Schema.Parser
@@ -48,7 +48,7 @@ akka.remote.netty.tcp.port = 2550
   private val classLoader = this.getClass.getClassLoader
 
   val schema = new Parser().parse(classLoader.getResourceAsStream("avsc/PersonInfo.avsc"))
-  val recordBuilder = RecordBuilder(schema)
+  val builder = DefaultRecordBuilder(schema)
   val emails = {
     val xs = new GenericData.Array[Utf8](0, schema.getField("emails").schema)
     // Utf8 with same string is not equils to String, we use Utf8 for test spec 
@@ -57,7 +57,7 @@ akka.remote.netty.tcp.port = 2550
     xs
   }
   val record = {
-    val rec = recordBuilder.build()
+    val rec = builder.build()
     rec.put("emails", emails)
     rec
   }

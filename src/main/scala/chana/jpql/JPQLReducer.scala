@@ -78,7 +78,7 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
   private var idToDataSet = Map[String, DataSet]()
   private var prevUpdateTime: LocalDate = _
   private var today: LocalDate = _
-  private val evaluator = new JPQLReduceEvaluator(log)
+  private val evaluator = new JPQLReducerEvaluator(log)
 
   override def preStart {
     prevUpdateTime = LocalDate.now()

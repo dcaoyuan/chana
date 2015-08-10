@@ -5,7 +5,7 @@ import akka.contrib.pattern.{ ClusterSharding, ShardRegion }
 import akka.event.LoggingAdapter
 import akka.persistence._
 import chana.avpath.Evaluator.Ctx
-import chana.avro.RecordBuilder
+import chana.avro.DefaultRecordBuilder
 import chana.jpql.JPQLReporting
 import chana.script.Scriptable
 import chana.serializer.AvroMarshaler
@@ -16,7 +16,7 @@ import scala.concurrent.duration._
 import scala.util.{ Failure, Success, Try }
 
 object Entity {
-  def props(entityName: String, schema: Schema, builder: RecordBuilder, idleTimeout: Duration) =
+  def props(entityName: String, schema: Schema, builder: DefaultRecordBuilder, idleTimeout: Duration) =
     Props(classOf[AEntity], entityName, schema, builder, idleTimeout)
 
   lazy val idExtractor: ShardRegion.IdExtractor = {
@@ -46,7 +46,7 @@ object Entity {
   final case class Bootstrap(record: Record)
 }
 
-class AEntity(val entityName: String, val schema: Schema, val builder: RecordBuilder, idleTimeout: Duration)
+class AEntity(val entityName: String, val schema: Schema, val builder: DefaultRecordBuilder, idleTimeout: Duration)
     extends Entity
     with Scriptable
     with JPQLReporting
@@ -75,7 +75,7 @@ trait Entity extends Actor with Stash with PersistentActor {
 
   def entityName: String
   def schema: Schema
-  def builder: RecordBuilder
+  def builder: DefaultRecordBuilder
 
   def onUpdated(fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record) {}
   def onDeleted() {}

@@ -7,7 +7,7 @@ import akka.contrib.pattern.ClusterSharding
 import akka.pattern.ask
 import akka.persistence._
 import chana.{ Entity, Event, PutSchema, RemoveSchema }
-import chana.avro.RecordBuilder
+import chana.avro.DefaultRecordBuilder
 import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
 import org.apache.avro.Schema
@@ -39,7 +39,7 @@ object DistributedSchemaBoard extends ExtensionId[DistributedSchemaBoardExtensio
   private def putSchema(system: ActorSystem, entityName: String, schema: Schema, idleTimeout: Duration = Duration.Undefined): Unit = {
     entityToSchema.putIfAbsent(entityName, (schema, idleTimeout)) match {
       case null =>
-        Entity.startSharding(system, entityName, Some(Entity.props(entityName, schema, RecordBuilder(schema), idleTimeout)))
+        Entity.startSharding(system, entityName, Some(Entity.props(entityName, schema, DefaultRecordBuilder(schema), idleTimeout)))
       case old => // If existed, do nothing, or upgrade to new schema ? TODO
     }
   }

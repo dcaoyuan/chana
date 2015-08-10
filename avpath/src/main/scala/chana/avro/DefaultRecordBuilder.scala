@@ -14,21 +14,21 @@ import org.apache.avro.io.DecoderFactory
 import org.apache.avro.io.EncoderFactory
 import org.apache.avro.io.parsing.ResolvingGrammarGenerator
 
-object RecordBuilder {
+object DefaultRecordBuilder {
   /**
    * Creates a RecordBuilder for building Record instances.
    * @param schema the schema associated with the record class.
    */
   def apply(schema: Schema) = {
-    new RecordBuilder(new GenericData.Record(schema), GenericData.get)
+    new DefaultRecordBuilder(new GenericData.Record(schema), GenericData.get)
   }
 
   /**
    * Creates a RecordBuilder by copying an existing RecordBuilder.
    * @param other the GenericRecordBuilder to copy.
    */
-  def apply(other: RecordBuilder) = {
-    new RecordBuilder(new GenericData.Record(other.record, /* deepCopy = */ true), GenericData.get)
+  def apply(other: DefaultRecordBuilder) = {
+    new DefaultRecordBuilder(new GenericData.Record(other.record, /* deepCopy = */ true), GenericData.get)
   }
 
   /**
@@ -39,7 +39,7 @@ object RecordBuilder {
     val record = new GenericData.Record(other, /* deepCopy = */ true)
     val data = GenericData.get
 
-    val builder = new RecordBuilder(record, data)
+    val builder = new DefaultRecordBuilder(record, data)
     // Set all fields in the RecordBuilder that are set in the record
     val fields = record.getSchema.getFields.iterator
     while (fields.hasNext) {
@@ -59,7 +59,8 @@ object RecordBuilder {
  * A RecordBuilder for generic records, fills in default values
  * for fields if they are not specified.
  */
-class RecordBuilder private (private[RecordBuilder] val record: GenericData.Record, data: GenericData) extends RecordBuilderBase[Record](record.getSchema, GenericData.get()) {
+class DefaultRecordBuilder private (private[DefaultRecordBuilder] val record: GenericData.Record, data: GenericData)
+    extends RecordBuilderBase[Record](record.getSchema, GenericData.get) {
 
   /**
    * Gets the value of a field.
@@ -88,7 +89,7 @@ class RecordBuilder private (private[RecordBuilder] val record: GenericData.Reco
    * @param value the value to set.
    * @return a reference to the RecordBuilder.
    */
-  def set(fieldName: String, value: AnyRef): RecordBuilder = set(schema.getField(fieldName), value)
+  def set(fieldName: String, value: AnyRef): DefaultRecordBuilder = set(schema.getField(fieldName), value)
 
   /**
    * Sets the value of a field.
@@ -96,7 +97,7 @@ class RecordBuilder private (private[RecordBuilder] val record: GenericData.Reco
    * @param value the value to set.
    * @return a reference to the RecordBuilder.
    */
-  def set(field: Field, value: AnyRef): RecordBuilder = set(field, field.pos, value)
+  def set(field: Field, value: AnyRef): DefaultRecordBuilder = set(field, field.pos, value)
 
   /**
    * Sets the value of a field.
@@ -104,7 +105,7 @@ class RecordBuilder private (private[RecordBuilder] val record: GenericData.Reco
    * @param value the value to set.
    * @return a reference to the RecordBuilder.
    */
-  protected def set(pos: Int, value: AnyRef): RecordBuilder = set(fields()(pos), pos, value)
+  protected def set(pos: Int, value: AnyRef): DefaultRecordBuilder = set(fields()(pos), pos, value)
 
   /**
    * Sets the value of a field.
@@ -113,7 +114,7 @@ class RecordBuilder private (private[RecordBuilder] val record: GenericData.Reco
    * @param value the value to set.
    * @return a reference to the RecordBuilder.
    */
-  private def set(field: Field, pos: Int, value: AnyRef): RecordBuilder = {
+  private def set(field: Field, pos: Int, value: AnyRef): DefaultRecordBuilder = {
     validate(field, value)
     record.put(pos, value)
     fieldSetFlags()(pos) = true
@@ -146,21 +147,21 @@ class RecordBuilder private (private[RecordBuilder] val record: GenericData.Reco
    * @param fieldName the name of the field to clear.
    * @return a reference to the RecordBuilder.
    */
-  def clear(fieldName: String): RecordBuilder = clear(schema.getField(fieldName))
+  def clear(fieldName: String): DefaultRecordBuilder = clear(schema.getField(fieldName))
 
   /**
    * Clears the value of the given field.
    * @param field the field to clear.
    * @return a reference to the RecordBuilder.
    */
-  def clear(field: Field): RecordBuilder = clear(field.pos)
+  def clear(field: Field): DefaultRecordBuilder = clear(field.pos)
 
   /**
    * Clears the value of the given field.
    * @param pos the position of the field to clear.
    * @return a reference to the RecordBuilder.
    */
-  protected def clear(pos: Int): RecordBuilder = {
+  protected def clear(pos: Int): DefaultRecordBuilder = {
     record.put(pos, null)
     fieldSetFlags()(pos) = false
     this
@@ -281,7 +282,7 @@ class RecordBuilder private (private[RecordBuilder] val record: GenericData.Reco
       return false
     if (getClass != obj.getClass)
       return false
-    val other = obj.asInstanceOf[RecordBuilder]
+    val other = obj.asInstanceOf[DefaultRecordBuilder]
     if (record == null) {
       if (other.record != null)
         return false
