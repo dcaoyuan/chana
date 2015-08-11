@@ -8,12 +8,6 @@ import java.time.ZoneId
 import java.time.temporal.Temporal
 import org.apache.avro.generic.GenericData.Record
 
-sealed trait DataSetWithId {
-  def id: String
-}
-final case class DataSet(id: String, values: Map[String, Any], groupbys: List[Any]) extends DataSetWithId
-final case class VoidDataSet(id: String) extends DataSetWithId // used to remove
-
 case class JPQLRuntimeException(value: Any, message: String)
   extends RuntimeException(
     (value match {
@@ -219,50 +213,13 @@ class JPQLEvaluator {
   protected var selectedItems = List[Any]()
   protected var selectIsDistinct: Boolean = _
   protected var isToCollect: Boolean = _
-  // TODO compose a minimal avro record, and should be serializable without schema
+  // TODO compose an array or a minimal avro record which should be serializable without schema
   protected var dataset = Map[String, Any]()
 
-  final def entityOf(as: String): Option[String] = asToEntity.get(as)
-
-  def valueOf(qual: String, attrPaths: List[String], record: Any): Any = {
-    // TODO in case of record does not contain schema, get entityNames from DistributedSchemaBoard?
-    record match {
-      case x: Record =>
-        val EntityName = x.getSchema.getName.toLowerCase
-        asToEntity.get(qual) match {
-          case Some(EntityName) =>
-            var key = if (isToCollect) new StringBuilder(qual) else null
-            var paths = attrPaths
-            var curr: Any = x
-            while (paths.nonEmpty) {
-              curr match {
-                case null => throw JPQLRuntimeException(curr, "is null when fetch its attribute: " + paths)
-                case x: Record =>
-                  val path = paths.head
-                  paths = paths.tail
-                  curr = x.get(path)
-                  if (isToCollect) {
-                    key.append(".").append(path)
-                  }
-                case _ => throw JPQLRuntimeException(curr, "is not a record when fetch its attribute: " + paths)
-              }
-            }
-            if (isToCollect) {
-              dataset += (key.toString -> curr)
-            }
-            curr
-          case _ => throw JPQLRuntimeException(qual, "is not an AS alias of entity: " + EntityName)
-        }
-
-      case values: Map[String, Map[String, Any]] @unchecked =>
-        values(JPQLEvaluator.keyOf(qual, attrPaths))
-    }
-  }
-
   /**
-   * For test
+   * For simple test
    */
-  def simpleEval(root: Statement, record: Any): List[Any] = {
+  private[jpql] def simpleEval(root: Statement, record: Any): List[Any] = {
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         fromClause(from, record)
@@ -283,6 +240,43 @@ class JPQLEvaluator {
 
       case UpdateStatement(update, set, where) => List() // NOT YET
       case DeleteStatement(delete, where)      => List() // NOT YET
+    }
+  }
+
+  final def entityOf(as: String): Option[String] = asToEntity.get(as)
+
+  def valueOf(qual: String, attrPaths: List[String], record: Any): Any = {
+    // TODO in case of record does not contain schema, get entityNames from DistributedSchemaBoard?
+    record match {
+      case rec: Record =>
+        val EntityName = rec.getSchema.getName.toLowerCase
+        asToEntity.get(qual) match {
+          case Some(EntityName) =>
+            var key = if (isToCollect) new StringBuilder(qual) else null
+            var paths = attrPaths
+            var curr: Any = rec
+            while (paths.nonEmpty) {
+              curr match {
+                case x: Record =>
+                  val path = paths.head
+                  paths = paths.tail
+                  curr = x.get(path)
+                  if (isToCollect) {
+                    key.append(".").append(path)
+                  }
+                case null => throw JPQLRuntimeException(curr, "is null when fetch its attribute: " + paths)
+                case _    => throw JPQLRuntimeException(curr, "is not a record when fetch its attribute: " + paths)
+              }
+            }
+            if (isToCollect) {
+              dataset += (key.toString -> curr)
+            }
+            curr
+          case _ => throw JPQLRuntimeException(qual, "is not an AS alias of entity: " + EntityName)
+        }
+
+      case dataset: Map[String, Any] @unchecked =>
+        dataset(JPQLEvaluator.keyOf(qual, attrPaths))
     }
   }
 

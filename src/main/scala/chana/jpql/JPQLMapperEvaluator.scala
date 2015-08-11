@@ -2,10 +2,14 @@ package chana.jpql
 
 import chana.jpql.nodes._
 
+sealed trait DataSetWithId {
+  def id: String
+}
+final case class DataSet(id: String, values: Map[String, Any], groupbys: List[Any]) extends DataSetWithId
+final case class VoidDataSet(id: String) extends DataSetWithId // used to remove
+
 final class JPQLMapperEvaluator extends JPQLEvaluator {
-  /**
-   * Major entrence
-   */
+
   def collectDataSet(id: String, root: Statement, record: Any): DataSetWithId = {
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
@@ -31,4 +35,15 @@ final class JPQLMapperEvaluator extends JPQLEvaluator {
     }
   }
 
+  override def pathExprOrVarAccess(expr: PathExprOrVarAccess, record: Any): Any = {
+    val qual = qualIdentVar(expr.qual, record)
+    val paths = expr.attributes map { x => attribute(x, record) }
+    valueOf(qual, paths, record)
+  }
+
+  override def pathExpr(expr: PathExpr, record: Any): Any = {
+    val qual = qualIdentVar(expr.qual, record)
+    val paths = expr.attributes map { x => attribute(x, record) }
+    valueOf(qual, paths, record)
+  }
 }
