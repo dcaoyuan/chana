@@ -12,6 +12,21 @@ import org.scalatest.WordSpecLike
 class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
   import chana.avro.AvroRecords._
 
+  val jsonAccountDefault = """
+{"id": "-1", "registerTime": 0, "lastLoginTime": 0, "loginRecords": [], "chargeRecords": [], "activityRecords": [], "balance": 0.0, "numFriends": 0, "numContacts": 0, "numPlayedGames": 0, "score": 0.0, "scoreActives": 0.0, "scoreFaithful": 0.0, "scoreLogins": 0.0, "scorePayments": 0.0, "scoreApps": 0.0, "scoreActions": 0.0, "devApps": {}, "devActions": {}}
+""".trim
+
+  val jsonAccountUncomplete = """
+{"registerTime":1,"lastLoginTime":1}
+""".trim
+  val jsonAccountFilled = """
+{"id": "-1", "registerTime": 1, "lastLoginTime": 1, "loginRecords": [], "chargeRecords": [], "activityRecords": [], "balance": 0.0, "numFriends": 0, "numContacts": 0, "numPlayedGames": 0, "score": 0.0, "scoreActives": 0.0, "scoreFaithful": 0.0, "scoreLogins": 0.0, "scorePayments": 0.0, "scoreApps": 0.0, "scoreActions": 0.0, "devApps": {}, "devActions": {}}
+""".trim
+
+  val jsonAccountReal = """
+{"id":"12","registerTime":687557347200000,"lastLoginTime":688421347200000,"loginRecords":[{"time":688421347200000,"kind":"WDJ"},{"time":1401248164983,"kind":"GAME"},{"time":1401248164993,"kind":"GAME"}],"chargeRecords":[{"time":-17188358400000,"amount":20.0}],"activityRecords":null,"balance":100.0,"devApps":null,"devActions":{"udid121":{"actionRecords":[{"time":1401248186700,"kind":"DOWNLOAD"},{"time":1401248186700,"kind":"CLICK"},{"time":1401248186700,"kind":"QUERY"}]},"udid122":{"actionRecords":[{"time":1401248186701,"kind":"CLICK"},{"time":1401248186701,"kind":"QUERY"}]}}}
+""".trim
+
   "AvPath" when {
 
     s"using GenericRecordBuilder to create new record:" should {
@@ -23,22 +38,22 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
       }
     }
 
-    s"an uncomplete json:\n ${jsonAccountUncomp} \n its uncompleted fields" should {
-      val fromJsonAccount1 = FromJson.fromJsonString(jsonAccountUncomp, schema).asInstanceOf[GenericData.Record]
+    s"an uncomplete json:\n ${jsonAccountUncomplete} \n its uncompleted fields" should {
+      val fromJsonAccount1 = FromJson.fromJsonString(jsonAccountUncomplete, schema).asInstanceOf[GenericData.Record]
       val fromJsonAccountFilled1 = FromJson.fromJsonString(jsonAccountFilled, schema)
       s"be filled with default value by FromJson.fromJsonString (generic) as:\n ${fromJsonAccountFilled1}" in {
         assertResult(fromJsonAccountFilled1)(fromJsonAccount1)
       }
 
-      val fromJsonAccount2 = FromJson.fromJsonString(jsonAccountUncomp, schema, true)
+      val fromJsonAccount2 = FromJson.fromJsonString(jsonAccountUncomplete, schema, true)
       val fromJsonAccountFilled2 = FromJson.fromJsonString(jsonAccountFilled, schema, true)
       s"be filled with default value by FromJson.fromJsonString (specified) as:\n ${fromJsonAccountFilled2}" in {
         assertResult(fromJsonAccountFilled2)(fromJsonAccount2)
       }
 
-      val jsonAccountUncomp1 = ToJson.toJsonString(fromJsonAccount1, schema)
-      s"be compacted to concise json string which drops all default values vice versa as:\n ${jsonAccountUncomp1}" in {
-        assertResult(jsonAccountUncomp)(jsonAccountUncomp1)
+      val jsonAccountUncomplete1 = ToJson.toJsonString(fromJsonAccount1, schema)
+      s"be compacted to concise json string which drops all default values vice versa as:\n ${jsonAccountUncomplete1}" in {
+        assertResult(jsonAccountUncomplete)(jsonAccountUncomplete1)
       }
     }
 

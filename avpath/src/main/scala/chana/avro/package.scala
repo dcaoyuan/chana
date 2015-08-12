@@ -269,4 +269,16 @@ package object avro {
     }
   }
 
+  def getFirstNoNullTypeOfUnion(schema: Schema) = {
+    val tpes = schema.getTypes.iterator
+    var firstNonNullType: Schema = null
+    while (tpes.hasNext && firstNonNullType == null) {
+      val tpe = tpes.next
+      if (tpe.getType != Type.NULL) {
+        firstNonNullType = tpe
+      }
+    }
+    if (firstNonNullType != null) firstNonNullType else schema.getTypes.get(0)
+  }
+
 }

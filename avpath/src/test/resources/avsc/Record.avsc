@@ -162,6 +162,11 @@
         "default": "-1"
       },
       {
+        "name": "lastChargeRecord",
+        "type": ["null", "ChargeRecord"],
+        "default": null
+      },
+      {
         "name": "registerTime",
         "type": "long",
         "default": 0

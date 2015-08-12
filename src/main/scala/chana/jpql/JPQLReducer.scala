@@ -92,7 +92,6 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
     case x: VoidDataSet =>
       idToDataSet -= x.id // remove
     case x: DataSet =>
-      log.info("got {}", x)
       idToDataSet += (x.id -> x)
 
     case AskResult =>

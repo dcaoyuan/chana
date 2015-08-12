@@ -201,7 +201,7 @@ object JPQLEvaluator {
 
 class JPQLEvaluator {
 
-  private var asToEntity = Map[String, String]()
+  protected var asToEntity = Map[String, String]()
   private var asToItem = Map[String, Any]()
   private var asToCollectionMember = Map[String, Any]()
 

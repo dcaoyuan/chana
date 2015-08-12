@@ -35,7 +35,7 @@ trait JPQLReporting extends Entity {
   }
 
   def eval(stmt: Statement, record: Record) = {
-    val e = new JPQLMapperEvaluator()
+    val e = new JPQLMapperEvaluator(schema)
     e.collectDataSet(id, stmt, record)
   }
 

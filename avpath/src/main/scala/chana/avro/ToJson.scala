@@ -112,7 +112,7 @@ object ToJson {
       throw new IOException("Avro schema specifies '%s' but got value: '%s'.".format(schema, value))
     }
 
-    val optionalType = getFirstNoNullTypeOfUnion(schema)
+    val optionalType = chana.avro.getFirstNoNullTypeOfUnion(schema)
     if (null != optionalType) {
       return if (null == value) JSON_NODE_FACTORY.nullNode else toJsonNode(value, optionalType)
     }
@@ -233,15 +233,4 @@ object ToJson {
     }
   }
 
-  def getFirstNoNullTypeOfUnion(schema: Schema) = {
-    val tpes = schema.getTypes.iterator
-    var firstNonNullType: Schema = null
-    while (tpes.hasNext && firstNonNullType == null) {
-      val tpe = tpes.next
-      if (tpe.getType != Type.NULL) {
-        firstNonNullType = tpe
-      }
-    }
-    if (firstNonNullType != null) firstNonNullType else schema.getTypes.get(0)
-  }
 }
