@@ -49,7 +49,7 @@ final class JPQLMapperEvaluator(schema: Schema) extends JPQLEvaluator {
             var currValue: Any = rec
 
             if (isToCollect) {
-              var key = if (isToCollect) new StringBuilder(qual) else null
+              var key = new StringBuilder(qual)
               var currData: Any = data
               while (paths.nonEmpty) {
                 val path = paths.head
@@ -112,6 +112,7 @@ final class JPQLMapperEvaluator(schema: Schema) extends JPQLEvaluator {
                 }
               }
               //println("valueOf: " + currData)
+              //println("collected record: " + chana.avro.avroEncode(data, schema).get.toString)
               dataset += (key.toString -> currValue)
             } else {
               while (paths.nonEmpty) {

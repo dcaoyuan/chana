@@ -1028,7 +1028,7 @@ class JPQLEvaluator {
       case x: LocalTime     => (if (item.isAsc) 1 else -1) * (x.toNanoOfDay)
       case x: LocalDate     => (if (item.isAsc) 1 else -1) * (x.getYear * 12 * 31 + x.getMonthValue * 12 + x.getDayOfMonth)
       case x: LocalDateTime => (if (item.isAsc) 1 else -1) * (x.atZone(JPQLEvaluator.timeZone).toInstant.toEpochMilli)
-      case x                => throw JPQLRuntimeException(x, "can not order")
+      case x                => throw JPQLRuntimeException(x, "can not be applied order")
     }
   }
 

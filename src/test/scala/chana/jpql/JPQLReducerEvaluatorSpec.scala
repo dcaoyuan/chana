@@ -85,9 +85,12 @@ class JPQLReducerEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with 
         "WHERE a.registerTime >= 5 ORDER BY a.registerTime"
       val stmt = parse(q)
 
+      val metaEval = new JPQLMetadataEvaluator("2", schema)
+      val projectionSchema = metaEval.collectMetaSet(stmt, null)
+      info("Projection Schema:\n" + projectionSchema)
+
       val reducer = TestActorRef(JPQLReducer.props("test", stmt))
 
-      info("Records: " + records().head)
       records() foreach { record => reducer ! collect(record.get("id").asInstanceOf[String], stmt, record) }
 
       val f = reducer.ask(AskReducedResult)(2.seconds)
