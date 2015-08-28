@@ -75,9 +75,7 @@ final class JPQLMetadataEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) ext
         orderby foreach { x => orderbyClause(x, record) }
 
         asToProjectionNode map {
-          case (as, (entitySchema, projectionNode)) =>
-            println("projection node: " + projectionNode)
-            visitProjectionNode(jpqlKey, projectionNode, null).endRecord
+          case (as, (entitySchema, projectionNode)) => visitProjectionNode(jpqlKey, projectionNode, null).endRecord
         }
 
       case UpdateStatement(update, set, where) => null // NOT YET

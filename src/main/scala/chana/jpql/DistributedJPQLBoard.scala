@@ -51,7 +51,7 @@ object DistributedJPQLBoard extends ExtensionId[DistributedJPQLBoardExtension] w
   private def putJPQL(system: ActorSystem, key: String, stmt: Statement, projectionSchema: Schema, interval: FiniteDuration = 1.seconds): Unit = {
     keyToStatement.putIfAbsent(key, (stmt, projectionSchema, interval)) match {
       case null =>
-        JPQLReducer.startReducer(system, JPQLReducer.role, key, stmt)
+        JPQLReducer.startReducer(system, JPQLReducer.role, key, stmt, projectionSchema)
         JPQLReducer.startReducerProxy(system, JPQLReducer.role, key)
       case old => // TODO if existed
     }

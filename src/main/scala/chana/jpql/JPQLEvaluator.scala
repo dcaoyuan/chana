@@ -7,6 +7,7 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.temporal.Temporal
 import org.apache.avro.generic.GenericData.Record
+import org.apache.avro.util.Utf8
 
 case class JPQLRuntimeException(value: Any, message: String)
   extends RuntimeException(
@@ -213,8 +214,6 @@ class JPQLEvaluator {
   protected var selectedItems = List[Any]()
   protected var selectIsDistinct: Boolean = _
   protected var isToCollect: Boolean = _
-  // TODO compose an array or a minimal avro record which should be serializable without schema
-  protected var dataset = Map[String, Any]()
 
   /**
    * For simple test
@@ -252,7 +251,6 @@ class JPQLEvaluator {
         val EntityName = rec.getSchema.getName.toLowerCase
         asToEntity.get(qual) match {
           case Some(EntityName) =>
-            var key = if (isToCollect) new StringBuilder(qual) else null
             var paths = attrPaths
             var curr: Any = rec
             while (paths.nonEmpty) {
@@ -261,22 +259,18 @@ class JPQLEvaluator {
                   val path = paths.head
                   paths = paths.tail
                   curr = x.get(path)
-                  if (isToCollect) {
-                    key.append(".").append(path)
-                  }
                 case null => throw JPQLRuntimeException(curr, "is null when fetch its attribute: " + paths)
                 case _    => throw JPQLRuntimeException(curr, "is not a record when fetch its attribute: " + paths)
               }
             }
-            if (isToCollect) {
-              dataset += (key.toString -> curr)
+            if (curr.isInstanceOf[Utf8]) {
+              curr.toString
+            } else {
+              curr
             }
-            curr
           case _ => throw JPQLRuntimeException(qual, "is not an AS alias of entity: " + EntityName)
         }
-
-      case dataset: Map[String, Any] @unchecked =>
-        dataset(JPQLEvaluator.keyOf(qual, attrPaths))
+      case _ => throw JPQLRuntimeException(record, "is not an avro record")
     }
   }
 

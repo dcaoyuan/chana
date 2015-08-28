@@ -7,7 +7,7 @@ import org.apache.avro.generic.GenericData.Record
 sealed trait DataSetWithId {
   def id: String
 }
-final case class DataSet(id: String, values: Map[String, Any], groupbys: List[Any]) extends DataSetWithId
+final case class DataSet(id: String, projection: Array[Byte], groupbys: List[Any]) extends DataSetWithId
 final case class VoidDataSet(id: String) extends DataSetWithId // used to remove
 
 final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extends JPQLEvaluator {
@@ -29,10 +29,7 @@ final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extend
           having foreach { x => havingClause(x, record) }
           orderby foreach { x => orderbyClause(x, record) }
 
-          println("projection: " + projection)
-          println("projection: " + new String(chana.avro.avroEncode(projection, projectionSchema).get))
-
-          DataSet(entityId, dataset, groupbys)
+          DataSet(entityId, chana.avro.avroEncode(projection, projectionSchema).get, groupbys)
         } else {
           VoidDataSet(entityId) // an empty data may be used to COUNT, but null won't
         }
@@ -122,7 +119,6 @@ final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extend
                   case _                                        => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path)
                 }
               }
-              dataset += (key.toString -> currValue)
             } else {
               while (paths.nonEmpty) {
                 val path = paths.head

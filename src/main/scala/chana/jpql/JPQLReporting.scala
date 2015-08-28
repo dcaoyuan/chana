@@ -34,11 +34,6 @@ trait JPQLReporting extends Entity {
       }
   }
 
-  def eval(stmt: Statement, projectionSchema: Schema, record: Record) = {
-    val e = new JPQLMapperEvaluator(schema, projectionSchema)
-    e.collectDataSet(id, stmt, record)
-  }
-
   def reportAll(force: Boolean) {
     var newReportingJpqls = List[String]()
     val jpqls = DistributedJPQLBoard.keyToStatement.entrySet.iterator
@@ -52,6 +47,11 @@ trait JPQLReporting extends Entity {
       newReportingJpqls ::= key
     }
     reportingJpqls = newReportingJpqls
+  }
+
+  def eval(stmt: Statement, projectionSchema: Schema, record: Record) = {
+    val e = new JPQLMapperEvaluator(schema, projectionSchema)
+    e.collectDataSet(id, stmt, record)
   }
 
   def report(jpqlKey: String, stmt: Statement, projectionSchema: Schema, interval: FiniteDuration, record: Record) {

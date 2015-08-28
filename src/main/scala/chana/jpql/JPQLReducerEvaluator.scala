@@ -2,24 +2,26 @@ package chana.jpql
 
 import akka.event.LoggingAdapter
 import chana.jpql.nodes._
+import org.apache.avro.generic.GenericData.Record
 
 final case class WorkingSet(selectedItems: List[Any], orderbys: List[Any])
 
 final class JPQLReducerEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
 
-  private var idToDataSet = Map[String, DataSet]()
+  private var idToDataSet = Map[String, ReducerDataSet]()
   private var aggrCaches = Map[AggregateExpr, Number]()
 
-  def reset(_idToDataSet: Map[String, DataSet]) {
+  def reset(_idToDataSet: Map[String, ReducerDataSet]) {
     idToDataSet = _idToDataSet
     aggrCaches = Map()
   }
 
-  def visit(root: Statement, record: Map[String, Any]): WorkingSet = {
+  def visitOneRecord(root: Statement, record: Record): WorkingSet = {
     selectedItems = List()
-
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
+        // collect aliases
+        fromClause(from, record)
 
         val havingCond = having.fold(true) { x => havingClause(x, record) }
         if (havingCond) {
@@ -70,7 +72,7 @@ final class JPQLReducerEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
           while (itr.hasNext) {
             val dataset = itr.next._2
             count += 1
-            scalarExpr(expr, dataset.values) match {
+            scalarExpr(expr, dataset.projection) match {
               case x: Number => sum += x.doubleValue
               case x         => throw new JPQLRuntimeException(x, "is not a number")
             }
@@ -82,7 +84,7 @@ final class JPQLReducerEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
           val itr = idToDataSet.iterator
           while (itr.hasNext) {
             val dataset = itr.next._2
-            scalarExpr(expr, dataset.values) match {
+            scalarExpr(expr, dataset.projection) match {
               case x: Number => max = math.max(max, x.doubleValue)
               case x         => throw new JPQLRuntimeException(x, "is not a number")
             }
@@ -94,7 +96,7 @@ final class JPQLReducerEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
           val itr = idToDataSet.iterator
           while (itr.hasNext) {
             val dataset = itr.next._2
-            scalarExpr(expr, dataset.values) match {
+            scalarExpr(expr, dataset.projection) match {
               case x: Number => min = math.min(min, x.doubleValue)
               case x         => throw new JPQLRuntimeException(x, "is not a number")
             }
@@ -106,7 +108,7 @@ final class JPQLReducerEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
           val itr = idToDataSet.iterator
           while (itr.hasNext) {
             val dataset = itr.next._2
-            scalarExpr(expr, dataset.values) match {
+            scalarExpr(expr, dataset.projection) match {
               case x: Number => sum += x.doubleValue
               case x         => throw new JPQLRuntimeException(x, "is not a number")
             }

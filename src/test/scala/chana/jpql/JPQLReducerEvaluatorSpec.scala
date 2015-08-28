@@ -36,6 +36,22 @@ class JPQLReducerEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with 
     def schemaOf(entityName: String) = entityToSchema.get(entityName)
   }
 
+  def records() = {
+    for (id <- 0 to 9) yield {
+      val record = initAccount()
+      record.put("registerTime", id.toLong)
+      record.put("lastLoginTime", (id % 3).toLong)
+      record.put("id", id.toString)
+
+      val chargeRecord = chargeRecordBuilder.build()
+      chargeRecord.put("time", id * 1000L)
+      chargeRecord.put("amount", id * 100.0)
+      record.put("lastChargeRecord", chargeRecord)
+
+      record
+    }
+  }
+
   def parse(query: String) = {
     val reader = new StringReader(query)
     val grammar = new JPQLGrammar(reader, "<current>")
@@ -54,24 +70,11 @@ class JPQLReducerEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with 
   def collect(entityId: String, stmt: Statement, projectionSchema: Schema, record: Record) = {
     val e = new JPQLMapperEvaluator(record.getSchema, projectionSchema)
     val res = e.collectDataSet(entityId, stmt, record)
-    info("\nCollected:\n" + res)
-    res
-  }
-
-  def records() = {
-    for (id <- 0 to 9) yield {
-      val record = initAccount()
-      record.put("registerTime", id.toLong)
-      record.put("lastLoginTime", (id % 3).toLong)
-      record.put("id", id.toString)
-
-      val chargeRecord = chargeRecordBuilder.build()
-      chargeRecord.put("time", id * 1000L)
-      chargeRecord.put("amount", id * 100.0)
-      record.put("lastChargeRecord", chargeRecord)
-
-      record
+    res match {
+      case x: DataSet     => info("\nCollected: " + x.id + ", " + chana.avro.avroDecode[Record](x.projection, projectionSchema).get + ", " + x.groupbys)
+      case x: VoidDataSet => info("\nCollected: " + x)
     }
+    res
   }
 
   "JPQLReduceEvaluator" must {
@@ -81,7 +84,7 @@ class JPQLReducerEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with 
         "WHERE a.registerTime >= 5 ORDER BY a.registerTime"
       val (stmt, projectionSchema) = parse(q)
 
-      val reducer = TestActorRef(JPQLReducer.props("test", stmt))
+      val reducer = TestActorRef(JPQLReducer.props("test", stmt, projectionSchema))
 
       records() foreach { record => reducer ! collect(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
 
@@ -95,7 +98,7 @@ class JPQLReducerEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with 
         "WHERE a.registerTime >= 5 ORDER BY a.registerTime"
       val (stmt, projectionSchema) = parse(q)
 
-      val reducer = TestActorRef(JPQLReducer.props("test", stmt))
+      val reducer = TestActorRef(JPQLReducer.props("test", stmt, projectionSchema))
 
       records() foreach { record => reducer ! collect(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
 
@@ -109,7 +112,7 @@ class JPQLReducerEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with 
         "WHERE a.registerTime >= 5 ORDER BY a.registerTime DESC"
       val (stmt, projectionSchema) = parse(q)
 
-      val reducer = TestActorRef(JPQLReducer.props("test", stmt))
+      val reducer = TestActorRef(JPQLReducer.props("test", stmt, projectionSchema))
 
       records() foreach { record => reducer ! collect(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
 
@@ -123,7 +126,7 @@ class JPQLReducerEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with 
         "WHERE a.registerTime >= 5 ORDER BY a.id DESC"
       val (stmt, projectionSchema) = parse(q)
 
-      val reducer = TestActorRef(JPQLReducer.props("test", stmt))
+      val reducer = TestActorRef(JPQLReducer.props("test", stmt, projectionSchema))
 
       records() foreach { record => reducer ! collect(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
 
@@ -137,7 +140,7 @@ class JPQLReducerEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with 
         "WHERE a.registerTime >= 5 ORDER BY a.id DESC"
       val (stmt, projectionSchema) = parse(q)
 
-      val reducer = TestActorRef(JPQLReducer.props("test", stmt))
+      val reducer = TestActorRef(JPQLReducer.props("test", stmt, projectionSchema))
 
       records() foreach { record => reducer ! collect(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
 
@@ -151,7 +154,7 @@ class JPQLReducerEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with 
         "WHERE a.registerTime > 1 GROUP BY a.lastLoginTime ORDER BY a.id"
       val (stmt, projectionSchema) = parse(q)
 
-      val reducer = TestActorRef(JPQLReducer.props("test", stmt))
+      val reducer = TestActorRef(JPQLReducer.props("test", stmt, projectionSchema))
 
       records() foreach { record => reducer ! collect(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
 
@@ -165,7 +168,7 @@ class JPQLReducerEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with 
         "WHERE a.registerTime > 1 GROUP BY a.lastLoginTime HAVING a.registerTime > 5 ORDER BY a.id"
       val (stmt, projectionSchema) = parse(q)
 
-      val reducer = TestActorRef(JPQLReducer.props("test", stmt))
+      val reducer = TestActorRef(JPQLReducer.props("test", stmt, projectionSchema))
 
       records() foreach { record => reducer ! collect(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
 

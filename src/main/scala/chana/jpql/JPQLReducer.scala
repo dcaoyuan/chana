@@ -9,8 +9,12 @@ import akka.actor.Stash
 import akka.contrib.pattern.{ ClusterReceptionistExtension, ClusterSingletonManager, ClusterSingletonProxy }
 import chana.jpql.nodes.Statement
 import java.time.LocalDate
+import org.apache.avro.Schema
+import org.apache.avro.generic.GenericData.Record
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration._
+import scala.util.Failure
+import scala.util.Success
 import scala.util.Sorting
 
 object ResultItemOrdering extends Ordering[WorkingSet] {
@@ -34,8 +38,10 @@ object ResultItemOrdering extends Ordering[WorkingSet] {
   }
 }
 
+final case class ReducerDataSet(projection: Record, groupbys: List[Any])
+
 object JPQLReducer {
-  def props(jpqlKey: String, stmt: Statement): Props = Props(classOf[JPQLReducer], jpqlKey, stmt)
+  def props(jpqlKey: String, stmt: Statement, projectionSchema: Schema): Props = Props(classOf[JPQLReducer], jpqlKey, stmt, projectionSchema)
 
   case object AskResult
   case object AskReducedResult
@@ -47,10 +53,10 @@ object JPQLReducer {
   def reducerProxyName(key: String) = "jpqlProxy-" + key
   def reducerProxyPath(key: String) = "/user/" + reducerProxyName(key)
 
-  def startReducer(system: ActorSystem, role: Option[String], jpqlKey: String, stmt: Statement) = {
+  def startReducer(system: ActorSystem, role: Option[String], jpqlKey: String, stmt: Statement, projectionSchema: Schema) = {
     system.actorOf(
       ClusterSingletonManager.props(
-        singletonProps = props(jpqlKey, stmt),
+        singletonProps = props(jpqlKey, stmt, projectionSchema),
         singletonName = jpqlKey,
         terminationMessage = PoisonPill,
         role = role),
@@ -67,7 +73,7 @@ object JPQLReducer {
   def reducerProxy(system: ActorSystem, jpqlKey: String) = system.actorSelection(reducerProxyPath(jpqlKey))
 }
 
-class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stash with ActorLogging {
+class JPQLReducer(jqplKey: String, stmt: Statement, projectionSchema: Schema) extends Actor with Stash with ActorLogging {
 
   import chana.jpql.JPQLReducer._
   import context.dispatcher
@@ -75,7 +81,7 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
   log.info("JPQLReducer {} started", jqplKey)
   ClusterReceptionistExtension(context.system).registerService(self)
 
-  private var idToDataSet = Map[String, DataSet]()
+  private var idToDataSet = Map[String, ReducerDataSet]()
   private var prevUpdateTime: LocalDate = _
   private var today: LocalDate = _
   private val evaluator = new JPQLReducerEvaluator(log)
@@ -89,10 +95,13 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
   }
 
   def receive: Receive = {
-    case x: VoidDataSet =>
-      idToDataSet -= x.id // remove
-    case x: DataSet =>
-      idToDataSet += (x.id -> x)
+    case VoidDataSet(id) =>
+      idToDataSet -= id // remove
+    case DataSet(id, projectionBytes, groupby) =>
+      chana.avro.avroDecode[Record](projectionBytes, projectionSchema) match {
+        case Success(projection) => idToDataSet += (id -> ReducerDataSet(projection, groupby))
+        case Failure(ex)         => log.warning("Failed to decode projection bytes: " + ex.getMessage)
+      }
 
     case AskResult =>
       val commander = sender()
@@ -105,7 +114,7 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
     case _ =>
   }
 
-  def reduce(idToDataSet: Map[String, DataSet]): Array[List[Any]] = {
+  def reduce(idToDataSet: Map[String, ReducerDataSet]): Array[List[Any]] = {
     if (idToDataSet.isEmpty) {
       Array()
     } else {
@@ -141,7 +150,7 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
     }
   }
 
-  def reduceDataSet(datasets: Map[String, DataSet]): Array[WorkingSet] = {
+  def reduceDataSet(datasets: Map[String, ReducerDataSet]): Array[WorkingSet] = {
     evaluator.reset(datasets)
     val n = datasets.size
     val reduced = Array.ofDim[WorkingSet](n)
@@ -149,7 +158,7 @@ class JPQLReducer(jqplKey: String, statement: Statement) extends Actor with Stas
     val itr = datasets.iterator
     while (itr.hasNext) {
       val entry = itr.next
-      reduced(i) = evaluator.visit(statement, entry._2.values)
+      reduced(i) = evaluator.visitOneRecord(stmt, entry._2.projection)
       i += 1
     }
     log.debug("reduced: {}", reduced.mkString("Array(", ",", ")"))
