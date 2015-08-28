@@ -15,11 +15,15 @@ import scala.collection.JavaConversions._
 import scala.concurrent.duration._
 import scala.util.{ Failure, Success }
 
+trait SchemaBoard {
+  def schemaOf(entityName: String): Option[Schema]
+}
+
 /**
  * Extension that starts a [[DistributedSchemaBoard]] actor
  * with settings defined in config section `chana.schema-board`.
  */
-object DistributedSchemaBoard extends ExtensionId[DistributedSchemaBoardExtension] with ExtensionIdProvider {
+object DistributedSchemaBoard extends ExtensionId[DistributedSchemaBoardExtension] with ExtensionIdProvider with SchemaBoard {
   // -- implementation of akka extention 
   override def get(system: ActorSystem) = super.get(system)
   override def lookup = DistributedSchemaBoard
@@ -37,16 +41,18 @@ object DistributedSchemaBoard extends ExtensionId[DistributedSchemaBoardExtensio
    * TODO support multiple versions of schema
    */
   private def putSchema(system: ActorSystem, entityName: String, schema: Schema, idleTimeout: Duration = Duration.Undefined): Unit = {
-    entityToSchema.putIfAbsent(entityName, (schema, idleTimeout)) match {
+    val entityname = entityName.toLowerCase
+    entityToSchema.putIfAbsent(entityname, (schema, idleTimeout)) match {
       case null =>
-        Entity.startSharding(system, entityName, Some(Entity.props(entityName, schema, DefaultRecordBuilder(schema), idleTimeout)))
+        Entity.startSharding(system, entityname, Some(Entity.props(entityname, schema, DefaultRecordBuilder(schema), idleTimeout)))
       case old => // If existed, do nothing, or upgrade to new schema ? TODO
     }
   }
 
   private def removeSchema(system: ActorSystem, entityName: String): Unit = {
-    entityToSchema.remove(entityName)
-    removeClusterShardActor(system, entityName)
+    val entityname = entityName.toLowerCase
+    entityToSchema.remove(entityname)
+    removeClusterShardActor(system, entityname)
   }
 
   private def removeClusterShardActor(system: ActorSystem, entityName: String): Unit = {
@@ -64,7 +70,7 @@ object DistributedSchemaBoard extends ExtensionId[DistributedSchemaBoardExtensio
   }
 
   def schemaOf(entityName: String): Option[Schema] = {
-    Option(entityToSchema.get(entityName)).map(_._1)
+    Option(entityToSchema.get(entityName.toLowerCase)).map(_._1)
   }
 
   val DataKey = "chana--schemas"

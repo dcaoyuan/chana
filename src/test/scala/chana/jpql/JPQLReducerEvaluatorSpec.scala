@@ -9,6 +9,7 @@ import chana.jpql.JPQLReducer.AskReducedResult
 import chana.jpql.nodes.JPQLParser
 import chana.jpql.nodes.Statement
 import chana.jpql.rats.JPQLGrammar
+import chana.schema.SchemaBoard
 import java.io.StringReader
 import org.apache.avro.generic.GenericData.Record
 import org.scalatest.BeforeAndAfterAll
@@ -66,6 +67,11 @@ class JPQLReducerEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with 
 
   "JPQLReduceEvaluator" must {
 
+    val schemaBoard = new SchemaBoard {
+      val entityToSchema = Map("account" -> schema)
+      def schemaOf(entityName: String) = entityToSchema.get(entityName)
+    }
+
     "query fields" in {
       val q = "SELECT a.registerTime FROM account a " +
         "WHERE a.registerTime >= 5 ORDER BY a.registerTime"
@@ -85,7 +91,7 @@ class JPQLReducerEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with 
         "WHERE a.registerTime >= 5 ORDER BY a.registerTime"
       val stmt = parse(q)
 
-      val metaEval = new JPQLMetadataEvaluator("2", schema)
+      val metaEval = new JPQLMetadataEvaluator("2", schemaBoard)
       val projectionSchema = metaEval.collectMetaSet(stmt, null)
       info("Projection Schema:\n" + projectionSchema)
 

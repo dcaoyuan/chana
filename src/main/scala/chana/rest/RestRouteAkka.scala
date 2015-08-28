@@ -73,7 +73,7 @@ trait RestRouteAkka extends Directives {
           entity(as[String]) { jpql =>
             complete {
               withStatusCode {
-                jpqlBoard.ask(chana.PutJPQL(key, jpql, interval.fold(Duration.Undefined: Duration)(_.milliseconds)))(writeTimeout)
+                jpqlBoard.ask(chana.PutJPQL(key, jpql, interval.fold(10.second)(_.milliseconds)))(writeTimeout)
               }
             }
           }

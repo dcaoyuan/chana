@@ -29,8 +29,8 @@ trait JPQLReporting extends Entity {
     case ReportingTick("") => reportAll(false)
     case ReportingTick(jpqlKey) =>
       DistributedJPQLBoard.keyToStatement.get(jpqlKey) match {
-        case null             =>
-        case (jpql, interval) => report(jpqlKey, jpql, interval, record)
+        case null                               =>
+        case (jpql, projectionSchema, interval) => report(jpqlKey, jpql, interval, record)
       }
   }
 
@@ -47,7 +47,7 @@ trait JPQLReporting extends Entity {
       val key = entry.getKey
       if (force || !reportingJpqls.contains(key)) {
         val value = entry.getValue
-        report(key, value._1, value._2, record) // report at once
+        report(key, value._1, value._3, record) // report at once
       }
       newReportingJpqls ::= key
     }

@@ -1,5 +1,6 @@
 import org.apache.avro.generic.GenericData.Record
 import scala.concurrent.duration.Duration
+import scala.concurrent.duration.FiniteDuration
 
 package object chana {
 
@@ -51,7 +52,7 @@ package object chana {
    * @param   jpql name
    * @param   jpql string
    */
-  final case class PutJPQL(key: String, schema: String, reportInterval: Duration) extends Event
+  final case class PutJPQL(key: String, schema: String, reportInterval: FiniteDuration) extends Event
   final case class RemoveJPQL(key: String) extends Event
   final case class AskJPQL(key: String) extends Event
 

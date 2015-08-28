@@ -19,6 +19,7 @@ import chana.jpql.rats.JPQLGrammar
 import java.io.StringReader
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantReadWriteLock
+import org.apache.avro.Schema
 import scala.collection.JavaConversions._
 import scala.concurrent.duration._
 import scala.util.Failure
@@ -42,12 +43,12 @@ object DistributedJPQLBoard extends ExtensionId[DistributedJPQLBoardExtension] w
    */
   def props(): Props = Props(classOf[DistributedJPQLBoard])
 
-  val keyToStatement = new ConcurrentHashMap[String, (Statement, FiniteDuration)]()
+  val keyToStatement = new ConcurrentHashMap[String, (Statement, Schema, FiniteDuration)]()
   private val jpqlsLock = new ReentrantReadWriteLock()
   private def keyOf(entity: String, field: String, id: String) = entity + "/" + field + "/" + id
 
-  private def putJPQL(system: ActorSystem, key: String, stmt: Statement, interval: FiniteDuration = 1.seconds): Unit = {
-    keyToStatement.putIfAbsent(key, (stmt, interval)) match {
+  private def putJPQL(system: ActorSystem, key: String, stmt: Statement, projectionSchema: Schema, interval: FiniteDuration = 1.seconds): Unit = {
+    keyToStatement.putIfAbsent(key, (stmt, projectionSchema, interval)) match {
       case null =>
         JPQLReducer.startReducer(system, JPQLReducer.role, key, stmt)
         JPQLReducer.startReducerProxy(system, JPQLReducer.role, key)
@@ -84,7 +85,7 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
         case Success(stmt) =>
           replicator.ask(Update(DistributedJPQLBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ + (key -> jpql)))(60.seconds).onComplete {
             case Success(_: UpdateSuccess) =>
-              DistributedJPQLBoard.putJPQL(context.system, key, stmt)
+              DistributedJPQLBoard.putJPQL(context.system, key, stmt, null, interval)
               log.info("put jpql (Update) [{}]:\n{} ", key, jpql)
               commander ! Success(key)
 
@@ -129,7 +130,7 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
             case null =>
               parseJPQL(jpql) match {
                 case Success(stmt) =>
-                  DistributedJPQLBoard.putJPQL(context.system, key, stmt)
+                  DistributedJPQLBoard.putJPQL(context.system, key, stmt, null)
                   log.info("put jpql (Changed) [{}]:\n{} ", key, jpql)
                 case Failure(ex) =>
                   log.error(ex, ex.getMessage)

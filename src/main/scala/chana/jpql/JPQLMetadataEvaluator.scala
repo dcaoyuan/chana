@@ -1,6 +1,7 @@
 package chana.jpql
 
 import chana.jpql.nodes._
+import chana.schema.SchemaBoard
 import org.apache.avro.Schema
 import org.apache.avro.SchemaBuilder
 import org.apache.avro.SchemaBuilder.FieldAssembler
@@ -45,19 +46,25 @@ final case class FieldNode(name: String, parent: Option[MetaNode], schema: Schem
 final case class MapKeyNode(name: String, parent: Option[MetaNode], schema: Schema) extends MetaNode
 final case class MapValueNode(name: String, parent: Option[MetaNode], schema: Schema) extends MetaNode
 
-final class JPQLMetadataEvaluator(id: String, schema: Schema) extends JPQLEvaluator {
+final class JPQLMetadataEvaluator(jpqlId: String, schemaBoard: SchemaBoard) extends JPQLEvaluator {
 
-  private var projectionPaths = new immutable.HashSet[String]()
-  private var projectionNode = FieldNode(schema.getName.toLowerCase, None, schema)
+  private var asToProjectionNode = Map[String, (Schema, MetaNode)]()
 
   private def projectionNamespace(namespace: String) = {
-    namespace + "." + id
+    namespace + "." + jpqlId
   }
 
-  def collectMetaSet(root: Statement, record: Any): Schema = {
+  def collectMetaSet(root: Statement, record: Any): Iterable[Schema] = {
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         fromClause(from, record)
+        asToProjectionNode = asToEntity.foldLeft(Map[String, (Schema, MetaNode)]()) {
+          case (acc, (as, entityName)) =>
+            schemaBoard.schemaOf(entityName) match {
+              case Some(schema) => acc + (as -> (schema, FieldNode(schema.getName.toLowerCase, None, schema)))
+              case None         => acc
+            }
+        }
 
         selectClause(select, record)
 
@@ -67,20 +74,22 @@ final class JPQLMetadataEvaluator(id: String, schema: Schema) extends JPQLEvalua
         having foreach { x => havingClause(x, record) }
         orderby foreach { x => orderbyClause(x, record) }
 
-        println("projection nodes: " + projectionNode)
-        var fieldAssembler = SchemaBuilder.record(schema.getName).namespace(projectionNamespace(schema.getNamespace)).fields
-        visitProjectionNode(id, projectionNode, fieldAssembler).endRecord
+        asToProjectionNode map {
+          case (as, (entitySchema, projectionNode)) =>
+            println("projection node: " + projectionNode)
+            var fieldAssembler = SchemaBuilder.record(entitySchema.getName).namespace(projectionNamespace(entitySchema.getNamespace)).fields
+            visitProjectionNode(jpqlId, projectionNode, fieldAssembler).endRecord
+        }
 
       case UpdateStatement(update, set, where) => null // NOT YET
       case DeleteStatement(delete, where)      => null // NOT YET
     }
   }
 
-  private def collectLeastProjectionPaths(qual: String, attrPaths: List[String]) {
+  private def collectLeastProjectionNodes(qual: String, attrPaths: List[String]) {
     if (isToCollect) {
-      val EntityName = schema.getName.toLowerCase
-      asToEntity.get(qual) match {
-        case Some(EntityName) =>
+      asToProjectionNode.get(qual) match {
+        case Some((schema, projectionNode)) =>
           var currSchema = schema
           var currNode: MetaNode = projectionNode
 
@@ -128,7 +137,7 @@ final class JPQLMetadataEvaluator(id: String, schema: Schema) extends JPQLEvalua
           }
           currNode.close()
 
-        case _ => throw JPQLRuntimeException(qual, "is not an AS alias of entity: " + EntityName)
+        case _ => throw JPQLRuntimeException(qual, "is not an AS alias of entity")
       }
     }
   }
@@ -150,13 +159,13 @@ final class JPQLMetadataEvaluator(id: String, schema: Schema) extends JPQLEvalua
   override def pathExprOrVarAccess(expr: PathExprOrVarAccess, record: Any): Any = {
     val qual = qualIdentVar(expr.qual, record)
     val paths = expr.attributes map { x => attribute(x, record) }
-    collectLeastProjectionPaths(qual, paths)
+    collectLeastProjectionNodes(qual, paths)
   }
 
   override def pathExpr(expr: PathExpr, record: Any): Any = {
     val qual = qualIdentVar(expr.qual, record)
     val paths = expr.attributes map { x => attribute(x, record) }
-    collectLeastProjectionPaths(qual, paths)
+    collectLeastProjectionNodes(qual, paths)
   }
 
   override def orderbyItem(item: OrderbyItem, record: Any): Any = {
