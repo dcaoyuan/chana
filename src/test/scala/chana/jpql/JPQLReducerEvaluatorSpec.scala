@@ -61,12 +61,12 @@ class JPQLReducerEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with 
   def records() = {
     for (id <- 0 to 9) yield {
       val record = initAccount()
-      record.put("registerTime", id)
-      record.put("lastLoginTime", id % 3)
+      record.put("registerTime", id.toLong)
+      record.put("lastLoginTime", (id % 3).toLong)
       record.put("id", id.toString)
 
       val chargeRecord = chargeRecordBuilder.build()
-      chargeRecord.put("time", id * 1000)
+      chargeRecord.put("time", id * 1000L)
       chargeRecord.put("amount", id * 100.0)
       record.put("lastChargeRecord", chargeRecord)
 

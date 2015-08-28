@@ -109,7 +109,7 @@ final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extend
 
                       case v =>
                         // TODO when currData is map or array
-                        putValue(currData.asInstanceOf[Record], path, v)
+                        currData.asInstanceOf[Record].put(path, v)
                         currData = v
 
                         v
@@ -143,16 +143,6 @@ final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extend
 
       case dataset: Map[String, Any] @unchecked =>
         dataset(JPQLEvaluator.keyOf(qual, attrPaths))
-    }
-  }
-
-  def putValue(rec: Record, field: String, value: Any) {
-    rec.getSchema.getField(field).schema.getType match {
-      case Schema.Type.DOUBLE => rec.put(field, value.asInstanceOf[Number].doubleValue)
-      case Schema.Type.FLOAT  => rec.put(field, value.asInstanceOf[Number].floatValue)
-      case Schema.Type.LONG   => rec.put(field, value.asInstanceOf[Number].longValue)
-      case Schema.Type.INT    => rec.put(field, value.asInstanceOf[Number].intValue)
-      case _                  => rec.put(field, value)
     }
   }
 
