@@ -10,10 +10,10 @@ sealed trait DataSetWithId {
 final case class DataSet(id: String, values: Map[String, Any], groupbys: List[Any]) extends DataSetWithId
 final case class VoidDataSet(id: String) extends DataSetWithId // used to remove
 
-final class JPQLMapperEvaluator(schema: Schema) extends JPQLEvaluator {
-  val data = new Record(schema)
+final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extends JPQLEvaluator {
+  val projection = new Record(projectionSchema)
 
-  def collectDataSet(id: String, root: Statement, record: Any): DataSetWithId = {
+  def collectDataSet(entityId: String, root: Statement, record: Any): DataSetWithId = {
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         fromClause(from, record)
@@ -29,9 +29,12 @@ final class JPQLMapperEvaluator(schema: Schema) extends JPQLEvaluator {
           having foreach { x => havingClause(x, record) }
           orderby foreach { x => orderbyClause(x, record) }
 
-          DataSet(id, dataset, groupbys)
+          println("projection: " + projection)
+          println("projection: " + new String(chana.avro.avroEncode(projection, projectionSchema).get))
+
+          DataSet(entityId, dataset, groupbys)
         } else {
-          VoidDataSet(id) // an empty data may be used to COUNT, but null won't
+          VoidDataSet(entityId) // an empty data may be used to COUNT, but null won't
         }
       case UpdateStatement(update, set, where) => null // NOT YET
       case DeleteStatement(delete, where)      => null // NOT YET
@@ -50,7 +53,7 @@ final class JPQLMapperEvaluator(schema: Schema) extends JPQLEvaluator {
 
             if (isToCollect) {
               var key = new StringBuilder(qual)
-              var currData: Any = data
+              var currData: Any = projection
               while (paths.nonEmpty) {
                 val path = paths.head
                 paths = paths.tail
@@ -59,48 +62,56 @@ final class JPQLMapperEvaluator(schema: Schema) extends JPQLEvaluator {
                   case value: Record =>
 
                     currValue = value.get(path) match {
-                      case r: Record =>
-                        if (paths.isEmpty) { // at tail, put r or r clone?
-                          currData.asInstanceOf[Record].put(path, r.getSchema)
+                      case v: Record =>
+                        currData = if (paths.isEmpty) { // at tail, put r or r clone?
+                          currData.asInstanceOf[Record].put(path, v)
+                          v
                         } else {
-                          val dataField = currData.asInstanceOf[Record].get(path) match {
-                            case null => new Record(r.getSchema)
+                          val fieldData = currData.asInstanceOf[Record].get(path) match {
+                            case null => new Record(currData.asInstanceOf[Record].getSchema.getField(path).schema)
                             case x    => x
                           }
-                          currData.asInstanceOf[Record].put(path, dataField)
+                          currData.asInstanceOf[Record].put(path, fieldData)
+                          fieldData
                         }
-                        currData = r
-                        r
 
-                      case a: java.util.Collection[_] =>
-                        if (paths.isEmpty) { // at tail, put a or a clone?
-                          currData.asInstanceOf[Record].put(path, a)
+                        v
+
+                      case v: java.util.Collection[_] =>
+                        currData = if (paths.isEmpty) { // at tail, put a or a clone?
+                          currData.asInstanceOf[Record].put(path, v)
+                          v
                         } else {
-                          val dataField = currData.asInstanceOf[Record].get(path) match {
+                          val fieldData = currData.asInstanceOf[Record].get(path) match {
                             case null => new java.util.ArrayList[Any] //chana.avro.newGenericArray(0, currSchema.getElementType)
                             case x    => x.asInstanceOf[java.util.Collection[_]]
                           }
-                          currData.asInstanceOf[Record].put(path, dataField)
+                          currData.asInstanceOf[Record].put(path, fieldData)
+                          fieldData
                         }
-                        currData = a
-                        a
 
-                      case m: java.util.Map[String, _] @unchecked =>
-                        if (paths.isEmpty) { // at tail, put m or m clone?
-                          currData.asInstanceOf[Record].put(path, m)
+                        v
+
+                      case v: java.util.Map[String, _] @unchecked =>
+                        currData = if (paths.isEmpty) { // at tail, put m or m clone?
+                          currData.asInstanceOf[Record].put(path, v)
+                          v
                         } else {
-                          val dataField = currData.asInstanceOf[Record].get(path) match {
+                          val fieldData = currData.asInstanceOf[Record].get(path) match {
                             case null => new java.util.HashMap[String, Any]
                             case x    => x.asInstanceOf[java.util.HashMap[String, Any]]
                           }
-                          currData.asInstanceOf[Record].put(path, dataField)
+                          currData.asInstanceOf[Record].put(path, fieldData)
+                          fieldData
                         }
-                        currData = m
-                        m
+
+                        v
 
                       case v =>
-                        currData.asInstanceOf[Record].put(path, v) // TODO when currData is map or array
+                        // TODO when currData is map or array
+                        putValue(currData.asInstanceOf[Record], path, v)
                         currData = v
+
                         v
                     }
                     key.append(".").append(path)
@@ -111,8 +122,6 @@ final class JPQLMapperEvaluator(schema: Schema) extends JPQLEvaluator {
                   case _                                        => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path)
                 }
               }
-              //println("valueOf: " + currData)
-              //println("collected record: " + chana.avro.avroEncode(data, schema).get.toString)
               dataset += (key.toString -> currValue)
             } else {
               while (paths.nonEmpty) {
@@ -120,9 +129,7 @@ final class JPQLMapperEvaluator(schema: Schema) extends JPQLEvaluator {
                 paths = paths.tail
 
                 currValue match {
-                  case x: Record =>
-                    currValue = x.get(path)
-
+                  case x: Record                                => currValue = x.get(path)
                   case arr: java.util.Collection[_]             => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path) // TODO
                   case map: java.util.Map[String, _] @unchecked => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path) // TODO
                   case null                                     => throw JPQLRuntimeException(currValue, "is null when fetch its attribute: " + path)
@@ -136,6 +143,16 @@ final class JPQLMapperEvaluator(schema: Schema) extends JPQLEvaluator {
 
       case dataset: Map[String, Any] @unchecked =>
         dataset(JPQLEvaluator.keyOf(qual, attrPaths))
+    }
+  }
+
+  def putValue(rec: Record, field: String, value: Any) {
+    rec.getSchema.getField(field).schema.getType match {
+      case Schema.Type.DOUBLE => rec.put(field, value.asInstanceOf[Number].doubleValue)
+      case Schema.Type.FLOAT  => rec.put(field, value.asInstanceOf[Number].floatValue)
+      case Schema.Type.LONG   => rec.put(field, value.asInstanceOf[Number].longValue)
+      case Schema.Type.INT    => rec.put(field, value.asInstanceOf[Number].intValue)
+      case _                  => rec.put(field, value)
     }
   }
 

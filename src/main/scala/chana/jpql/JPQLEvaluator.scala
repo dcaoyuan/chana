@@ -507,14 +507,14 @@ class JPQLEvaluator {
   }
 
   def condExpr(expr: CondExpr, record: Any): Boolean = {
-    expr.orTerms.foldLeft(condTerm(expr.term, record)) { (res, orTerm) =>
-      res || condTerm(orTerm, record)
+    expr.orTerms.foldLeft(condTerm(expr.term, record)) { (acc, orTerm) =>
+      acc || condTerm(orTerm, record)
     }
   }
 
   def condTerm(term: CondTerm, record: Any): Boolean = {
-    term.andFactors.foldLeft(condFactor(term.factor, record)) { (res, andFactor) =>
-      res && condFactor(andFactor, record)
+    term.andFactors.foldLeft(condFactor(term.factor, record)) { (acc, andFactor) =>
+      acc && condFactor(andFactor, record)
     }
   }
 

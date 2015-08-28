@@ -30,12 +30,12 @@ trait JPQLReporting extends Entity {
     case ReportingTick(jpqlKey) =>
       DistributedJPQLBoard.keyToStatement.get(jpqlKey) match {
         case null                               =>
-        case (jpql, projectionSchema, interval) => report(jpqlKey, jpql, interval, record)
+        case (stmt, projectionSchema, interval) => report(jpqlKey, stmt, projectionSchema, interval, record)
       }
   }
 
-  def eval(stmt: Statement, record: Record) = {
-    val e = new JPQLMapperEvaluator(schema)
+  def eval(stmt: Statement, projectionSchema: Schema, record: Record) = {
+    val e = new JPQLMapperEvaluator(schema, projectionSchema)
     e.collectDataSet(id, stmt, record)
   }
 
@@ -46,17 +46,17 @@ trait JPQLReporting extends Entity {
       val entry = jpqls.next
       val key = entry.getKey
       if (force || !reportingJpqls.contains(key)) {
-        val value = entry.getValue
-        report(key, value._1, value._3, record) // report at once
+        val (stmt, projectionSchema, interval) = entry.getValue
+        report(key, stmt, projectionSchema, interval, record) // report at once
       }
       newReportingJpqls ::= key
     }
     reportingJpqls = newReportingJpqls
   }
 
-  def report(jpqlKey: String, jpql: Statement, interval: FiniteDuration, record: Record) {
+  def report(jpqlKey: String, stmt: Statement, projectionSchema: Schema, interval: FiniteDuration, record: Record) {
     try {
-      val dataset = if (isDeleted) null else eval(jpql, record)
+      val dataset = if (isDeleted) null else eval(stmt, projectionSchema, record)
       JPQLReducer.reducerProxy(context.system, jpqlKey) ! dataset
       context.system.scheduler.scheduleOnce(interval, self, ReportingTick(jpqlKey))
     } catch {

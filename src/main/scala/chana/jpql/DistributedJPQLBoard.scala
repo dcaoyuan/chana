@@ -16,6 +16,7 @@ import akka.cluster.Cluster
 import chana.jpql.nodes.JPQLParser
 import chana.jpql.nodes.Statement
 import chana.jpql.rats.JPQLGrammar
+import chana.schema.DistributedSchemaBoard
 import java.io.StringReader
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantReadWriteLock
@@ -81,11 +82,11 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
   def receive = {
     case chana.PutJPQL(key, jpql, interval) =>
       val commander = sender()
-      parseJPQL(jpql) match {
-        case Success(stmt) =>
+      parseJPQL(key, jpql) match {
+        case Success((stmt, projectionSchema)) =>
           replicator.ask(Update(DistributedJPQLBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ + (key -> jpql)))(60.seconds).onComplete {
             case Success(_: UpdateSuccess) =>
-              DistributedJPQLBoard.putJPQL(context.system, key, stmt, null, interval)
+              DistributedJPQLBoard.putJPQL(context.system, key, stmt, projectionSchema, interval)
               log.info("put jpql (Update) [{}]:\n{} ", key, jpql)
               commander ! Success(key)
 
@@ -128,9 +129,9 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
         case (key, jpql) =>
           DistributedJPQLBoard.keyToStatement.get(key) match {
             case null =>
-              parseJPQL(jpql) match {
-                case Success(stmt) =>
-                  DistributedJPQLBoard.putJPQL(context.system, key, stmt, null)
+              parseJPQL(key, jpql) match {
+                case Success((stmt, projectionSchema)) =>
+                  DistributedJPQLBoard.putJPQL(context.system, key, stmt, projectionSchema)
                   log.info("put jpql (Changed) [{}]:\n{} ", key, jpql)
                 case Failure(ex) =>
                   log.error(ex, ex.getMessage)
@@ -147,7 +148,7 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
       }
   }
 
-  private def parseJPQL(jpql: String) =
+  private def parseJPQL(jpqlKey: String, jpql: String) =
     try {
       val reader = new StringReader(jpql)
       val grammar = new JPQLGrammar(reader, "<current>")
@@ -155,8 +156,9 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
       if (r.hasValue) {
         val rootNode = r.semanticValue[Node]
         val parser = new JPQLParser(rootNode)
-        val statement = parser.visitRoot()
-        Success(statement)
+        val stmt = parser.visitRoot()
+        val projectionSchemas = new JPQLMetadataEvaluator(jpqlKey, DistributedSchemaBoard).collectMetaSet(stmt, null)
+        Success(stmt, projectionSchemas.head)
       } else {
         Failure(new Exception(r.parseError.msg + " at " + r.parseError.index))
       }

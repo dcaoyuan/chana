@@ -46,12 +46,12 @@ final case class FieldNode(name: String, parent: Option[MetaNode], schema: Schem
 final case class MapKeyNode(name: String, parent: Option[MetaNode], schema: Schema) extends MetaNode
 final case class MapValueNode(name: String, parent: Option[MetaNode], schema: Schema) extends MetaNode
 
-final class JPQLMetadataEvaluator(jpqlId: String, schemaBoard: SchemaBoard) extends JPQLEvaluator {
+final class JPQLMetadataEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends JPQLEvaluator {
 
   private var asToProjectionNode = Map[String, (Schema, MetaNode)]()
 
   private def projectionNamespace(namespace: String) = {
-    namespace + "." + jpqlId
+    namespace + "." + jpqlKey
   }
 
   def collectMetaSet(root: Statement, record: Any): Iterable[Schema] = {
@@ -77,8 +77,7 @@ final class JPQLMetadataEvaluator(jpqlId: String, schemaBoard: SchemaBoard) exte
         asToProjectionNode map {
           case (as, (entitySchema, projectionNode)) =>
             println("projection node: " + projectionNode)
-            var fieldAssembler = SchemaBuilder.record(entitySchema.getName).namespace(projectionNamespace(entitySchema.getNamespace)).fields
-            visitProjectionNode(jpqlId, projectionNode, fieldAssembler).endRecord
+            visitProjectionNode(jpqlKey, projectionNode, null).endRecord
         }
 
       case UpdateStatement(update, set, where) => null // NOT YET
@@ -146,11 +145,15 @@ final class JPQLMetadataEvaluator(jpqlId: String, schemaBoard: SchemaBoard) exte
     val schema = node.schema
     if (node.isLeaf) {
       fieldAssembler.name(node.name).`type`(schema).noDefault
+    } else if (node.isRoot) {
+      val assembler = SchemaBuilder.record(schema.getName).namespace(projectionNamespace(schema.getNamespace)).fields
+      node.children.foldLeft(assembler) { (acc, x) => visitProjectionNode(id, x, acc) }
     } else {
       schema.getType match {
         case Schema.Type.RECORD =>
-          val nextFieldAssembler = SchemaBuilder.record(schema.getName).namespace(projectionNamespace(schema.getNamespace)).fields()
-          node.children.foldLeft(nextFieldAssembler) { (acc, x) => visitProjectionNode(id, x, acc) }
+          val assembler = SchemaBuilder.record(schema.getName).namespace(projectionNamespace(schema.getNamespace)).fields()
+          val recSchema = node.children.foldLeft(assembler) { (acc, x) => visitProjectionNode(id, x, acc) }.endRecord
+          fieldAssembler.name(node.name).`type`(recSchema).noDefault
         case _ => throw JPQLRuntimeException(schema, "should not have children: " + node)
       }
     }
@@ -174,5 +177,54 @@ final class JPQLMetadataEvaluator(jpqlId: String, schemaBoard: SchemaBoard) exte
       case Right(x) => scalarExpr(x, record)
     }
   }
+
+  override def condExpr(expr: CondExpr, record: Any): Boolean = {
+    expr.orTerms.foldLeft(condTerm(expr.term, record)) { (acc, orTerm) =>
+      condTerm(orTerm, record)
+    }
+    true
+  }
+
+  override def condTerm(term: CondTerm, record: Any): Boolean = {
+    term.andFactors.foldLeft(condFactor(term.factor, record)) { (acc, andFactor) =>
+      condFactor(andFactor, record)
+    }
+    true
+  }
+
+  override def condFactor(factor: CondFactor, record: Any): Boolean = {
+    val res = factor.expr match {
+      case Left(x)  => condPrimary(x, record)
+      case Right(x) => existsExpr(x, record)
+    }
+    true
+  }
+
+  override def condPrimary(primary: CondPrimary, record: Any): Boolean = {
+    primary match {
+      case CondPrimary_CondExpr(expr)       => condExpr(expr, record)
+      case CondPrimary_SimpleCondExpr(expr) => simpleCondExpr(expr, record)
+    }
+  }
+
+  override def simpleCondExpr(expr: SimpleCondExpr, record: Any): Boolean = {
+    val base = expr.expr match {
+      case Left(x)  => arithExpr(x, record)
+      case Right(x) => nonArithScalarExpr(x, record)
+    }
+    expr.rem match {
+      case SimpleCondExprRem_ComparisonExpr(expr) => comparsionExprRightOperand(expr.operand, record)
+      case SimpleCondExprRem_CondWithNotExpr(not, expr) =>
+        expr match {
+          case CondWithNotExpr_BetweenExpr(expr)          => betweenExpr(expr, record)
+          case CondWithNotExpr_LikeExpr(expr)             => likeExpr(expr, record)
+          case CondWithNotExpr_InExpr(expr)               => inExpr(expr, record)
+          case CondWithNotExpr_CollectionMemberExpr(expr) => collectionMemberExpr(expr, record)
+        }
+      case SimpleCondExprRem_IsExpr(not, expr) =>
+    }
+    true
+  }
+
 }
 
