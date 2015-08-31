@@ -79,6 +79,7 @@ class SerializerSpec(_system: ActorSystem) extends TestKit(_system) with Implici
   val serialization = SerializationExtension(system)
   def test(obj: AnyRef) = {
     val serializer = serialization.findSerializerFor(obj)
+    info("use " + serializer.getClass.getName)
     val bytes = serializer.toBinary(obj)
     val res = serialization.deserialize(bytes, obj.getClass).get
     res should be(obj)
@@ -126,6 +127,7 @@ class SerializerSpec(_system: ActorSystem) extends TestKit(_system) with Implici
     "handle avro mapper projection " in {
       val obj = MapperProjection("1234", chana.avro.avroEncode(record, schema).get)
       val serializer = serialization.findSerializerFor(obj)
+      info("use " + serializer.getClass.getName)
       val bytes = serializer.toBinary(obj)
       val res = serialization.deserialize(bytes, obj.getClass).get
       //info(res.projection.mkString(","))

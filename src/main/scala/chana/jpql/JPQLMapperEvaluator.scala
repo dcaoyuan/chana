@@ -4,7 +4,11 @@ import chana.jpql.nodes._
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData.Record
 
-sealed trait ProjectionWithId { def id: String }
+/**
+ * ProjectionWithId should extends Serializable to got MapperProjection/VoidProjection
+ * use custom serializer
+ */
+sealed trait ProjectionWithId extends Serializable { def id: String }
 final case class MapperProjection(id: String, projection: Array[Byte]) extends ProjectionWithId
 final case class VoidProjection(id: String) extends ProjectionWithId // used to remove
 
