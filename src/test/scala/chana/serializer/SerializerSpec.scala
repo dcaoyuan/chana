@@ -6,6 +6,8 @@ import akka.serialization.SerializationExtension
 import chana.PutSchema
 import chana.UpdatedFields
 import chana.avro.DefaultRecordBuilder
+import chana.jpql.MapperProjection
+import chana.jpql.VoidProjection
 import com.typesafe.config.ConfigFactory
 import java.util.concurrent.TimeUnit
 import org.apache.avro.Schema.Parser
@@ -21,20 +23,22 @@ object SerializerSpec {
 akka.actor {
   serializers {
     avro = "chana.serializer.AvroSerializer"
-    schema = "chana.serializer.SchemaSerializer"
+    avro-projection = "chana.serializer.AvroProjectionSerializer"
     java-map = "chana.serializer.JavaMapSerializer"
     record-event= "chana.serializer.RecordEventSerializer"
+    schema = "chana.serializer.SchemaSerializer"
     schema-event= "chana.serializer.SchemaEventSerializer"
     writemessages = "akka.persistence.serialization.WriteMessagesSerializer"
   }
                                          
   serialization-bindings {
-    "org.apache.avro.generic.GenericContainer" = avro
-    "org.apache.avro.Schema" = schema
+    "akka.persistence.journal.AsyncWriteTarget$WriteMessages" = writemessages
+    "chana.jpql.ProjectionWithId" = avro-projection
     "chana.package$UpdatedFields" = record-event
     "chana.package$PutSchema" = schema-event
-    "akka.persistence.journal.AsyncWriteTarget$WriteMessages" = writemessages
     "java.util.HashMap" = java-map
+    "org.apache.avro.generic.GenericContainer" = avro
+    "org.apache.avro.Schema" = schema
   }
 
   provider = "akka.cluster.ClusterActorRefProvider"
@@ -77,10 +81,10 @@ class SerializerSpec(_system: ActorSystem) extends TestKit(_system) with Implici
     val serializer = serialization.findSerializerFor(obj)
     val bytes = serializer.toBinary(obj)
     val res = serialization.deserialize(bytes, obj.getClass).get
-    assertResult(obj)(res)
+    res should be(obj)
 
     val resById = serialization.deserialize(bytes, serializer.identifier, Some(obj.getClass)).get
-    assertResult(obj)(resById)
+    resById should be(obj)
   }
 
   "Serializer" must {
@@ -116,6 +120,22 @@ class SerializerSpec(_system: ActorSystem) extends TestKit(_system) with Implici
       obj.put("key1", record)
       obj.put("key2", record)
 
+      test(obj)
+    }
+
+    "handle avro mapper projection " in {
+      val obj = MapperProjection("1234", chana.avro.avroEncode(record, schema).get)
+      val serializer = serialization.findSerializerFor(obj)
+      val bytes = serializer.toBinary(obj)
+      val res = serialization.deserialize(bytes, obj.getClass).get
+      //info(res.projection.mkString(","))
+      //info(obj.projection.mkString(","))
+      res.id should be(obj.id)
+      res.projection should be(obj.projection)
+    }
+
+    "handle avro void projection " in {
+      val obj = VoidProjection("5678")
       test(obj)
     }
   }

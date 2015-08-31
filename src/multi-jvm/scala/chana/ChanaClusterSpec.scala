@@ -57,17 +57,19 @@ object ChanaClusterSpecConfig extends MultiNodeConfig {
       akka.actor {
         serializers {
           avro = "chana.serializer.AvroSerializer"
-          schema = "chana.serializer.SchemaSerializer"
+          avro-projection = "chana.serializer.AvroProjectionSerializer"
           record-event= "chana.serializer.RecordEventSerializer"
+          schema = "chana.serializer.SchemaSerializer"
           schema-event= "chana.serializer.SchemaEventSerializer"
           writemessages = "akka.persistence.serialization.WriteMessagesSerializer"
         }
         serialization-bindings {
-          "org.apache.avro.generic.GenericContainer" = avro
-          "org.apache.avro.Schema" = schema
+          "akka.persistence.journal.AsyncWriteTarget$WriteMessages" = writemessages
+          "chana.jpql.ProjectionWithId" = avro-projection
           "chana.package$UpdatedFields" = record-event
           "chana.package$PutSchema" = schema-event
-          "akka.persistence.journal.AsyncWriteTarget$WriteMessages" = writemessages
+          "org.apache.avro.generic.GenericContainer" = avro
+          "org.apache.avro.Schema" = schema
         }
       }
       akka.actor.provider = "akka.cluster.ClusterActorRefProvider"
