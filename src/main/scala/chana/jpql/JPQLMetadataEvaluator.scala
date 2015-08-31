@@ -1,69 +1,25 @@
 package chana.jpql
 
+import chana.avro.Projection
 import chana.jpql.nodes._
 import chana.schema.SchemaBoard
 import org.apache.avro.Schema
-import org.apache.avro.SchemaBuilder
-import org.apache.avro.SchemaBuilder.FieldAssembler
 import scala.collection.immutable
-
-sealed abstract class MetaNode {
-  def name: String
-  def parent: Option[MetaNode]
-  def schema: Schema
-
-  private var _children = List[MetaNode]()
-  def children = _children
-  def containsChild(node: MetaNode) = _children.contains(node)
-  def findChild(name: String) = _children.find(_.name == name)
-  def addChild(node: MetaNode) = {
-    if (isClosed) {
-      throw new RuntimeException("is closed, can not add child any more")
-    } else {
-      _children ::= node
-      this
-    }
-  }
-
-  private var _isClosed: Boolean = _
-  def isClosed = _isClosed
-  def close() { _isClosed = true }
-
-  def isRoot = parent.isEmpty
-  def isLeaf = _children.isEmpty
-
-  override def toString = {
-    val sb = new StringBuilder(this.getClass.getSimpleName).append("(")
-    sb.append(name)
-    if (children.nonEmpty) {
-      sb.append(", ").append(children).append(")")
-    }
-    sb.append(")")
-    sb.toString
-  }
-}
-final case class FieldNode(name: String, parent: Option[MetaNode], schema: Schema) extends MetaNode
-final case class MapKeyNode(name: String, parent: Option[MetaNode], schema: Schema) extends MetaNode
-final case class MapValueNode(name: String, parent: Option[MetaNode], schema: Schema) extends MetaNode
 
 final case class Metadata(projectionSchema: Schema, withGroupby: Boolean)
 
 final class JPQLMetadataEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends JPQLEvaluator {
 
-  private var asToProjectionNode = Map[String, (Schema, MetaNode)]()
-
-  private def projectionNamespace(namespace: String) = {
-    namespace + "." + jpqlKey
-  }
+  private var asToProjectionNode = Map[String, (Schema, Projection.Node)]()
 
   def collectMetadata(root: Statement, record: Any): Iterable[Schema] = {
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         fromClause(from, record)
-        asToProjectionNode = asToEntity.foldLeft(Map[String, (Schema, MetaNode)]()) {
+        asToProjectionNode = asToEntity.foldLeft(Map[String, (Schema, Projection.Node)]()) {
           case (acc, (as, entityName)) =>
             schemaBoard.schemaOf(entityName) match {
-              case Some(schema) => acc + (as -> (schema, FieldNode(schema.getName.toLowerCase, None, schema)))
+              case Some(schema) => acc + (as -> (schema, Projection.FieldNode(schema.getName.toLowerCase, None, schema)))
               case None         => acc
             }
         }
@@ -77,7 +33,7 @@ final class JPQLMetadataEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) ext
         orderby foreach { x => orderbyClause(x, record) }
 
         asToProjectionNode map {
-          case (as, (entitySchema, projectionNode)) => visitProjectionNode(jpqlKey, projectionNode, null).endRecord
+          case (as, (entitySchema, projectionNode)) => Projection.visitProjectionNode(jpqlKey, projectionNode, null).endRecord
         }
 
       case UpdateStatement(update, set, where) => null // NOT YET
@@ -90,7 +46,7 @@ final class JPQLMetadataEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) ext
       asToProjectionNode.get(qual) match {
         case Some((schema, projectionNode)) =>
           var currSchema = schema
-          var currNode: MetaNode = projectionNode
+          var currNode: Projection.Node = projectionNode
 
           var key = new StringBuilder(qual)
           var paths = attrPaths
@@ -114,7 +70,7 @@ final class JPQLMetadataEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) ext
                         case _                  => field.schema
                       }
 
-                      val child = FieldNode(path, Some(currNode), currSchema)
+                      val child = Projection.FieldNode(path, Some(currNode), currSchema)
                       currNode.addChild(child)
                       child
 
@@ -122,7 +78,7 @@ final class JPQLMetadataEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) ext
                       val field = currSchema.getField(path)
                       currSchema = chana.avro.getFirstNoNullTypeOfUnion(field.schema)
 
-                      val child = FieldNode(path, Some(currNode), currSchema)
+                      val child = Projection.FieldNode(path, Some(currNode), currSchema)
                       currNode.addChild(child)
                       child
 
@@ -137,24 +93,6 @@ final class JPQLMetadataEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) ext
           currNode.close()
 
         case _ => throw JPQLRuntimeException(qual, "is not an AS alias of entity")
-      }
-    }
-  }
-
-  private def visitProjectionNode(id: String, node: MetaNode, fieldAssembler: FieldAssembler[Schema]): FieldAssembler[Schema] = {
-    val schema = node.schema
-    if (node.isLeaf) {
-      fieldAssembler.name(node.name).`type`(schema).noDefault
-    } else if (node.isRoot) {
-      val assembler = SchemaBuilder.record(schema.getName).namespace(projectionNamespace(schema.getNamespace)).fields
-      node.children.foldLeft(assembler) { (acc, x) => visitProjectionNode(id, x, acc) }
-    } else {
-      schema.getType match {
-        case Schema.Type.RECORD =>
-          val assembler = SchemaBuilder.record(schema.getName).namespace(projectionNamespace(schema.getNamespace)).fields()
-          val recSchema = node.children.foldLeft(assembler) { (acc, x) => visitProjectionNode(id, x, acc) }.endRecord
-          fieldAssembler.name(node.name).`type`(recSchema).noDefault
-        case _ => throw JPQLRuntimeException(schema, "should not have children: " + node)
       }
     }
   }

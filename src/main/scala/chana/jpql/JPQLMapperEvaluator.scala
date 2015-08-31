@@ -5,7 +5,7 @@ import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData.Record
 
 sealed trait ProjectionWithId { def id: String }
-final case class Projection(id: String, projection: Array[Byte]) extends ProjectionWithId
+final case class MapperProjection(id: String, projection: Array[Byte]) extends ProjectionWithId
 final case class VoidProjection(id: String) extends ProjectionWithId // used to remove
 
 final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extends JPQLEvaluator {
@@ -27,7 +27,7 @@ final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extend
           having foreach { x => havingClause(x, record) }
           orderby foreach { x => orderbyClause(x, record) }
 
-          Projection(entityId, chana.avro.avroEncode(projection, projectionSchema).get)
+          MapperProjection(entityId, chana.avro.avroEncode(projection, projectionSchema).get)
         } else {
           VoidProjection(entityId) // an empty data may be used to COUNT, but null won't
         }

@@ -101,7 +101,7 @@ class JPQLReducer(jqplKey: String, stmt: Statement, projectionSchema: Schema) ex
   def receive: Receive = {
     case VoidProjection(id) =>
       idToProjection -= id // remove
-    case Projection(id, projectionBytes) =>
+    case MapperProjection(id, projectionBytes) =>
       chana.avro.avroDecode[Record](projectionBytes, projectionSchema) match {
         case Success(projection) => idToProjection += (id -> ReducerProjection(projection))
         case Failure(ex)         => log.warning("Failed to decode projection bytes: " + ex.getMessage)
