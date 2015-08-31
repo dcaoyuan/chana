@@ -7,11 +7,11 @@ import akka.actor.PoisonPill
 import akka.actor.Props
 import akka.actor.Stash
 import akka.contrib.pattern.{ ClusterReceptionistExtension, ClusterSingletonManager, ClusterSingletonProxy }
+import chana.jpql.nodes.SelectStatement
 import chana.jpql.nodes.Statement
 import java.time.LocalDate
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData.Record
-import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration._
 import scala.util.Failure
 import scala.util.Success
@@ -38,7 +38,7 @@ object ResultItemOrdering extends Ordering[WorkingSet] {
   }
 }
 
-final case class ReducerDataSet(projection: Record, groupbys: List[Any])
+final case class ReducerProjection(projection: Record)
 
 object JPQLReducer {
   def props(jpqlKey: String, stmt: Statement, projectionSchema: Schema): Props = Props(classOf[JPQLReducer], jpqlKey, stmt, projectionSchema)
@@ -81,10 +81,14 @@ class JPQLReducer(jqplKey: String, stmt: Statement, projectionSchema: Schema) ex
   log.info("JPQLReducer {} started", jqplKey)
   ClusterReceptionistExtension(context.system).registerService(self)
 
-  private var idToDataSet = Map[String, ReducerDataSet]()
+  private var idToProjection = Map[String, ReducerProjection]()
   private var prevUpdateTime: LocalDate = _
   private var today: LocalDate = _
   private val evaluator = new JPQLReducerEvaluator(log)
+  private val withGroupby = stmt match {
+    case x: SelectStatement => x.groupby.isDefined
+    case _                  => false
+  }
 
   override def preStart {
     prevUpdateTime = LocalDate.now()
@@ -95,42 +99,36 @@ class JPQLReducer(jqplKey: String, stmt: Statement, projectionSchema: Schema) ex
   }
 
   def receive: Receive = {
-    case VoidDataSet(id) =>
-      idToDataSet -= id // remove
-    case DataSet(id, projectionBytes, groupby) =>
+    case VoidProjection(id) =>
+      idToProjection -= id // remove
+    case Projection(id, projectionBytes) =>
       chana.avro.avroDecode[Record](projectionBytes, projectionSchema) match {
-        case Success(projection) => idToDataSet += (id -> ReducerDataSet(projection, groupby))
+        case Success(projection) => idToProjection += (id -> ReducerProjection(projection))
         case Failure(ex)         => log.warning("Failed to decode projection bytes: " + ex.getMessage)
       }
 
     case AskResult =>
       val commander = sender()
-      commander ! idToDataSet
+      commander ! idToProjection
 
     case AskReducedResult =>
       val commander = sender()
-      commander ! reduce(idToDataSet)
+      commander ! reduce(idToProjection)
 
     case _ =>
   }
 
-  def reduce(idToDataSet: Map[String, ReducerDataSet]): Array[List[Any]] = {
-    if (idToDataSet.isEmpty) {
+  def reduce(idToDataset: Map[String, ReducerProjection]): Array[List[Any]] = {
+    if (idToDataset.isEmpty) {
       Array()
     } else {
-      val isGroupby = idToDataSet.headOption.fold(false) { _._2.groupbys.nonEmpty }
-      val reduced = if (isGroupby) {
-        val grouped = new ArrayBuffer[WorkingSet]()
-        idToDataSet.groupBy {
-          case (id, dataset) => dataset.groupbys
-        } foreach {
-          case (groupKey, subDatasets) => reduceDataSet(subDatasets).find { _ ne null } foreach { x =>
-            grouped += x
-          }
-        }
-        grouped.toArray
+      val datasets = idToDataset.values
+      val reduced = if (withGroupby) {
+        collectGroupbys(datasets).groupBy { _._1 }.map {
+          case (groupKey, subDatasets) => reduceDataset(subDatasets.map { _._2 }).find { _ ne null }
+        }.flatten.toArray
       } else {
-        reduceDataSet(idToDataSet)
+        reduceDataset(datasets)
       }
 
       val isOrderby = reduced.headOption.fold(false) { _.orderbys.nonEmpty }
@@ -150,7 +148,12 @@ class JPQLReducer(jqplKey: String, stmt: Statement, projectionSchema: Schema) ex
     }
   }
 
-  def reduceDataSet(datasets: Map[String, ReducerDataSet]): Array[WorkingSet] = {
+  def collectGroupbys(datasets: Iterable[ReducerProjection]) = {
+    evaluator.reset(datasets)
+    datasets.map { dataset => (evaluator.visitGroupbys(stmt, dataset.projection), dataset) }
+  }
+
+  def reduceDataset(datasets: Iterable[ReducerProjection]): Array[WorkingSet] = {
     evaluator.reset(datasets)
     val n = datasets.size
     val reduced = Array.ofDim[WorkingSet](n)
@@ -158,7 +161,7 @@ class JPQLReducer(jqplKey: String, stmt: Statement, projectionSchema: Schema) ex
     val itr = datasets.iterator
     while (itr.hasNext) {
       val entry = itr.next
-      reduced(i) = evaluator.visitOneRecord(stmt, entry._2.projection)
+      reduced(i) = evaluator.visitOneRecord(stmt, entry.projection)
       i += 1
     }
     log.debug("reduced: {}", reduced.mkString("Array(", ",", ")"))

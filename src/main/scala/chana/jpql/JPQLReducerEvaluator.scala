@@ -8,12 +8,24 @@ final case class WorkingSet(selectedItems: List[Any], orderbys: List[Any])
 
 final class JPQLReducerEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
 
-  private var idToDataSet = Map[String, ReducerDataSet]()
+  private var idToProjection = Iterable[ReducerProjection]()
   private var aggrCaches = Map[AggregateExpr, Number]()
 
-  def reset(_idToDataSet: Map[String, ReducerDataSet]) {
-    idToDataSet = _idToDataSet
+  def reset(_idToProjection: Iterable[ReducerProjection]) {
+    idToProjection = _idToProjection
     aggrCaches = Map()
+  }
+
+  def visitGroupbys(root: Statement, record: Record): List[Any] = {
+    root match {
+      case SelectStatement(select, from, where, groupby, having, orderby) =>
+        // collect aliases
+        fromClause(from, record)
+
+        groupby.fold(List[Any]()) { x => groupbyClause(x, record) }
+      case UpdateStatement(update, set, where) => null // NOT YET
+      case DeleteStatement(delete, where)      => null // NOT YET
+    }
   }
 
   def visitOneRecord(root: Statement, record: Record): WorkingSet = {
@@ -68,9 +80,9 @@ final class JPQLReducerEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
         case AggregateExpr_AVG(isDistinct, expr) =>
           var sum = 0.0
           var count = 0
-          val itr = idToDataSet.iterator
+          val itr = idToProjection.iterator
           while (itr.hasNext) {
-            val dataset = itr.next._2
+            val dataset = itr.next
             count += 1
             scalarExpr(expr, dataset.projection) match {
               case x: Number => sum += x.doubleValue
@@ -81,9 +93,9 @@ final class JPQLReducerEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
 
         case AggregateExpr_MAX(isDistinct, expr) =>
           var max = 0.0
-          val itr = idToDataSet.iterator
+          val itr = idToProjection.iterator
           while (itr.hasNext) {
-            val dataset = itr.next._2
+            val dataset = itr.next
             scalarExpr(expr, dataset.projection) match {
               case x: Number => max = math.max(max, x.doubleValue)
               case x         => throw new JPQLRuntimeException(x, "is not a number")
@@ -93,9 +105,9 @@ final class JPQLReducerEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
 
         case AggregateExpr_MIN(isDistinct, expr) =>
           var min = 0.0
-          val itr = idToDataSet.iterator
+          val itr = idToProjection.iterator
           while (itr.hasNext) {
-            val dataset = itr.next._2
+            val dataset = itr.next
             scalarExpr(expr, dataset.projection) match {
               case x: Number => min = math.min(min, x.doubleValue)
               case x         => throw new JPQLRuntimeException(x, "is not a number")
@@ -105,9 +117,9 @@ final class JPQLReducerEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
 
         case AggregateExpr_SUM(isDistinct, expr) =>
           var sum = 0.0
-          val itr = idToDataSet.iterator
+          val itr = idToProjection.iterator
           while (itr.hasNext) {
-            val dataset = itr.next._2
+            val dataset = itr.next
             scalarExpr(expr, dataset.projection) match {
               case x: Number => sum += x.doubleValue
               case x         => throw new JPQLRuntimeException(x, "is not a number")
@@ -116,7 +128,7 @@ final class JPQLReducerEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
           sum
 
         case AggregateExpr_COUNT(isDistinct, expr) =>
-          idToDataSet.size
+          idToProjection.size
       }
       aggrCaches += (expr -> value)
 

@@ -46,6 +46,8 @@ final case class FieldNode(name: String, parent: Option[MetaNode], schema: Schem
 final case class MapKeyNode(name: String, parent: Option[MetaNode], schema: Schema) extends MetaNode
 final case class MapValueNode(name: String, parent: Option[MetaNode], schema: Schema) extends MetaNode
 
+final case class Metadata(projectionSchema: Schema, withGroupby: Boolean)
+
 final class JPQLMetadataEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends JPQLEvaluator {
 
   private var asToProjectionNode = Map[String, (Schema, MetaNode)]()
@@ -54,7 +56,7 @@ final class JPQLMetadataEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) ext
     namespace + "." + jpqlKey
   }
 
-  def collectMetaSet(root: Statement, record: Any): Iterable[Schema] = {
+  def collectMetadata(root: Statement, record: Any): Iterable[Schema] = {
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         fromClause(from, record)

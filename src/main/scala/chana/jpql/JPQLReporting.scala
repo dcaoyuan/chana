@@ -51,7 +51,7 @@ trait JPQLReporting extends Entity {
 
   def eval(stmt: Statement, projectionSchema: Schema, record: Record) = {
     val e = new JPQLMapperEvaluator(schema, projectionSchema)
-    e.collectDataSet(id, stmt, record)
+    e.collectProjection(id, stmt, record)
   }
 
   def report(jpqlKey: String, stmt: Statement, projectionSchema: Schema, interval: FiniteDuration, record: Record) {

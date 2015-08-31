@@ -62,17 +62,17 @@ class JPQLReducerEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with 
     val stmt = parser.visitRoot()
     //info("\nParsed:\n" + stmt)
     val metaEval = new JPQLMetadataEvaluator("2", schemaBoard)
-    val projectionSchema = metaEval.collectMetaSet(stmt, null).head
+    val projectionSchema = metaEval.collectMetadata(stmt, null).head
     info("Projection Schema:\n" + projectionSchema)
     (stmt, projectionSchema)
   }
 
   def collect(entityId: String, stmt: Statement, projectionSchema: Schema, record: Record) = {
     val e = new JPQLMapperEvaluator(record.getSchema, projectionSchema)
-    val res = e.collectDataSet(entityId, stmt, record)
+    val res = e.collectProjection(entityId, stmt, record)
     res match {
-      case x: DataSet     => info("\nCollected: " + x.id + ", " + chana.avro.avroDecode[Record](x.projection, projectionSchema).get + ", " + x.groupbys)
-      case x: VoidDataSet => info("\nCollected: " + x)
+      case x: Projection     => info("\nCollected: " + x.id + ", " + ReducerProjection(chana.avro.avroDecode[Record](x.projection, projectionSchema).get))
+      case x: VoidProjection => info("\nCollected: " + x)
     }
     res
   }

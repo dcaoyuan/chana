@@ -1027,7 +1027,10 @@ class JPQLEvaluator {
   }
 
   def groupbyClause(groupbyClause: GroupbyClause, record: Any): List[Any] = {
-    scalarExpr(groupbyClause.expr, record) :: (groupbyClause.exprs map { x => scalarExpr(x, record) })
+    isToCollect = true
+    val groupbys = scalarExpr(groupbyClause.expr, record) :: (groupbyClause.exprs map { x => scalarExpr(x, record) })
+    isToCollect = false
+    groupbys
   }
 
   def havingClause(having: HavingClause, record: Any): Boolean = {

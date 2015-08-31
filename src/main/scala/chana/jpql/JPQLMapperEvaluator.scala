@@ -4,16 +4,14 @@ import chana.jpql.nodes._
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData.Record
 
-sealed trait DataSetWithId {
-  def id: String
-}
-final case class DataSet(id: String, projection: Array[Byte], groupbys: List[Any]) extends DataSetWithId
-final case class VoidDataSet(id: String) extends DataSetWithId // used to remove
+sealed trait ProjectionWithId { def id: String }
+final case class Projection(id: String, projection: Array[Byte]) extends ProjectionWithId
+final case class VoidProjection(id: String) extends ProjectionWithId // used to remove
 
 final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extends JPQLEvaluator {
   val projection = new Record(projectionSchema)
 
-  def collectDataSet(entityId: String, root: Statement, record: Any): DataSetWithId = {
+  def collectProjection(entityId: String, root: Statement, record: Any): ProjectionWithId = {
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         fromClause(from, record)
@@ -23,15 +21,15 @@ final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extend
         if (whereCond) {
           selectClause(select, record)
 
-          val groupbys = groupby.fold(List[Any]()) { x => groupbyClause(x, record) }
+          groupby.fold(List[Any]()) { x => groupbyClause(x, record) }
 
           // visit having and orderby to collect necessary dataset
           having foreach { x => havingClause(x, record) }
           orderby foreach { x => orderbyClause(x, record) }
 
-          DataSet(entityId, chana.avro.avroEncode(projection, projectionSchema).get, groupbys)
+          Projection(entityId, chana.avro.avroEncode(projection, projectionSchema).get)
         } else {
-          VoidDataSet(entityId) // an empty data may be used to COUNT, but null won't
+          VoidProjection(entityId) // an empty data may be used to COUNT, but null won't
         }
       case UpdateStatement(update, set, where) => null // NOT YET
       case DeleteStatement(delete, where)      => null // NOT YET
