@@ -138,9 +138,6 @@ final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extend
             currValue
           case _ => throw JPQLRuntimeException(qual, "is not an AS alias of entity: " + EntityName)
         }
-
-      case dataset: Map[String, Any] @unchecked =>
-        dataset(JPQLEvaluator.keyOf(qual, attrPaths))
     }
   }
 
