@@ -71,8 +71,8 @@ class JPQLReducerEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with 
     val e = new JPQLMapperEvaluator(record.getSchema, projectionSchema)
     val res = e.collectProjection(entityId, stmt, record)
     res match {
-      case x: MapperProjection => info("\nCollected: " + x.id + ", " + ReducerProjection(chana.avro.avroDecode[Record](x.projection, projectionSchema).get))
-      case x: VoidProjection   => info("\nCollected: " + x)
+      case x: BinaryProjection => info("\nCollected: " + x.id + ", " + RecordProjection(chana.avro.avroDecode[Record](x.projection, projectionSchema).get))
+      case x: RemoveProjection => info("\nCollected: " + x)
     }
     res
   }

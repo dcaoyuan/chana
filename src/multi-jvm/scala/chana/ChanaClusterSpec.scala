@@ -65,7 +65,7 @@ object ChanaClusterSpecConfig extends MultiNodeConfig {
         }
         serialization-bindings {
           "akka.persistence.journal.AsyncWriteTarget$WriteMessages" = writemessages
-          "chana.jpql.ProjectionWithId" = avro-projection
+          "chana.jpql.AvroProjection" = avro-projection
           "chana.package$UpdatedFields" = record-event
           "chana.package$PutSchema" = schema-event
           "org.apache.avro.generic.GenericContainer" = avro

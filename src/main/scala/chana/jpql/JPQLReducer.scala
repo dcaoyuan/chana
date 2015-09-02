@@ -38,7 +38,7 @@ object ResultItemOrdering extends Ordering[WorkingSet] {
   }
 }
 
-final case class ReducerProjection(projection: Record)
+final case class RecordProjection(projection: Record)
 
 object JPQLReducer {
   def props(jpqlKey: String, stmt: Statement, projectionSchema: Schema): Props = Props(classOf[JPQLReducer], jpqlKey, stmt, projectionSchema)
@@ -81,7 +81,7 @@ class JPQLReducer(jqplKey: String, stmt: Statement, projectionSchema: Schema) ex
   log.info("JPQLReducer {} started", jqplKey)
   ClusterReceptionistExtension(context.system).registerService(self)
 
-  private var idToProjection = Map[String, ReducerProjection]()
+  private var idToProjection = Map[String, RecordProjection]()
   private var prevUpdateTime: LocalDate = _
   private var today: LocalDate = _
   private val evaluator = new JPQLReducerEvaluator(log)
@@ -99,11 +99,11 @@ class JPQLReducer(jqplKey: String, stmt: Statement, projectionSchema: Schema) ex
   }
 
   def receive: Receive = {
-    case VoidProjection(id) =>
+    case RemoveProjection(id) =>
       idToProjection -= id // remove
-    case MapperProjection(id, projectionBytes) =>
-      chana.avro.avroDecode[Record](projectionBytes, projectionSchema) match {
-        case Success(projection) => idToProjection += (id -> ReducerProjection(projection))
+    case BinaryProjection(id, bytes) =>
+      chana.avro.avroDecode[Record](bytes, projectionSchema) match {
+        case Success(projection) => idToProjection += (id -> RecordProjection(projection))
         case Failure(ex)         => log.warning("Failed to decode projection bytes: " + ex.getMessage)
       }
 
@@ -118,7 +118,7 @@ class JPQLReducer(jqplKey: String, stmt: Statement, projectionSchema: Schema) ex
     case _ =>
   }
 
-  def reduce(idToDataset: Map[String, ReducerProjection]): Array[List[Any]] = {
+  def reduce(idToDataset: Map[String, RecordProjection]): Array[List[Any]] = {
     if (idToDataset.isEmpty) {
       Array()
     } else {
@@ -148,12 +148,12 @@ class JPQLReducer(jqplKey: String, stmt: Statement, projectionSchema: Schema) ex
     }
   }
 
-  def collectGroupbys(datasets: Iterable[ReducerProjection]) = {
+  def collectGroupbys(datasets: Iterable[RecordProjection]) = {
     evaluator.reset(datasets)
     datasets.map { dataset => (evaluator.visitGroupbys(stmt, dataset.projection), dataset) }
   }
 
-  def reduceDataset(datasets: Iterable[ReducerProjection]): Array[WorkingSet] = {
+  def reduceDataset(datasets: Iterable[RecordProjection]): Array[WorkingSet] = {
     evaluator.reset(datasets)
     val n = datasets.size
     val reduced = Array.ofDim[WorkingSet](n)

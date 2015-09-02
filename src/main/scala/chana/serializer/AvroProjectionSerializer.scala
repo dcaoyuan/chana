@@ -3,8 +3,8 @@ package chana.serializer
 import akka.actor.ExtendedActorSystem
 import akka.serialization.Serializer
 import akka.util.ByteString
-import chana.jpql.MapperProjection
-import chana.jpql.VoidProjection
+import chana.jpql.BinaryProjection
+import chana.jpql.RemoveProjection
 import java.nio.ByteOrder
 
 final class AvroProjectionSerializer(system: ExtendedActorSystem) extends Serializer {
@@ -15,18 +15,19 @@ final class AvroProjectionSerializer(system: ExtendedActorSystem) extends Serial
   override def includeManifest: Boolean = false
 
   override def toBinary(obj: AnyRef): Array[Byte] = obj match {
-    case projection: MapperProjection =>
+    case BinaryProjection(id, projection) =>
       val builder = ByteString.newBuilder
-      StringSerializer.appendToByteString(builder, projection.id)
-      builder.putBytes(projection.projection)
+      StringSerializer.appendToByteString(builder, id)
+      builder.putBytes(projection)
       builder.result.toArray
-    case projection: VoidProjection =>
+
+    case RemoveProjection(id) =>
       val builder = ByteString.newBuilder
-      StringSerializer.appendToByteString(builder, projection.id)
+      StringSerializer.appendToByteString(builder, id)
       builder.result.toArray
 
     case _ =>
-      throw new IllegalArgumentException("Can't serialize a non-Avro message using AvroSerializer [" + obj + "]")
+      throw new IllegalArgumentException("Can't serialize a non-projection message using AvroProjectionSerializer [" + obj + "]")
   }
 
   override def fromBinary(bytes: Array[Byte], manifest: Option[Class[_]]): AnyRef = {
@@ -36,9 +37,9 @@ final class AvroProjectionSerializer(system: ExtendedActorSystem) extends Serial
     if (len > 0) {
       val payload = Array.ofDim[Byte](data.len)
       data.getBytes(payload)
-      MapperProjection(id, payload)
+      BinaryProjection(id, payload)
     } else {
-      VoidProjection(id)
+      RemoveProjection(id)
     }
   }
 }

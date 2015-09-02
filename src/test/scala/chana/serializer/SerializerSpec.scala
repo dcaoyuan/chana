@@ -6,8 +6,8 @@ import akka.serialization.SerializationExtension
 import chana.PutSchema
 import chana.UpdatedFields
 import chana.avro.DefaultRecordBuilder
-import chana.jpql.MapperProjection
-import chana.jpql.VoidProjection
+import chana.jpql.BinaryProjection
+import chana.jpql.RemoveProjection
 import com.typesafe.config.ConfigFactory
 import java.util.concurrent.TimeUnit
 import org.apache.avro.Schema.Parser
@@ -33,7 +33,7 @@ akka.actor {
                                          
   serialization-bindings {
     "akka.persistence.journal.AsyncWriteTarget$WriteMessages" = writemessages
-    "chana.jpql.ProjectionWithId" = avro-projection
+    "chana.jpql.AvroProjection" = avro-projection
     "chana.package$UpdatedFields" = record-event
     "chana.package$PutSchema" = schema-event
     "java.util.HashMap" = java-map
@@ -125,7 +125,7 @@ class SerializerSpec(_system: ActorSystem) extends TestKit(_system) with Implici
     }
 
     "handle avro mapper projection " in {
-      val obj = MapperProjection("1234", chana.avro.avroEncode(record, schema).get)
+      val obj = BinaryProjection("1234", chana.avro.avroEncode(record, schema).get)
       val serializer = serialization.findSerializerFor(obj)
       info("use " + serializer.getClass.getName)
       val bytes = serializer.toBinary(obj)
@@ -137,7 +137,7 @@ class SerializerSpec(_system: ActorSystem) extends TestKit(_system) with Implici
     }
 
     "handle avro void projection " in {
-      val obj = VoidProjection("5678")
+      val obj = RemoveProjection("5678")
       test(obj)
     }
   }

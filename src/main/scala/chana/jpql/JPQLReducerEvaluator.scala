@@ -8,10 +8,10 @@ final case class WorkingSet(selectedItems: List[Any], orderbys: List[Any])
 
 final class JPQLReducerEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
 
-  private var idToProjection = Iterable[ReducerProjection]()
+  private var idToProjection = Iterable[RecordProjection]()
   private var aggrCaches = Map[AggregateExpr, Number]()
 
-  def reset(_idToProjection: Iterable[ReducerProjection]) {
+  def reset(_idToProjection: Iterable[RecordProjection]) {
     idToProjection = _idToProjection
     aggrCaches = Map()
   }

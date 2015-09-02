@@ -5,17 +5,17 @@ import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData.Record
 
 /**
- * ProjectionWithId should extends Serializable to got MapperProjection/VoidProjection
+ * AvroProjection should extends Serializable to got BinaryProjection/RemoveProjection
  * use custom serializer
  */
-sealed trait ProjectionWithId extends Serializable { def id: String }
-final case class MapperProjection(id: String, projection: Array[Byte]) extends ProjectionWithId
-final case class VoidProjection(id: String) extends ProjectionWithId // used to remove
+sealed trait AvroProjection extends Serializable { def id: String }
+final case class BinaryProjection(id: String, projection: Array[Byte]) extends AvroProjection
+final case class RemoveProjection(id: String) extends AvroProjection // used to remove
 
 final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extends JPQLEvaluator {
   val projection = new Record(projectionSchema)
 
-  def collectProjection(entityId: String, root: Statement, record: Any): ProjectionWithId = {
+  def collectProjection(entityId: String, root: Statement, record: Any): AvroProjection = {
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         fromClause(from, record)
@@ -31,9 +31,9 @@ final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extend
           having foreach { x => havingClause(x, record) }
           orderby foreach { x => orderbyClause(x, record) }
 
-          MapperProjection(entityId, chana.avro.avroEncode(projection, projectionSchema).get)
+          BinaryProjection(entityId, chana.avro.avroEncode(projection, projectionSchema).get)
         } else {
-          VoidProjection(entityId) // an empty data may be used to COUNT, but null won't
+          RemoveProjection(entityId) // an empty data may be used to COUNT, but null won't
         }
       case UpdateStatement(update, set, where) => null // NOT YET
       case DeleteStatement(delete, where)      => null // NOT YET
