@@ -51,16 +51,6 @@ final class JPQLReducerEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
     }
   }
 
-  override def selectExpr(expr: SelectExpr, record: Any) = {
-    expr match {
-      case SelectExpr_AggregateExpr(expr)   => selectedItems ::= aggregateExpr(expr, record)
-      case SelectExpr_ScalarExpr(expr)      => selectedItems ::= scalarExpr(expr, record)
-      case SelectExpr_OBJECT(expr)          => selectObjects ::= varAccessOrTypeConstant(expr, record)
-      case SelectExpr_ConstructorExpr(expr) => selectNewInstances ::= constructorExpr(expr, record)
-      case SelectExpr_MapEntryExpr(expr)    => selectMapEntries ::= mapEntryExpr(expr, record)
-    }
-  }
-
   override def pathExprOrVarAccess(expr: PathExprOrVarAccess, record: Any): Any = {
     val qual = qualIdentVar(expr.qual, record)
     val paths = expr.attributes map { x => attribute(x, record) }

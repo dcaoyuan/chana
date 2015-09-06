@@ -206,7 +206,6 @@ class JPQLEvaluator {
   private var asToItem = Map[String, Any]()
   private var asToCollectionMember = Map[String, Any]()
 
-  protected var selectAggregates = List[Any]()
   protected var selectObjects = List[Any]()
   protected var selectMapEntries = List[Any]()
   protected var selectNewInstances = List[Any]()
@@ -327,7 +326,7 @@ class JPQLEvaluator {
 
   def selectExpr(expr: SelectExpr, record: Any) = {
     expr match {
-      case SelectExpr_AggregateExpr(expr)   => selectAggregates ::= aggregateExpr(expr, record)
+      case SelectExpr_AggregateExpr(expr)   => selectedItems ::= aggregateExpr(expr, record)
       case SelectExpr_ScalarExpr(expr)      => selectedItems ::= scalarExpr(expr, record)
       case SelectExpr_OBJECT(expr)          => selectObjects ::= varAccessOrTypeConstant(expr, record)
       case SelectExpr_ConstructorExpr(expr) => selectNewInstances ::= constructorExpr(expr, record)
