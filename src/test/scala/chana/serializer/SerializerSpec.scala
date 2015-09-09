@@ -45,7 +45,7 @@ akka.actor {
 }
 
 akka.remote.netty.tcp.hostname = "127.0.0.1"
-akka.remote.netty.tcp.port = 2550
+akka.remote.netty.tcp.port = 0 
 
 """)
 

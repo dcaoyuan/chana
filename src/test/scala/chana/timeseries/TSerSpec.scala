@@ -25,8 +25,8 @@ class TSerSpec(_system: ActorSystem) extends TestKit(_system) with ImplicitSende
       provider = "akka.cluster.ClusterActorRefProvider"                                                                      
   }
   akka.remote.netty.tcp.hostname = "localhost"
-  # set port to 2550 to by pass the ports that will be occupied by ChanaClusterSpec test
-  akka.remote.netty.tcp.port = 2550
+  # set port to random to by pass the ports that will be occupied by ChanaClusterSpec test
+  akka.remote.netty.tcp.port = 0
   """)))
 
   val log = Logging(system, this.getClass)

@@ -2,28 +2,35 @@ package chana.jpql
 
 import akka.actor.ActorSystem
 import akka.testkit.ImplicitSender
-import akka.testkit.TestActorRef
 import akka.testkit.TestKit
-import akka.pattern.ask
 import chana.jpql.JPQLReducer.AskReducedResult
 import chana.jpql.nodes.JPQLParser
 import chana.jpql.nodes.Statement
 import chana.jpql.rats.JPQLGrammar
 import chana.schema.SchemaBoard
+import com.typesafe.config.ConfigFactory
 import java.io.StringReader
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData.Record
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.Matchers
 import org.scalatest.WordSpecLike
-import scala.util.Success
 import xtc.tree.Node
 import scala.concurrent.duration._
 
-class JPQLReducerEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with ImplicitSender
+class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) with ImplicitSender
     with WordSpecLike
     with Matchers
     with BeforeAndAfterAll {
+
+  def this() = this(ActorSystem("ChanaSystem", ConfigFactory.parseString("""
+  akka.actor {
+      provider = "akka.cluster.ClusterActorRefProvider"                                                                      
+  }
+  akka.remote.netty.tcp.hostname = "localhost"
+  # set port to random to by pass the ports that will be occupied by ChanaClusterSpec test
+  akka.remote.netty.tcp.port = 0
+  """)))
 
   import chana.avro.AvroRecords._
 
@@ -84,13 +91,14 @@ class JPQLReducerEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with 
         "WHERE a.registerTime >= 5 ORDER BY a.registerTime"
       val (stmt, projectionSchema) = parse(q)
 
-      val reducer = TestActorRef(JPQLReducer.props("test", stmt, projectionSchema))
+      val reducer = system.actorOf(JPQLReducer.props("test", stmt, projectionSchema))
 
       records() foreach { record => reducer ! collect(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
 
-      val f = reducer.ask(AskReducedResult)(2.seconds)
-      val Success(result) = f.value.get
-      result should be(Array(List(5), List(6), List(7), List(8), List(9)))
+      reducer ! AskReducedResult
+      expectMsgPF(2.seconds) {
+        case result: Array[_] => result should be(Array(List(5), List(6), List(7), List(8), List(9)))
+      }
     }
 
     "query deep fields" in {
@@ -98,13 +106,14 @@ class JPQLReducerEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with 
         "WHERE a.registerTime >= 5 ORDER BY a.registerTime"
       val (stmt, projectionSchema) = parse(q)
 
-      val reducer = TestActorRef(JPQLReducer.props("test", stmt, projectionSchema))
+      val reducer = system.actorOf(JPQLReducer.props("test", stmt, projectionSchema))
 
       records() foreach { record => reducer ! collect(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
 
-      val f = reducer.ask(AskReducedResult)(2.seconds)
-      val Success(result) = f.value.get
-      result should be(Array(List(5, 5000), List(6, 6000), List(7, 7000), List(8, 8000), List(9, 9000)))
+      reducer ! AskReducedResult
+      expectMsgPF(2.seconds) {
+        case result: Array[_] => result should be(Array(List(5, 5000), List(6, 6000), List(7, 7000), List(8, 8000), List(9, 9000)))
+      }
     }
 
     "query fields order desc" in {
@@ -112,13 +121,14 @@ class JPQLReducerEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with 
         "WHERE a.registerTime >= 5 ORDER BY a.registerTime DESC"
       val (stmt, projectionSchema) = parse(q)
 
-      val reducer = TestActorRef(JPQLReducer.props("test", stmt, projectionSchema))
+      val reducer = system.actorOf(JPQLReducer.props("test", stmt, projectionSchema))
 
       records() foreach { record => reducer ! collect(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
 
-      val f = reducer.ask(AskReducedResult)(2.seconds)
-      val Success(result) = f.value.get
-      result should be(Array(List(9), List(8), List(7), List(6), List(5)))
+      reducer ! AskReducedResult
+      expectMsgPF(2.seconds) {
+        case result: Array[_] => result should be(Array(List(9), List(8), List(7), List(6), List(5)))
+      }
     }
 
     "query fields order by string desc" in {
@@ -126,13 +136,14 @@ class JPQLReducerEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with 
         "WHERE a.registerTime >= 5 ORDER BY a.id DESC"
       val (stmt, projectionSchema) = parse(q)
 
-      val reducer = TestActorRef(JPQLReducer.props("test", stmt, projectionSchema))
+      val reducer = system.actorOf(JPQLReducer.props("test", stmt, projectionSchema))
 
       records() foreach { record => reducer ! collect(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
 
-      val f = reducer.ask(AskReducedResult)(2.seconds)
-      val Success(result) = f.value.get
-      result should be(Array(List("9", 9), List("8", 8), List("7", 7), List("6", 6), List("5", 5)))
+      reducer ! AskReducedResult
+      expectMsgPF(2.seconds) {
+        case result: Array[_] => result should be(Array(List("9", 9), List("8", 8), List("7", 7), List("6", 6), List("5", 5)))
+      }
     }
 
     "query aggregate functions" in {
@@ -140,13 +151,14 @@ class JPQLReducerEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with 
         "WHERE a.registerTime >= 5 ORDER BY a.id DESC"
       val (stmt, projectionSchema) = parse(q)
 
-      val reducer = TestActorRef(JPQLReducer.props("test", stmt, projectionSchema))
+      val reducer = system.actorOf(JPQLReducer.props("test", stmt, projectionSchema))
 
       records() foreach { record => reducer ! collect(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
 
-      val f = reducer.ask(AskReducedResult)(2.seconds)
-      val Success(result) = f.value.get
-      result should be(Array(List(5.0, 7.0, 35.0, 9.0, 0.0), List(5.0, 7.0, 35.0, 9.0, 0.0), List(5.0, 7.0, 35.0, 9.0, 0.0), List(5.0, 7.0, 35.0, 9.0, 0.0), List(5.0, 7.0, 35.0, 9.0, 0.0)))
+      reducer ! AskReducedResult
+      expectMsgPF(2.seconds) {
+        case result: Array[_] => result should be(Array(List(5.0, 7.0, 35.0, 9.0, 0.0), List(5.0, 7.0, 35.0, 9.0, 0.0), List(5.0, 7.0, 35.0, 9.0, 0.0), List(5.0, 7.0, 35.0, 9.0, 0.0), List(5.0, 7.0, 35.0, 9.0, 0.0)))
+      }
     }
 
     "query with groupby" in {
@@ -154,13 +166,14 @@ class JPQLReducerEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with 
         "WHERE a.registerTime > 1 GROUP BY a.lastLoginTime ORDER BY a.id"
       val (stmt, projectionSchema) = parse(q)
 
-      val reducer = TestActorRef(JPQLReducer.props("test", stmt, projectionSchema))
+      val reducer = system.actorOf(JPQLReducer.props("test", stmt, projectionSchema))
 
       records() foreach { record => reducer ! collect(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
 
-      val f = reducer.ask(AskReducedResult)(2.seconds)
-      val Success(result) = f.value.get
-      result should be(Array(List(5.5), List(5.0), List(6.0)))
+      reducer ! AskReducedResult
+      expectMsgPF(2.seconds) {
+        case result: Array[_] => result should be(Array(List(5.5), List(5.0), List(6.0)))
+      }
     }
 
     "query with groupby and having" in {
@@ -168,13 +181,14 @@ class JPQLReducerEvaluatorSpec extends TestKit(ActorSystem("ChanaSystem")) with 
         "WHERE a.registerTime > 1 GROUP BY a.lastLoginTime HAVING a.registerTime > 5 ORDER BY a.id"
       val (stmt, projectionSchema) = parse(q)
 
-      val reducer = TestActorRef(JPQLReducer.props("test", stmt, projectionSchema))
+      val reducer = system.actorOf(JPQLReducer.props("test", stmt, projectionSchema))
 
       records() foreach { record => reducer ! collect(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
 
-      val f = reducer.ask(AskReducedResult)(2.seconds)
-      val Success(result) = f.value.get
-      result should be(Array(List(5.5), List(5.0), List(6.0)))
+      reducer ! AskReducedResult
+      expectMsgPF(2.seconds) {
+        case result: Array[_] => result should be(Array(List(5.5), List(5.0), List(6.0)))
+      }
     }
   }
 }
