@@ -1,6 +1,7 @@
 package chana.avro
 
 import org.apache.avro.AvroRuntimeException
+import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData
 import org.apache.avro.generic.GenericRecord
 import scala.collection.AbstractIterable
@@ -13,17 +14,17 @@ import scala.collection.generic.TraversableFactory
 import scala.collection.immutable
 import scala.collection.mutable.Builder
 
-final class RecordFlatView(underlying: GenericRecord, flattenField: String) extends AbstractIterable[GenericRecord] {
-  lazy val fieldIterable = underlying.get(flattenField) match {
+final class RecordFlatView(underlying: GenericRecord, flatField: String) extends AbstractIterable[GenericRecord] {
+  lazy val fieldIterable = underlying.get(flatField) match {
     case iterable: java.lang.Iterable[AnyRef] @unchecked => iterable
-    case _ => throw new AvroRuntimeException("Not an iterable field: " + flattenField)
+    case _ => throw new AvroRuntimeException("Not an iterable field: " + flatField)
   }
 
   override def companion: GenericCompanion[Iterable] = RecordFlatView
 
   override def seq = this
 
-  override def iterator: Iterator[GenericRecord] = new IteratorWrapper(underlying, flattenField, fieldIterable.iterator)
+  override def iterator: Iterator[GenericRecord] = new IteratorWrapper(underlying, flatField, fieldIterable.iterator)
 
   override def foreach[U](f: GenericRecord => U): Unit = iterator.foreach(f)
   override def forall(p: GenericRecord => Boolean): Boolean = iterator.forall(p)
@@ -215,19 +216,48 @@ object RecordFlatView extends TraversableFactory[Iterable] {
   def newBuilder[GenericRecord]: Builder[GenericRecord, Iterable[GenericRecord]] = immutable.Iterable.newBuilder[GenericRecord]
 }
 
-final class IteratorWrapper(record: GenericRecord, flattenField: String, underlying: java.util.Iterator[AnyRef]) extends AbstractIterator[GenericRecord] with Iterator[GenericRecord] {
+final class IteratorWrapper(record: GenericRecord, flatField: String, underlying: java.util.Iterator[AnyRef]) extends AbstractIterator[GenericRecord] with Iterator[GenericRecord] {
   def hasNext = underlying.hasNext
-  def next() = new RecordWrapper(record, flattenField, underlying.next)
+  def next() = new RecordWrapper(record, flatField, underlying.next)
 }
 
-final class RecordWrapper(underlying: GenericRecord, flattenField: String, fieldValue: AnyRef) extends GenericRecord {
+final class RecordWrapper(underlying: GenericRecord, flatField: String, fieldValue: AnyRef) extends GenericRecord {
   def getSchema() = underlying.getSchema
   def put(key: String, value: AnyRef) {
-    val field = getSchema.getField(key)
-    if (field eq null) {
-      throw new AvroRuntimeException("Not a valid schema field: " + key)
+    if (key == flatField) {
+      // we should add value to this collection field instead of just put it
+      underlying.get(key) match {
+        case null =>
+          val fieldSchema = getSchema.getField(key).schema
+          fieldSchema.getType match {
+            case Schema.Type.ARRAY =>
+              val xs = new java.util.ArrayList[AnyRef]()
+              xs.add(value)
+            case Schema.Type.MAP =>
+              val xs = new java.util.HashMap[String, AnyRef]()
+              value match {
+                case (k: String, v: AnyRef) => xs.put(k, v)
+                case _                      => throw new AvroRuntimeException("value is not a pair: " + value)
+              }
+            case x => throw new AvroRuntimeException("field (" + key + ") is not collection: " + x)
+          }
+
+        // TODO create an empty collection
+        case xs: java.util.Collection[AnyRef] @unchecked => xs.add(value)
+        case xs: java.util.Map[String, AnyRef] @unchecked =>
+          value match {
+            case (k: String, v: AnyRef) => xs.put(k, v)
+            case _                      => throw new AvroRuntimeException("value is not a pair: " + value)
+          }
+        case x => throw new AvroRuntimeException("field (" + key + ") is not collection: " + x)
+      }
     } else {
-      underlying.put(key, value)
+      getSchema.getField(key) match {
+        case null =>
+          throw new AvroRuntimeException("Not a valid schema field: " + key)
+        case _ =>
+          underlying.put(key, value)
+      }
     }
 
   }
@@ -237,14 +267,12 @@ final class RecordWrapper(underlying: GenericRecord, flattenField: String, field
   }
 
   def get(key: String): AnyRef = {
-    if (key == flattenField) {
+    if (key == flatField) {
       fieldValue
     } else {
-      val field = getSchema.getField(key)
-      if (field eq null) {
-        null
-      } else {
-        underlying.get(key)
+      getSchema.getField(key) match {
+        case null => null
+        case _    => underlying.get(key)
       }
     }
   }
