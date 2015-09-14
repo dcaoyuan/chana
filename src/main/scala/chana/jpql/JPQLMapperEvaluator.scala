@@ -3,6 +3,7 @@ package chana.jpql
 import chana.jpql.nodes._
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData.Record
+import org.apache.avro.generic.GenericRecord
 
 /**
  * AvroProjection should extends Serializable to got BinaryProjection/RemoveProjection
@@ -43,7 +44,7 @@ final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extend
   override def valueOf(qual: String, attrPaths: List[String], record: Any): Any = {
     // TODO in case of record does not contain schema, get entityNames from DistributedSchemaBoard?
     record match {
-      case rec: Record =>
+      case rec: GenericRecord =>
         val EntityName = rec.getSchema.getName.toLowerCase
         asToEntity.get(qual) match {
           case Some(EntityName) =>
@@ -58,19 +59,19 @@ final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extend
                 paths = paths.tail
 
                 currValue match {
-                  case value: Record =>
+                  case value: GenericRecord =>
 
                     currValue = value.get(path) match {
-                      case v: Record =>
+                      case v: GenericRecord =>
                         currData = if (paths.isEmpty) { // at tail, put r or r clone?
-                          currData.asInstanceOf[Record].put(path, v)
+                          currData.asInstanceOf[GenericRecord].put(path, v)
                           v
                         } else {
-                          val fieldData = currData.asInstanceOf[Record].get(path) match {
-                            case null => new Record(currData.asInstanceOf[Record].getSchema.getField(path).schema)
+                          val fieldData = currData.asInstanceOf[GenericRecord].get(path) match {
+                            case null => new Record(currData.asInstanceOf[GenericRecord].getSchema.getField(path).schema)
                             case x    => x
                           }
-                          currData.asInstanceOf[Record].put(path, fieldData)
+                          currData.asInstanceOf[GenericRecord].put(path, fieldData)
                           fieldData
                         }
 
@@ -78,14 +79,14 @@ final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extend
 
                       case v: java.util.Collection[_] =>
                         currData = if (paths.isEmpty) { // at tail, put a or a clone?
-                          currData.asInstanceOf[Record].put(path, v)
+                          currData.asInstanceOf[GenericRecord].put(path, v)
                           v
                         } else {
-                          val fieldData = currData.asInstanceOf[Record].get(path) match {
+                          val fieldData = currData.asInstanceOf[GenericRecord].get(path) match {
                             case null => new java.util.ArrayList[Any] //chana.avro.newGenericArray(0, currSchema.getElementType)
                             case x    => x.asInstanceOf[java.util.Collection[_]]
                           }
-                          currData.asInstanceOf[Record].put(path, fieldData)
+                          currData.asInstanceOf[GenericRecord].put(path, fieldData)
                           fieldData
                         }
 
@@ -93,14 +94,14 @@ final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extend
 
                       case v: java.util.Map[String, _] @unchecked =>
                         currData = if (paths.isEmpty) { // at tail, put m or m clone?
-                          currData.asInstanceOf[Record].put(path, v)
+                          currData.asInstanceOf[GenericRecord].put(path, v)
                           v
                         } else {
-                          val fieldData = currData.asInstanceOf[Record].get(path) match {
+                          val fieldData = currData.asInstanceOf[GenericRecord].get(path) match {
                             case null => new java.util.HashMap[String, Any]
                             case x    => x.asInstanceOf[java.util.HashMap[String, Any]]
                           }
-                          currData.asInstanceOf[Record].put(path, fieldData)
+                          currData.asInstanceOf[GenericRecord].put(path, fieldData)
                           fieldData
                         }
 
@@ -108,7 +109,7 @@ final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extend
 
                       case v =>
                         // TODO when currData is map or array
-                        currData.asInstanceOf[Record].put(path, v)
+                        currData.asInstanceOf[GenericRecord].put(path, v)
                         currData = v
 
                         v
@@ -127,7 +128,7 @@ final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extend
                 paths = paths.tail
 
                 currValue match {
-                  case x: Record                                => currValue = x.get(path)
+                  case x: GenericRecord                         => currValue = x.get(path)
                   case arr: java.util.Collection[_]             => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path) // TODO
                   case map: java.util.Map[String, _] @unchecked => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path) // TODO
                   case null                                     => throw JPQLRuntimeException(currValue, "is null when fetch its attribute: " + path)

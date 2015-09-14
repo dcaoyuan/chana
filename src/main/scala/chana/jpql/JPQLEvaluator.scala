@@ -6,7 +6,7 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.temporal.Temporal
-import org.apache.avro.generic.GenericData.Record
+import org.apache.avro.generic.GenericRecord
 import org.apache.avro.util.Utf8
 
 case class JPQLRuntimeException(value: Any, message: String)
@@ -183,6 +183,117 @@ object JPQLFunctions {
   def currentTime() = LocalTime.now()
   def currentDate() = LocalDate.now()
   def currentDateTime() = LocalDateTime.now()
+
+  final class IndexedList(underlying: java.util.List[_], joinSpec: JoinSpec = INNER_JOIN) {
+    lazy val indexToElement = {
+      var map = Map[Int, Any]()
+      var i = 1
+      var itr = underlying.iterator
+      while (itr.hasNext) {
+        map += (i -> itr.next)
+        i += 1
+      }
+      map
+    }
+
+    def apply(i: Int) = indexToElement(i)
+
+    def EQ(x: Int) = {
+      val javaIdx = x - 1
+      val xs = new java.util.LinkedList[Any]()
+      xs.add(underlying.get(javaIdx))
+      xs
+    }
+
+    def NE(x: Int) = {
+      val javaIdx = x - 1
+      val xs = new java.util.LinkedList[Any]()
+      var i = 0
+      val itr = underlying.iterator
+      while (itr.hasNext) {
+        if (i != javaIdx) {
+          xs.add(itr.next)
+        } else {
+          itr.next
+        }
+        i += 1
+      }
+      xs
+    }
+
+    def GT(x: Int) = {
+      val javaIdx = x - 1
+      val xs = new java.util.LinkedList[Any]()
+      var i = 0
+      val itr = underlying.iterator
+      while (itr.hasNext) {
+        if (i > javaIdx) {
+          xs.add(itr.next)
+        } else {
+          itr.next
+        }
+        i += 1
+      }
+      xs
+    }
+
+    def GE(x: Int) = {
+      val javaIdx = x - 1
+      val xs = new java.util.LinkedList[Any]()
+      var i = 0
+      val itr = underlying.iterator
+      while (itr.hasNext) {
+        if (i >= javaIdx) {
+          xs.add(itr.next)
+        } else {
+          itr.next
+        }
+        i += 1
+      }
+      xs
+    }
+
+    def LT(x: Int) = {
+      val javaIdx = x - 1
+      val xs = new java.util.LinkedList[Any]()
+      var i = 0
+      val itr = underlying.iterator
+      while (itr.hasNext && i < javaIdx) {
+        xs.add(itr.next)
+        i += 1
+      }
+      xs
+    }
+
+    def LE(x: Int) = {
+      val javaIdx = x - 1
+      val xs = new java.util.LinkedList[Any]()
+      var i = 0
+      val itr = underlying.iterator
+      while (itr.hasNext && i <= javaIdx) {
+        xs.add(itr.next)
+        i += 1
+      }
+      xs
+    }
+
+    def BETWEEN(min: Int, max: Int) = {
+      val javaMin = min - 1
+      val javaMax = max - 1
+      val xs = new java.util.LinkedList[Any]()
+      var i = 0
+      val itr = underlying.iterator
+      while (itr.hasNext && i <= javaMax) {
+        if (i >= javaMin) {
+          xs.add(itr.next)
+        } else {
+          itr.next
+        }
+        i += 1
+      }
+      xs
+    }
+  }
 }
 
 object JPQLEvaluator {
@@ -203,6 +314,7 @@ object JPQLEvaluator {
 class JPQLEvaluator {
 
   protected var asToEntity = Map[String, String]()
+  protected var asToJoin = Map[String, Any]()
   private var asToItem = Map[String, Any]()
   private var asToCollectionMember = Map[String, Any]()
 
@@ -213,6 +325,7 @@ class JPQLEvaluator {
   protected var selectedItems = List[Any]()
   protected var selectIsDistinct: Boolean = _
   protected var isToCollect: Boolean = _
+  protected var isJoin: Boolean = _
 
   /**
    * For simple test
@@ -246,7 +359,7 @@ class JPQLEvaluator {
   def valueOf(qual: String, attrPaths: List[String], record: Any): Any = {
     // TODO in case of record does not contain schema, get entityNames from DistributedSchemaBoard?
     record match {
-      case rec: Record =>
+      case rec: GenericRecord =>
         val EntityName = rec.getSchema.getName.toLowerCase
         asToEntity.get(qual) match {
           case Some(EntityName) =>
@@ -254,7 +367,7 @@ class JPQLEvaluator {
             var curr: Any = rec
             while (paths.nonEmpty) {
               curr match {
-                case x: Record =>
+                case x: GenericRecord =>
                   val path = paths.head
                   paths = paths.tail
                   curr = x.get(path)
@@ -334,6 +447,7 @@ class JPQLEvaluator {
     }
   }
 
+  // SELECT ENTRY(e.contactInfo) from Employee e
   def mapEntryExpr(expr: MapEntryExpr, record: Any): Any = {
     varAccessOrTypeConstant(expr.entry, record)
   }
@@ -344,6 +458,7 @@ class JPQLEvaluator {
     valueOf(qual, paths, record)
   }
 
+  // SELECT e from Employee e join e.contactInfo c where KEY(c) = 'Email' and VALUE(c) = 'joe@gmail.com'
   def qualIdentVar(qual: QualIdentVar, record: Any) = {
     qual match {
       case QualIdentVar_VarAccessOrTypeConstant(v) => varAccessOrTypeConstant(v, record)
@@ -405,7 +520,13 @@ class JPQLEvaluator {
     asToEntity += (range.as.ident.toLowerCase -> range.entityName.ident.toLowerCase)
   }
 
+  /**
+   *  The JOIN clause allows any of the object's relationships to be joined into
+   *  the query so they can be used in the WHERE clause. JOIN does not mean the
+   *  relationships will be fetched, unless the FETCH option is included.
+   */
   def join(join: Join, record: Any) = {
+    isJoin = true
     join match {
       case Join_General(spec, expr, as, cond) =>
         spec match {
@@ -415,7 +536,7 @@ class JPQLEvaluator {
           case INNER_JOIN      =>
         }
         joinAssocPathExpr(expr, record)
-        val as_ = as.ident
+        asToJoin += (as.ident -> expr)
         cond match {
           case Some(x) => joinCond(x, record)
           case None    =>
@@ -428,7 +549,7 @@ class JPQLEvaluator {
           case INNER_JOIN      =>
         }
         joinAssocPathExpr(expr, record)
-        val as_ = as.ident
+        asToJoin += (as.ident -> expr)
         cond match {
           case Some(x) => joinCond(x, record)
           case None    =>
@@ -441,14 +562,13 @@ class JPQLEvaluator {
           case INNER_JOIN      =>
         }
         joinAssocPathExpr(expr, record)
-        alias foreach { x =>
-          x.ident
-        }
+        alias foreach { x => asToJoin += (x.ident -> expr) }
         cond match {
           case Some(x) => joinCond(x, record)
           case None    =>
         }
     }
+    isJoin = false
   }
 
   def joinCond(joinCond: JoinCond, record: Any) = {
@@ -469,8 +589,8 @@ class JPQLEvaluator {
   }
 
   def joinAssocPathExpr(expr: JoinAssocPathExpr, record: Any) = {
-    val qualId = qualIdentVar(expr.qualId, record)
-    val attrbutes = expr.attrbutes map { x => attribute(x, record) }
+    val qual = qualIdentVar(expr.qualId, record)
+    val paths = expr.attrbutes map { x => attribute(x, record) }
   }
 
   def singleValuedPathExpr(expr: SingleValuedPathExpr, record: Any) = {
@@ -822,7 +942,7 @@ class JPQLEvaluator {
     }
   }
 
-  def funcsReturningNumerics(expr: FuncsReturningNumerics, record: Any): Number = {
+  def funcsReturningNumerics(expr: FuncsReturningNumerics, record: Any): Any = {
     expr match {
       case Abs(expr) =>
         val v = simpleArithExpr(expr, record)
@@ -874,10 +994,13 @@ class JPQLEvaluator {
           case x         => throw JPQLRuntimeException(x, "is not a number")
         }
 
+      // Select p from Employee e join e.projects p where e.id = :id and INDEX(p) = 1
       case Index(expr) =>
-        varAccessOrTypeConstant(expr, record)
-        // TODO
-        0
+        val field = varAccessOrTypeConstant(expr, record)
+        valueOf(field, Nil, record) match {
+          case xs: java.util.List[_] => new JPQLFunctions.IndexedList(xs)
+          case x                     => throw JPQLRuntimeException(x, "is not a indexed list membet")
+        }
 
       case Func(name, args) =>
         // try to call function: name(as: _*) TODO

@@ -2,7 +2,7 @@ package chana.jpql
 
 import akka.event.LoggingAdapter
 import chana.jpql.nodes._
-import org.apache.avro.generic.GenericData.Record
+import org.apache.avro.generic.GenericRecord
 
 final case class WorkingSet(selectedItems: List[Any], orderbys: List[Any])
 
@@ -16,7 +16,7 @@ final class JPQLReducerEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
     aggrCaches = Map()
   }
 
-  def visitGroupbys(root: Statement, record: Record): List[Any] = {
+  def visitGroupbys(root: Statement, record: GenericRecord): List[Any] = {
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         // collect aliases
@@ -28,7 +28,7 @@ final class JPQLReducerEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
     }
   }
 
-  def visitOneRecord(root: Statement, record: Record): WorkingSet = {
+  def visitOneRecord(root: Statement, record: GenericRecord): WorkingSet = {
     selectedItems = List()
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>

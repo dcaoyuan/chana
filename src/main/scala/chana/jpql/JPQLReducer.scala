@@ -11,7 +11,7 @@ import chana.jpql.nodes.SelectStatement
 import chana.jpql.nodes.Statement
 import java.time.LocalDate
 import org.apache.avro.Schema
-import org.apache.avro.generic.GenericData.Record
+import org.apache.avro.generic.GenericRecord
 import scala.concurrent.duration._
 import scala.util.Failure
 import scala.util.Success
@@ -38,7 +38,7 @@ object ResultItemOrdering extends Ordering[WorkingSet] {
   }
 }
 
-final case class RecordProjection(projection: Record)
+final case class RecordProjection(projection: GenericRecord)
 
 object JPQLReducer {
   def props(jpqlKey: String, stmt: Statement, projectionSchema: Schema): Props = Props(classOf[JPQLReducer], jpqlKey, stmt, projectionSchema)
@@ -102,7 +102,7 @@ class JPQLReducer(jqplKey: String, stmt: Statement, projectionSchema: Schema) ex
     case RemoveProjection(id) =>
       idToProjection -= id // remove
     case BinaryProjection(id, bytes) =>
-      chana.avro.avroDecode[Record](bytes, projectionSchema) match {
+      chana.avro.avroDecode[GenericRecord](bytes, projectionSchema) match {
         case Success(projection) => idToProjection += (id -> RecordProjection(projection))
         case Failure(ex)         => log.warning("Failed to decode projection bytes: " + ex.getMessage)
       }
