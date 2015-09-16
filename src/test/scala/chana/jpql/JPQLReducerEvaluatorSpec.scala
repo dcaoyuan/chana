@@ -97,7 +97,7 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
-        case result: Array[_] => result should be(Array(List(5), List(6), List(7), List(8), List(9)))
+        case result: Array[List[_]] => result should be(Array(List(5), List(6), List(7), List(8), List(9)))
       }
     }
 
@@ -112,7 +112,7 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
-        case result: Array[_] => result should be(Array(List(5, 5000), List(6, 6000), List(7, 7000), List(8, 8000), List(9, 9000)))
+        case result: Array[List[_]] => result should be(Array(List(5, 5000), List(6, 6000), List(7, 7000), List(8, 8000), List(9, 9000)))
       }
     }
 
@@ -127,7 +127,7 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
-        case result: Array[_] => result should be(Array(List(9), List(8), List(7), List(6), List(5)))
+        case result: Array[List[_]] => result should be(Array(List(9), List(8), List(7), List(6), List(5)))
       }
     }
 
@@ -142,7 +142,7 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
-        case result: Array[_] => result should be(Array(List("9", 9), List("8", 8), List("7", 7), List("6", 6), List("5", 5)))
+        case result: Array[List[_]] => result should be(Array(List("9", 9), List("8", 8), List("7", 7), List("6", 6), List("5", 5)))
       }
     }
 
@@ -157,7 +157,7 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
-        case result: Array[_] => result should be(Array(List(5.0, 7.0, 35.0, 9.0, 0.0), List(5.0, 7.0, 35.0, 9.0, 0.0), List(5.0, 7.0, 35.0, 9.0, 0.0), List(5.0, 7.0, 35.0, 9.0, 0.0), List(5.0, 7.0, 35.0, 9.0, 0.0)))
+        case result: Array[List[_]] => result should be(Array(List(5.0, 7.0, 35.0, 9.0, 0.0), List(5.0, 7.0, 35.0, 9.0, 0.0), List(5.0, 7.0, 35.0, 9.0, 0.0), List(5.0, 7.0, 35.0, 9.0, 0.0), List(5.0, 7.0, 35.0, 9.0, 0.0)))
       }
     }
 
@@ -172,7 +172,7 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
-        case result: Array[_] => result should be(Array(List(5.5), List(5.0), List(6.0)))
+        case result: Array[List[_]] => result should be(Array(List(5.5), List(5.0), List(6.0)))
       }
     }
 
@@ -187,23 +187,30 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
-        case result: Array[_] => result should be(Array(List(5.5), List(5.0), List(6.0)))
+        case result: Array[List[_]] => result should be(Array(List(5.5), List(5.0), List(6.0)))
       }
     }
 
-    //    "query with join" in {
-    //      val q = "SELECT a.registerTime, a.chargeRecords FROM account a JOIN a.chargeRecords c " +
-    //        "WHERE a.registerTime >= 5 AND c.time > 0 ORDER BY a.registerTime"
-    //      val (stmt, projectionSchema) = parse(q)
-    //
-    //      val reducer = system.actorOf(JPQLReducer.props("test", stmt, projectionSchema))
-    //
-    //      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
-    //
-    //      reducer ! AskReducedResult
-    //      expectMsgPF(2.seconds) {
-    //        case result: Array[_] => result should be(Array(List(5.5), List(5.0), List(6.0)))
-    //      }
-    //    }
+    "query with join" in {
+      val q = "SELECT a.registerTime, a.chargeRecords FROM account a JOIN a.chargeRecords c " +
+        "WHERE a.registerTime >= 5 AND c.time > 1 ORDER BY a.registerTime"
+      val (stmt, projectionSchema) = parse(q)
+
+      val reducer = system.actorOf(JPQLReducer.props("test", stmt, projectionSchema))
+
+      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
+
+      reducer ! AskReducedResult
+
+      import scala.collection.JavaConversions._
+      expectMsgPF(2.seconds) {
+        case result: Array[List[_]] => result map { xs =>
+          xs.map {
+            case chargeRecords: java.util.Collection[Record] @unchecked => chargeRecords map { x => (x.get("time"), x.get("amount")) }
+            case x => x
+          }
+        } should be(Array(List(5, List((2, -50.0))), List(6, List((2, -50.0))), List(7, List((2, -50.0))), List(8, List((2, -50.0))), List(9, List((2, -50.0)))))
+      }
+    }
   }
 }
