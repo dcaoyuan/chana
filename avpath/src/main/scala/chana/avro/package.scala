@@ -204,6 +204,24 @@ package object avro {
     }
   }
 
+  def addArray(array: java.util.Collection[_], value: Any) {
+    value match {
+      case x: Boolean                 => array.asInstanceOf[java.util.Collection[Boolean]].add(x)
+      case x: Int                     => array.asInstanceOf[java.util.Collection[Int]].add(x)
+      case x: Long                    => array.asInstanceOf[java.util.Collection[Long]].add(x)
+      case x: Float                   => array.asInstanceOf[java.util.Collection[Float]].add(x)
+      case x: Double                  => array.asInstanceOf[java.util.Collection[Double]].add(x)
+      case x: ByteBuffer              => array.asInstanceOf[java.util.Collection[ByteBuffer]].add(x)
+      case x: CharSequence            => array.asInstanceOf[java.util.Collection[CharSequence]].add(x)
+      case x: IndexedRecord           => array.asInstanceOf[java.util.Collection[IndexedRecord]].add(x)
+      case x: GenericEnumSymbol       => array.asInstanceOf[java.util.Collection[GenericEnumSymbol]].add(x)
+      case x: java.util.Collection[_] => array.asInstanceOf[java.util.Collection[java.util.Collection[_]]].add(x)
+      case x: java.util.Map[_, _]     => array.asInstanceOf[java.util.Collection[java.util.Map[_, _]]].add(x)
+      case x: GenericFixed            => array.asInstanceOf[java.util.Collection[GenericFixed]].add(x)
+      case _                          => //TODO array.asInstanceOf[GenericData.Array[_]].add(value)
+    }
+  }
+
   /**
    * Only support array field
    * TODO map field

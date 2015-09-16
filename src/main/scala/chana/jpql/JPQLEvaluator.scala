@@ -323,8 +323,8 @@ class JPQLEvaluator {
   protected var selectNewInstances = List[Any]()
 
   protected var selectedItems = List[Any]()
-  protected var selectIsDistinct: Boolean = _
-  protected var isToCollect: Boolean = _
+  protected var isSelectDistinct: Boolean = _
+  protected var isToGather: Boolean = _
   protected var isJoin: Boolean = _
 
   /**
@@ -424,11 +424,11 @@ class JPQLEvaluator {
   }
 
   def selectClause(select: SelectClause, record: Any): Unit = {
-    isToCollect = true
-    selectIsDistinct = select.isDistinct
+    isToGather = true
+    isSelectDistinct = select.isDistinct
     selectItem(select.item, record)
     select.items foreach { x => selectItem(x, record) }
-    isToCollect = false
+    isToGather = false
   }
 
   def selectItem(item: SelectItem, record: Any): Any = {
@@ -1128,9 +1128,9 @@ class JPQLEvaluator {
   }
 
   def orderbyClause(orderbyClause: OrderbyClause, record: Any): List[Any] = {
-    isToCollect = true
+    isToGather = true
     val items = orderbyItem(orderbyClause.orderby, record) :: (orderbyClause.orderbys map { x => orderbyItem(x, record) })
-    isToCollect = false
+    isToGather = false
     items
   }
 
@@ -1150,16 +1150,16 @@ class JPQLEvaluator {
   }
 
   def groupbyClause(groupbyClause: GroupbyClause, record: Any): List[Any] = {
-    isToCollect = true
+    isToGather = true
     val groupbys = scalarExpr(groupbyClause.expr, record) :: (groupbyClause.exprs map { x => scalarExpr(x, record) })
-    isToCollect = false
+    isToGather = false
     groupbys
   }
 
   def havingClause(having: HavingClause, record: Any): Boolean = {
-    isToCollect = true
+    isToGather = true
     val cond = condExpr(having.condExpr, record)
-    isToCollect = false
+    isToGather = false
     cond
   }
 

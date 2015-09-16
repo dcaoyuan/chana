@@ -74,14 +74,14 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
     (stmt, projectionSchema)
   }
 
-  def collect(entityId: String, stmt: Statement, projectionSchema: Schema, record: Record) = {
+  def gatherProjection(entityId: String, stmt: Statement, projectionSchema: Schema, record: Record) = {
     val e = new JPQLMapperEvaluator(record.getSchema, projectionSchema)
-    val res = e.collectProjection(entityId, stmt, record)
-    res match {
+    val projection = e.gatherProjection(entityId, stmt, record)
+    projection match {
       case x: BinaryProjection => info("\nCollected: " + x.id + ", " + RecordProjection(chana.avro.avroDecode[Record](x.projection, projectionSchema).get))
       case x: RemoveProjection => info("\nCollected: " + x)
     }
-    res
+    projection
   }
 
   "JPQLReduceEvaluator" must {
@@ -93,7 +93,7 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
 
       val reducer = system.actorOf(JPQLReducer.props("test", stmt, projectionSchema))
 
-      records() foreach { record => reducer ! collect(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
+      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -108,7 +108,7 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
 
       val reducer = system.actorOf(JPQLReducer.props("test", stmt, projectionSchema))
 
-      records() foreach { record => reducer ! collect(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
+      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -123,7 +123,7 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
 
       val reducer = system.actorOf(JPQLReducer.props("test", stmt, projectionSchema))
 
-      records() foreach { record => reducer ! collect(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
+      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -138,7 +138,7 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
 
       val reducer = system.actorOf(JPQLReducer.props("test", stmt, projectionSchema))
 
-      records() foreach { record => reducer ! collect(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
+      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -153,7 +153,7 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
 
       val reducer = system.actorOf(JPQLReducer.props("test", stmt, projectionSchema))
 
-      records() foreach { record => reducer ! collect(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
+      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -168,7 +168,7 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
 
       val reducer = system.actorOf(JPQLReducer.props("test", stmt, projectionSchema))
 
-      records() foreach { record => reducer ! collect(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
+      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -183,12 +183,27 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
 
       val reducer = system.actorOf(JPQLReducer.props("test", stmt, projectionSchema))
 
-      records() foreach { record => reducer ! collect(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
+      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
         case result: Array[_] => result should be(Array(List(5.5), List(5.0), List(6.0)))
       }
     }
+
+    //    "query with join" in {
+    //      val q = "SELECT a.registerTime, a.chargeRecords FROM account a JOIN a.chargeRecords c " +
+    //        "WHERE a.registerTime >= 5 AND c.time > 0 ORDER BY a.registerTime"
+    //      val (stmt, projectionSchema) = parse(q)
+    //
+    //      val reducer = system.actorOf(JPQLReducer.props("test", stmt, projectionSchema))
+    //
+    //      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
+    //
+    //      reducer ! AskReducedResult
+    //      expectMsgPF(2.seconds) {
+    //        case result: Array[_] => result should be(Array(List(5.5), List(5.0), List(6.0)))
+    //      }
+    //    }
   }
 }

@@ -42,7 +42,7 @@ final class JPQLMetadataEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) ext
   }
 
   private def collectLeastProjectionNodes(qual: String, attrPaths: List[String]) {
-    if (isToCollect) {
+    if (isToGather) {
       asToProjectionNode.get(qual) match {
         case Some((schema, projectionNode)) =>
           var currSchema = schema

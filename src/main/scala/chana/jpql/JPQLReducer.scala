@@ -124,7 +124,7 @@ class JPQLReducer(jqplKey: String, stmt: Statement, projectionSchema: Schema) ex
     } else {
       val datasets = idToDataset.values
       val reduced = if (withGroupby) {
-        collectGroupbys(datasets).groupBy { _._1 }.map {
+        calcGroupbys(datasets).groupBy { _._1 }.map {
           case (groupKey, subDatasets) => reduceDataset(subDatasets.map { _._2 }).find { _ ne null }
         }.flatten.toArray
       } else {
@@ -148,7 +148,7 @@ class JPQLReducer(jqplKey: String, stmt: Statement, projectionSchema: Schema) ex
     }
   }
 
-  def collectGroupbys(datasets: Iterable[RecordProjection]) = {
+  def calcGroupbys(datasets: Iterable[RecordProjection]) = {
     evaluator.reset(datasets)
     datasets.map { dataset => (evaluator.visitGroupbys(stmt, dataset.projection), dataset) }
   }
