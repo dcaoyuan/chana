@@ -212,5 +212,27 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
         } should be(Array(List(5, List((2, -50.0))), List(6, List((2, -50.0))), List(7, List((2, -50.0))), List(8, List((2, -50.0))), List(9, List((2, -50.0)))))
       }
     }
+
+    "query with join and INDEX fucntion" in {
+      val q = "SELECT a.registerTime, a.chargeRecords FROM account a JOIN a.chargeRecords c " +
+        "WHERE a.registerTime >= 5 AND c.time > 0 AND INDEX(c) = 2 ORDER BY a.registerTime"
+      val (stmt, projectionSchema) = parse(q)
+
+      val reducer = system.actorOf(JPQLReducer.props("test", stmt, projectionSchema))
+
+      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
+
+      reducer ! AskReducedResult
+
+      import scala.collection.JavaConversions._
+      expectMsgPF(2.seconds) {
+        case result: Array[List[_]] => result map { xs =>
+          xs.map {
+            case chargeRecords: java.util.Collection[Record] @unchecked => chargeRecords map { x => (x.get("time"), x.get("amount")) }
+            case x => x
+          }
+        } should be(Array(List(5, List((2, -50.0))), List(6, List((2, -50.0))), List(7, List((2, -50.0))), List(8, List((2, -50.0))), List(9, List((2, -50.0)))))
+      }
+    }
   }
 }

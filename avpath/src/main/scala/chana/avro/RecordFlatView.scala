@@ -15,11 +15,16 @@ import scala.collection.immutable
 import scala.collection.mutable.Builder
 
 final class IteratorWrapper(record: GenericRecord, flatField: Schema.Field, underlying: java.util.Iterator[AnyRef]) extends AbstractIterator[GenericRecord] with Iterator[GenericRecord] {
+  var i = 0
   def hasNext = underlying.hasNext
-  def next() = new RecordWrapper(record, flatField, underlying.next)
+  def next() = {
+    val rec = new FlattenRecord(record, flatField, underlying.next, i)
+    i += 1
+    rec
+  }
 }
 
-final class RecordWrapper(underlying: GenericRecord, flatField: Schema.Field, fieldValue: AnyRef) extends GenericRecord {
+final case class FlattenRecord(underlying: GenericRecord, flatField: Schema.Field, fieldValue: AnyRef, index: Int) extends GenericRecord {
   def getSchema() = underlying.getSchema
 
   def put(key: String, value: AnyRef) {

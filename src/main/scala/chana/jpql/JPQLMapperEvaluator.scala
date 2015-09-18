@@ -74,145 +74,145 @@ final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extend
   }
 
   override def valueOf(qual: String, attrPaths: List[String], record: Any): Any = {
-    // TODO in case of record does not contain schema, get entityNames from DistributedSchemaBoard?
     record match {
-      case rootRec: GenericRecord =>
-        val recSchema = rootRec.getSchema
-        val EntityName = recSchema.getName.toLowerCase
-
-        var paths = asToEntity.get(qual) match {
-          case Some(EntityName) => attrPaths
-          case None => asToJoin.get(qual) match {
-            case Some(qualAlias :: xs) =>
-              asToEntity.get(qualAlias) match {
-                case Some(EntityName) => xs ::: attrPaths
-                case None             => throw JPQLRuntimeException(qualAlias, "is not an AS alias of entity: " + EntityName)
-
-              }
-            case None => throw JPQLRuntimeException(qual, "is not an AS alias of entity or join: " + EntityName)
-          }
-        }
-        var currValue: Any = rootRec
-
-        println("paths: " + paths)
-
-        if (isToGather) {
-          var currSchema = recSchema
-          var currGather: Any = projection
-          while (paths.nonEmpty) {
-            val path = paths.head
-            paths = paths.tail
-
-            currValue match {
-              case fieldRec: GenericRecord =>
-                val field = currSchema.getField(path)
-                currSchema = field.schema.getType match {
-                  case Schema.Type.RECORD => field.schema
-                  case Schema.Type.UNION  => chana.avro.getFirstNoNullTypeOfUnion(field.schema)
-                  case Schema.Type.ARRAY  => field.schema // TODO should be ArrayField ?
-                  case Schema.Type.MAP    => field.schema // TODO should be MapKeyField/MapValueField ?
-                  case _                  => field.schema
-                }
-
-                currValue = fieldRec.get(path)
-
-                field.schema.getType match {
-                  case Schema.Type.RECORD =>
-                    currGather =
-                      if (paths.isEmpty) { // at tail, put clone?
-                        currGather.asInstanceOf[GenericRecord].put(path, currValue)
-                        currValue
-                      } else {
-                        val rec = currGather.asInstanceOf[GenericRecord].get(path) match {
-                          case null => new Record(field.schema)
-                          case x    => x
-                        }
-                        currGather.asInstanceOf[GenericRecord].put(path, rec)
-                        rec
-                      }
-
-                  case Schema.Type.ARRAY =>
-                    currGather =
-                      if (paths.isEmpty) { // at tail, put clone?
-                        currValue match {
-                          case xs: java.util.Collection[_] =>
-                            currGather.asInstanceOf[GenericRecord].put(path, currValue)
-                          case x =>
-                            // may access a record flat view's collection field value
-                            val arr = currGather.asInstanceOf[GenericRecord].get(path) match {
-                              case null                        => chana.avro.newGenericArray(0, currSchema)
-                              case xs: java.util.Collection[_] => xs
-                              case wrong                       => throw JPQLRuntimeException(wrong, "is not a avro array: " + path)
-                            }
-                            chana.avro.addArray(arr, x)
-                            currGather.asInstanceOf[GenericRecord].put(path, arr)
-                        }
-                        currValue
-                      } else {
-                        val arr = currGather.asInstanceOf[GenericRecord].get(path) match {
-                          case null                        => chana.avro.newGenericArray(0, currSchema)
-                          case xs: java.util.Collection[_] => xs
-                        }
-                        currGather.asInstanceOf[GenericRecord].put(path, arr)
-                        arr
-                      }
-
-                  case Schema.Type.MAP =>
-                    currGather =
-                      if (paths.isEmpty) { // at tail, put clone?
-                        currValue match {
-                          case xs: java.util.Map[String, _] @unchecked =>
-                            currGather.asInstanceOf[GenericRecord].put(path, currValue)
-                          case x: java.util.Map.Entry[String, _] @unchecked =>
-                            // may access a record flat view's collection field value
-                            val map = currGather.asInstanceOf[GenericRecord].get(path) match {
-                              case null                                      => new java.util.HashMap[String, Any]()
-                              case xs: java.util.Map[String, Any] @unchecked => xs
-                              case wrong                                     => throw JPQLRuntimeException(wrong, "is not a avro map: " + path)
-                            }
-                            map.put(x.getKey, x.getValue)
-                            currGather.asInstanceOf[GenericRecord].put(path, map)
-                        }
-                        currValue
-                      } else {
-                        val map = currGather.asInstanceOf[GenericRecord].get(path) match {
-                          case null => new java.util.HashMap[String, Any]()
-                          case xs   => xs.asInstanceOf[java.util.HashMap[String, Any]]
-                        }
-                        currGather.asInstanceOf[GenericRecord].put(path, map)
-                        map
-                      }
-
-                  case _ =>
-                    // TODO when currCollector is map or array
-                    currGather.asInstanceOf[GenericRecord].put(path, currValue)
-                    currGather = currValue
-
-                }
-
-              case arr: java.util.Collection[_]             => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path) // TODO
-              case map: java.util.Map[String, _] @unchecked => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path) // TODO
-              case null                                     => throw JPQLRuntimeException(currValue, "is null when fetch its attribute: " + path)
-              case _                                        => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path)
-            }
-          }
-        } else {
-          while (paths.nonEmpty) {
-            val path = paths.head
-            paths = paths.tail
-
-            currValue match {
-              case x: GenericRecord                         => currValue = x.get(path)
-              case arr: java.util.Collection[_]             => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path) // TODO
-              case map: java.util.Map[String, _] @unchecked => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path) // TODO
-              case null                                     => throw JPQLRuntimeException(currValue, "is null when fetch its attribute: " + path)
-              case _                                        => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path)
-            }
-          }
-        }
-
-        currValue
+      case rec: GenericRecord => valueOfRecord(qual, attrPaths, rec)
     }
+  }
+
+  override def valueOfRecord(qual: String, attrPaths: List[String], record: GenericRecord): Any = {
+    // TODO in case of record does not contain schema, get entityNames from DistributedSchemaBoard?
+    val recSchema = record.getSchema
+    val EntityName = recSchema.getName.toLowerCase
+
+    var paths = asToEntity.get(qual) match {
+      case Some(EntityName) => attrPaths
+      case None => asToJoin.get(qual) match {
+        case Some(qualAlias :: xs) =>
+          asToEntity.get(qualAlias) match {
+            case Some(EntityName) => xs ::: attrPaths
+            case None             => throw JPQLRuntimeException(qualAlias, "is not an AS alias of entity: " + EntityName)
+
+          }
+        case None => throw JPQLRuntimeException(qual, "is not an AS alias of entity or join: " + EntityName)
+      }
+    }
+    var currValue: Any = record
+
+    println("paths: " + paths)
+
+    if (isToGather) {
+      var currSchema = recSchema
+      var currGather: Any = projection
+      while (paths.nonEmpty) {
+        val path = paths.head
+        paths = paths.tail
+
+        currValue match {
+          case fieldRec: GenericRecord =>
+            val field = currSchema.getField(path)
+            currSchema = field.schema.getType match {
+              case Schema.Type.RECORD => field.schema
+              case Schema.Type.UNION  => chana.avro.getFirstNoNullTypeOfUnion(field.schema)
+              case Schema.Type.ARRAY  => field.schema // TODO should be ArrayField ?
+              case Schema.Type.MAP    => field.schema // TODO should be MapKeyField/MapValueField ?
+              case _                  => field.schema
+            }
+
+            currValue = fieldRec.get(path)
+
+            field.schema.getType match {
+              case Schema.Type.RECORD =>
+                currGather = if (paths.isEmpty) { // at tail, put clone?
+                  currGather.asInstanceOf[GenericRecord].put(path, currValue)
+                  currValue
+                } else {
+                  val rec = currGather.asInstanceOf[GenericRecord].get(path) match {
+                    case null => new Record(field.schema)
+                    case x    => x
+                  }
+                  currGather.asInstanceOf[GenericRecord].put(path, rec)
+                  rec
+                }
+
+              case Schema.Type.ARRAY =>
+                currGather = if (paths.isEmpty) { // at tail, put clone?
+                  currValue match {
+                    case xs: java.util.Collection[_] =>
+                      currGather.asInstanceOf[GenericRecord].put(path, currValue)
+                    case x =>
+                      // may access a record flat view's collection field value
+                      val arr = currGather.asInstanceOf[GenericRecord].get(path) match {
+                        case null                        => chana.avro.newGenericArray(0, currSchema)
+                        case xs: java.util.Collection[_] => xs
+                        case wrong                       => throw JPQLRuntimeException(wrong, "is not a avro array: " + path)
+                      }
+                      chana.avro.addArray(arr, x)
+                      currGather.asInstanceOf[GenericRecord].put(path, arr)
+                  }
+                  currValue
+                } else {
+                  val arr = currGather.asInstanceOf[GenericRecord].get(path) match {
+                    case null                        => chana.avro.newGenericArray(0, currSchema)
+                    case xs: java.util.Collection[_] => xs
+                  }
+                  currGather.asInstanceOf[GenericRecord].put(path, arr)
+                  arr
+                }
+
+              case Schema.Type.MAP =>
+                currGather = if (paths.isEmpty) { // at tail, put clone?
+                  currValue match {
+                    case xs: java.util.Map[String, _] @unchecked =>
+                      currGather.asInstanceOf[GenericRecord].put(path, currValue)
+                    case x: java.util.Map.Entry[String, _] @unchecked =>
+                      // may access a record flat view's collection field value
+                      val map = currGather.asInstanceOf[GenericRecord].get(path) match {
+                        case null                                      => new java.util.HashMap[String, Any]()
+                        case xs: java.util.Map[String, Any] @unchecked => xs
+                        case wrong                                     => throw JPQLRuntimeException(wrong, "is not a avro map: " + path)
+                      }
+                      map.put(x.getKey, x.getValue)
+                      currGather.asInstanceOf[GenericRecord].put(path, map)
+                  }
+                  currValue
+                } else {
+                  val map = currGather.asInstanceOf[GenericRecord].get(path) match {
+                    case null => new java.util.HashMap[String, Any]()
+                    case xs   => xs.asInstanceOf[java.util.HashMap[String, Any]]
+                  }
+                  currGather.asInstanceOf[GenericRecord].put(path, map)
+                  map
+                }
+
+              case _ =>
+                // TODO when currCollector is map or array
+                currGather.asInstanceOf[GenericRecord].put(path, currValue)
+                currGather = currValue
+
+            }
+
+          case arr: java.util.Collection[_]             => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path) // TODO
+          case map: java.util.Map[String, _] @unchecked => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path) // TODO
+          case null                                     => throw JPQLRuntimeException(currValue, "is null when fetch its attribute: " + path)
+          case _                                        => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path)
+        }
+      }
+    } else {
+      while (paths.nonEmpty) {
+        val path = paths.head
+        paths = paths.tail
+
+        currValue match {
+          case x: GenericRecord                         => currValue = x.get(path)
+          case arr: java.util.Collection[_]             => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path) // TODO
+          case map: java.util.Map[String, _] @unchecked => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path) // TODO
+          case null                                     => throw JPQLRuntimeException(currValue, "is null when fetch its attribute: " + path)
+          case _                                        => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path)
+        }
+      }
+    }
+
+    currValue
   }
 
   override def pathExprOrVarAccess(expr: PathExprOrVarAccess, record: Any): Any = {

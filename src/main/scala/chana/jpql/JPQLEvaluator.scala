@@ -1,5 +1,6 @@
 package chana.jpql
 
+import chana.avro.FlattenRecord
 import chana.jpql.nodes._
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -183,117 +184,6 @@ object JPQLFunctions {
   def currentTime() = LocalTime.now()
   def currentDate() = LocalDate.now()
   def currentDateTime() = LocalDateTime.now()
-
-  final class IndexedList(underlying: java.util.List[_], joinSpec: JoinSpec = INNER_JOIN) {
-    lazy val indexToElement = {
-      var map = Map[Int, Any]()
-      var i = 1
-      var itr = underlying.iterator
-      while (itr.hasNext) {
-        map += (i -> itr.next)
-        i += 1
-      }
-      map
-    }
-
-    def apply(i: Int) = indexToElement(i)
-
-    def EQ(x: Int) = {
-      val javaIdx = x - 1
-      val xs = new java.util.LinkedList[Any]()
-      xs.add(underlying.get(javaIdx))
-      xs
-    }
-
-    def NE(x: Int) = {
-      val javaIdx = x - 1
-      val xs = new java.util.LinkedList[Any]()
-      var i = 0
-      val itr = underlying.iterator
-      while (itr.hasNext) {
-        if (i != javaIdx) {
-          xs.add(itr.next)
-        } else {
-          itr.next
-        }
-        i += 1
-      }
-      xs
-    }
-
-    def GT(x: Int) = {
-      val javaIdx = x - 1
-      val xs = new java.util.LinkedList[Any]()
-      var i = 0
-      val itr = underlying.iterator
-      while (itr.hasNext) {
-        if (i > javaIdx) {
-          xs.add(itr.next)
-        } else {
-          itr.next
-        }
-        i += 1
-      }
-      xs
-    }
-
-    def GE(x: Int) = {
-      val javaIdx = x - 1
-      val xs = new java.util.LinkedList[Any]()
-      var i = 0
-      val itr = underlying.iterator
-      while (itr.hasNext) {
-        if (i >= javaIdx) {
-          xs.add(itr.next)
-        } else {
-          itr.next
-        }
-        i += 1
-      }
-      xs
-    }
-
-    def LT(x: Int) = {
-      val javaIdx = x - 1
-      val xs = new java.util.LinkedList[Any]()
-      var i = 0
-      val itr = underlying.iterator
-      while (itr.hasNext && i < javaIdx) {
-        xs.add(itr.next)
-        i += 1
-      }
-      xs
-    }
-
-    def LE(x: Int) = {
-      val javaIdx = x - 1
-      val xs = new java.util.LinkedList[Any]()
-      var i = 0
-      val itr = underlying.iterator
-      while (itr.hasNext && i <= javaIdx) {
-        xs.add(itr.next)
-        i += 1
-      }
-      xs
-    }
-
-    def BETWEEN(min: Int, max: Int) = {
-      val javaMin = min - 1
-      val javaMax = max - 1
-      val xs = new java.util.LinkedList[Any]()
-      var i = 0
-      val itr = underlying.iterator
-      while (itr.hasNext && i <= javaMax) {
-        if (i >= javaMin) {
-          xs.add(itr.next)
-        } else {
-          itr.next
-        }
-        i += 1
-      }
-      xs
-    }
-  }
 }
 
 object JPQLEvaluator {
@@ -357,32 +247,34 @@ class JPQLEvaluator {
   final def entityOf(as: String): Option[String] = asToEntity.get(as)
 
   def valueOf(qual: String, attrPaths: List[String], record: Any): Any = {
-    // TODO in case of record does not contain schema, get entityNames from DistributedSchemaBoard?
     record match {
-      case rec: GenericRecord =>
-        val EntityName = rec.getSchema.getName.toLowerCase
-        asToEntity.get(qual) match {
-          case Some(EntityName) =>
-            var paths = attrPaths
-            var curr: Any = rec
-            while (paths.nonEmpty) {
-              curr match {
-                case x: GenericRecord =>
-                  val path = paths.head
-                  paths = paths.tail
-                  curr = x.get(path)
-                case null => throw JPQLRuntimeException(curr, "is null when fetch its attribute: " + paths)
-                case _    => throw JPQLRuntimeException(curr, "is not a record when fetch its attribute: " + paths)
-              }
-            }
-            if (curr.isInstanceOf[Utf8]) {
-              curr.toString
-            } else {
-              curr
-            }
-          case _ => throw JPQLRuntimeException(qual, "is not an AS alias of entity: " + EntityName)
+      case rec: GenericRecord => valueOfRecord(qual, attrPaths, rec)
+    }
+  }
+
+  def valueOfRecord(qual: String, attrPaths: List[String], record: GenericRecord): Any = {
+    // TODO in case of record does not contain schema, get entityNames from DistributedSchemaBoard?
+    val EntityName = record.getSchema.getName.toLowerCase
+    asToEntity.get(qual) match {
+      case Some(EntityName) =>
+        var paths = attrPaths
+        var curr: Any = record
+        while (paths.nonEmpty) {
+          curr match {
+            case x: GenericRecord =>
+              val path = paths.head
+              paths = paths.tail
+              curr = x.get(path)
+            case null => throw JPQLRuntimeException(curr, "is null when fetch its attribute: " + paths)
+            case _    => throw JPQLRuntimeException(curr, "is not a record when fetch its attribute: " + paths)
+          }
         }
-      case _ => throw JPQLRuntimeException(record, "is not an avro record")
+        if (curr.isInstanceOf[Utf8]) {
+          curr.toString
+        } else {
+          curr
+        }
+      case _ => throw JPQLRuntimeException(qual, "is not an AS alias of entity: " + EntityName)
     }
   }
 
@@ -998,9 +890,9 @@ class JPQLEvaluator {
       // Select p from Employee e join e.projects p where e.id = :id and INDEX(p) = 1
       case Index(expr) =>
         val field = varAccessOrTypeConstant(expr, record)
-        valueOf(field, Nil, record) match {
-          case xs: java.util.List[_] => new JPQLFunctions.IndexedList(xs)
-          case x                     => throw JPQLRuntimeException(x, "is not a indexed list membet")
+        record match {
+          case FlattenRecord(_, field, _, index) => index + 1 // jpql index start at 1 // TODO check flat field name
+          case x                                 => throw JPQLRuntimeException(x, "is not a indexed list member")
         }
 
       case Func(name, args) =>
