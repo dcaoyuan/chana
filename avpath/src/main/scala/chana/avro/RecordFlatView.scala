@@ -14,10 +14,130 @@ import scala.collection.generic.TraversableFactory
 import scala.collection.immutable
 import scala.collection.mutable.Builder
 
-final class RecordFlatView(underlying: GenericRecord, flatField: String) extends AbstractIterable[GenericRecord] {
-  lazy val fieldIterable = underlying.get(flatField) match {
+final class IteratorWrapper(record: GenericRecord, flatField: Schema.Field, underlying: java.util.Iterator[AnyRef]) extends AbstractIterator[GenericRecord] with Iterator[GenericRecord] {
+  def hasNext = underlying.hasNext
+  def next() = new RecordWrapper(record, flatField, underlying.next)
+}
+
+final class RecordWrapper(underlying: GenericRecord, flatField: Schema.Field, fieldValue: AnyRef) extends GenericRecord {
+  def getSchema() = underlying.getSchema
+
+  def put(key: String, value: AnyRef) {
+    if (key == flatField.name) {
+      // we should add value to this collection field instead of just put it
+      underlying.get(key) match {
+        case null =>
+          val fieldSchema = flatField.schema
+          fieldSchema.getType match {
+            case Schema.Type.ARRAY =>
+              val xs = chana.avro.newGenericArray(0, fieldSchema)
+              chana.avro.addGenericArray(xs, value)
+            case Schema.Type.MAP =>
+              val xs = new java.util.HashMap[String, AnyRef]()
+              value match {
+                case entry: java.util.Map.Entry[String, AnyRef] @unchecked => xs.put(entry.getKey, entry.getValue)
+                case (k: String, v: AnyRef) => xs.put(k, v)
+                case _ => throw new AvroRuntimeException("value is not a pair: " + value)
+              }
+            case x => throw new AvroRuntimeException("field (" + key + ") is not collection: " + x)
+          }
+
+        // TODO create an empty collection
+        case xs: java.util.Collection[AnyRef] @unchecked =>
+          xs.add(value)
+        case xs: java.util.Map[String, AnyRef] @unchecked =>
+          value match {
+            case entry: java.util.Map.Entry[String, AnyRef] @unchecked => xs.put(entry.getKey, entry.getValue)
+            case (k: String, v: AnyRef) => xs.put(k, v)
+            case _ => throw new AvroRuntimeException("value is not a pair: " + value)
+          }
+        case x => throw new AvroRuntimeException("field (" + key + ") is not collection: " + x)
+      }
+    } else {
+      underlying.put(key, value)
+    }
+  }
+
+  def put(i: Int, value: AnyRef) {
+    if (i == flatField.pos) {
+      // we should add value to this collection field instead of just put it
+      underlying.get(i) match {
+        case null =>
+          val fieldSchema = flatField.schema
+          fieldSchema.getType match {
+            case Schema.Type.ARRAY =>
+              val xs = chana.avro.newGenericArray(0, fieldSchema)
+              chana.avro.addGenericArray(xs, value)
+            case Schema.Type.MAP =>
+              val xs = new java.util.HashMap[String, AnyRef]()
+              value match {
+                case (k: String, v: AnyRef) => xs.put(k, v)
+                case _                      => throw new AvroRuntimeException("value is not a pair: " + value)
+              }
+            case x => throw new AvroRuntimeException("field (" + i + ") is not collection: " + x)
+          }
+
+        // TODO create an empty collection
+        case xs: java.util.Collection[AnyRef] @unchecked =>
+          xs.add(value)
+        case xs: java.util.Map[String, AnyRef] @unchecked =>
+          value match {
+            case (k: String, v: AnyRef) => xs.put(k, v)
+            case _                      => throw new AvroRuntimeException("value is not a pair: " + value)
+          }
+        case x => throw new AvroRuntimeException("field (" + i + ") is not collection: " + x)
+      }
+    } else {
+      underlying.put(i, value)
+    }
+  }
+
+  def get(key: String): AnyRef = {
+    if (key == flatField.name) {
+      fieldValue
+    } else {
+      underlying.get(key)
+    }
+  }
+
+  def get(i: Int): AnyRef = {
+    if (i == flatField.pos) {
+      fieldValue
+    } else {
+      underlying.get(i)
+
+    }
+  }
+
+  def compareTo(that: GenericRecord): Int = GenericData.get().compare(this, that, getSchema)
+  override def equals(o: Any): Boolean = {
+    o match {
+      case that: GenericRecord =>
+        if (that eq this) {
+          true
+        } else if (!this.getSchema.equals(that.getSchema)) {
+          false
+        } else {
+          GenericData.get().compare(this, that, getSchema) == 0 // TODO ignore order = true
+        }
+      case _ => false
+    }
+  }
+  override def hashCode(): Int = GenericData.get().hashCode(this, getSchema)
+  override def toString(): String = GenericData.get().toString(this)
+}
+
+final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) extends AbstractIterable[GenericRecord] {
+  def fieldIterable = underlying.get(flatFieldKey) match {
     case iterable: java.lang.Iterable[AnyRef] @unchecked => iterable
-    case _ => throw new AvroRuntimeException("Not an iterable field: " + flatField)
+    case _ => throw new AvroRuntimeException("Not an iterable field: " + flatFieldKey)
+  }
+
+  def flatField = {
+    underlying.getSchema.getField(flatFieldKey) match {
+      case null => throw new AvroRuntimeException("Non existed field: " + flatFieldKey)
+      case x    => x
+    }
   }
 
   override def companion: GenericCompanion[Iterable] = RecordFlatView
@@ -216,83 +336,3 @@ object RecordFlatView extends TraversableFactory[Iterable] {
   def newBuilder[GenericRecord]: Builder[GenericRecord, Iterable[GenericRecord]] = immutable.Iterable.newBuilder[GenericRecord]
 }
 
-final class IteratorWrapper(record: GenericRecord, flatField: String, underlying: java.util.Iterator[AnyRef]) extends AbstractIterator[GenericRecord] with Iterator[GenericRecord] {
-  def hasNext = underlying.hasNext
-  def next() = new RecordWrapper(record, flatField, underlying.next)
-}
-
-final class RecordWrapper(underlying: GenericRecord, flatField: String, fieldValue: AnyRef) extends GenericRecord {
-  def getSchema() = underlying.getSchema
-  def put(key: String, value: AnyRef) {
-    if (key == flatField) {
-      // we should add value to this collection field instead of just put it
-      underlying.get(key) match {
-        case null =>
-          val fieldSchema = getSchema.getField(key).schema
-          fieldSchema.getType match {
-            case Schema.Type.ARRAY =>
-              val xs = new java.util.ArrayList[AnyRef]()
-              xs.add(value)
-            case Schema.Type.MAP =>
-              val xs = new java.util.HashMap[String, AnyRef]()
-              value match {
-                case (k: String, v: AnyRef) => xs.put(k, v)
-                case _                      => throw new AvroRuntimeException("value is not a pair: " + value)
-              }
-            case x => throw new AvroRuntimeException("field (" + key + ") is not collection: " + x)
-          }
-
-        // TODO create an empty collection
-        case xs: java.util.Collection[AnyRef] @unchecked => xs.add(value)
-        case xs: java.util.Map[String, AnyRef] @unchecked =>
-          value match {
-            case (k: String, v: AnyRef) => xs.put(k, v)
-            case _                      => throw new AvroRuntimeException("value is not a pair: " + value)
-          }
-        case x => throw new AvroRuntimeException("field (" + key + ") is not collection: " + x)
-      }
-    } else {
-      getSchema.getField(key) match {
-        case null =>
-          throw new AvroRuntimeException("Not a valid schema field: " + key)
-        case _ =>
-          underlying.put(key, value)
-      }
-    }
-
-  }
-
-  def put(i: Int, v: AnyRef) {
-    underlying.put(i, v)
-  }
-
-  def get(key: String): AnyRef = {
-    if (key == flatField) {
-      fieldValue
-    } else {
-      getSchema.getField(key) match {
-        case null => null
-        case _    => underlying.get(key)
-      }
-    }
-  }
-
-  def get(i: Int): AnyRef = { underlying.get(i) }
-
-  def compareTo(that: GenericRecord): Int = GenericData.get().compare(this, that, getSchema)
-  override def equals(o: Any): Boolean = {
-    o match {
-      case that: GenericRecord =>
-        if (that eq this) {
-          true
-        } else if (!this.getSchema.equals(that.getSchema)) {
-          false
-        } else {
-          GenericData.get().compare(this, that, getSchema) == 0 // TODO ignore order = true
-        }
-      case _ => false
-    }
-  }
-  override def hashCode(): Int = GenericData.get().hashCode(this, getSchema)
-  override def toString(): String = GenericData.get().toString(this)
-}
