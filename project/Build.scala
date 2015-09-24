@@ -53,7 +53,11 @@ object Build extends sbt.Build {
     sbtavro.SbtAvro.stringType in sbtavro.SbtAvro.avroConfig := "String",
     sourceDirectory in sbtavro.SbtAvro.avroConfig <<= (resourceDirectory in Test)(_ / "avsc"),
     javaSource in sbtavro.SbtAvro.avroConfig <<= (sourceManaged in Test)(_ / "java" / "compiled_avro"),
-    version in sbtavro.SbtAvro.avroConfig := "1.7.7")
+    version in sbtavro.SbtAvro.avroConfig := "1.7.7",
+    sourceGenerators in Compile ~= { _ => Seq.empty },
+    managedSourceDirectories in Compile ~= { _ => Seq.empty },
+    sourceGenerators in Test <+= (sbtavro.SbtAvro.generate in sbtavro.SbtAvro.avroConfig),
+    managedSourceDirectories in Test <+= (javaSource in sbtavro.SbtAvro.avroConfig))
 
   val generateRatsSources = taskKey[Seq[java.io.File]]("generate sources")
   // Note you have to put rats file under scalaSource instead of resourceDirectory, since sbt-rats only check:
