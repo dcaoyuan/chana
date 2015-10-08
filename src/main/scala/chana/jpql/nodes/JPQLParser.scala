@@ -208,19 +208,9 @@ class JPQLParser(rootNode: Node) {
 
   /*-
      VarAccessOrTypeConstant
-   / KEY   LParen VarAccessOrTypeConstant RParen
-   / VALUE LParen VarAccessOrTypeConstant RParen 
    */
   def qualIdentVar(node: Node) = {
-    node.size match {
-      case 1 =>
-        QualIdentVar_VarAccessOrTypeConstant(visit(node.getNode(0))(varAccessOrTypeConstant))
-      case 2 =>
-        node.getString(0) match {
-          case "key"   => QualIdentVar_KEY(visit(node.getNode(1))(varAccessOrTypeConstant))
-          case "value" => QualIdentVar_VALUE(visit(node.getNode(1))(varAccessOrTypeConstant))
-        }
-    }
+    QualIdentVar(visit(node.getNode(0))(varAccessOrTypeConstant))
   }
 
   /*-
@@ -717,11 +707,12 @@ class JPQLParser(rootNode: Node) {
     node.get(0) match {
       case n: Node =>
         n.getName match {
-          case "PathExprOrVarAccess"    => ArithPrimary_PathExprOrVarAccess(visit(n)(pathExprOrVarAccess))
-          case "InputParam"             => ArithPrimary_InputParam(visit(n)(inputParam))
-          case "CaseExpr"               => ArithPrimary_CaseExpr(visit(n)(caseExpr))
-          case "FuncsReturningNumerics" => ArithPrimary_FuncsReturningNumerics(visit(n)(funcsReturningNumerics))
-          case "SimpleArithExpr"        => ArithPrimary_SimpleArithExpr(visit(n)(simpleArithExpr))
+          case "PathExprOrVarAccess"       => ArithPrimary_PathExprOrVarAccess(visit(n)(pathExprOrVarAccess))
+          case "InputParam"                => ArithPrimary_InputParam(visit(n)(inputParam))
+          case "CaseExpr"                  => ArithPrimary_CaseExpr(visit(n)(caseExpr))
+          case "FuncsReturningNumeric"     => ArithPrimary_FuncsReturningNumeric(visit(n)(funcsReturningNumeric))
+          case "FuncsReturningMapKeyValue" => ArithPrimary_FuncsReturningMapKeyValue(visit(n)(funcsReturningMapKeyValue))
+          case "SimpleArithExpr"           => ArithPrimary_SimpleArithExpr(visit(n)(simpleArithExpr))
         }
       case v: Number => ArithPrimary_LiteralNumeric(v)
     }
@@ -764,7 +755,7 @@ class JPQLParser(rootNode: Node) {
       case n: Node =>
         n.getName match {
           case "FuncsReturningDatetime" => NonArithScalarExpr_FuncsReturningDatetime(visit(n)(funcsReturningDatetime))
-          case "FuncsReturningStrings"  => NonArithScalarExpr_FuncsReturningStrings(visit(n)(funcsReturningStrings))
+          case "FuncsReturningString"   => NonArithScalarExpr_FuncsReturningString(visit(n)(funcsReturningString))
           case "EntityTypeExpr"         => NonArithScalarExpr_EntityTypeExpr(visit(n)(entityTypeExpr))
         }
       case v: java.lang.String            => NonArithScalarExpr_LiteralString(v)
@@ -919,9 +910,9 @@ class JPQLParser(rootNode: Node) {
       case v: String => StringPrimary_LiteralString(v)
       case n: Node =>
         n.getName match {
-          case "FuncsReturningStrings" => StringPrimary_FuncsReturningStrings(visit(n)(funcsReturningStrings))
-          case "InputParam"            => StringPrimary_InputParam(visit(n)(inputParam))
-          case "StateFieldPathExpr"    => StringPrimary_StateFieldPathExpr(visit(n)(stateFieldPathExpr))
+          case "FuncsReturningString" => StringPrimary_FuncsReturningStrings(visit(n)(funcsReturningString))
+          case "InputParam"           => StringPrimary_InputParam(visit(n)(inputParam))
+          case "StateFieldPathExpr"   => StringPrimary_StateFieldPathExpr(visit(n)(stateFieldPathExpr))
         }
     }
   }
@@ -969,7 +960,7 @@ class JPQLParser(rootNode: Node) {
    / Index
    / Func
    */
-  def funcsReturningNumerics(node: Node) = {
+  def funcsReturningNumeric(node: Node) = {
     val n = node.getNode(0)
     n.getName match {
       case "Abs"    => visit(n)(abs)
@@ -1003,7 +994,7 @@ class JPQLParser(rootNode: Node) {
    / Upper
    / Lower
    */
-  def funcsReturningStrings(node: Node): FuncsReturningStrings = {
+  def funcsReturningString(node: Node): FuncsReturningString = {
     val n = node.getNode(0)
     n.getName match {
       case "Concat"    => visit(n)(concat)
@@ -1011,6 +1002,18 @@ class JPQLParser(rootNode: Node) {
       case "Trim"      => visit(n)(trim)
       case "Upper"     => visit(n)(upper)
       case "Lower"     => visit(n)(lower)
+    }
+  }
+
+  /*_
+      MapKey
+    / MapValue
+   */
+  def funcsReturningMapKeyValue(node: Node) = {
+    val n = node.getNode(0)
+    n.getName match {
+      case "MapKey"   => visit(n)(mapKey)
+      case "MapValue" => visit(n)(mapValue)
     }
   }
 
@@ -1149,6 +1152,22 @@ class JPQLParser(rootNode: Node) {
     val name = node.getString(0)
     val args = visitList(node.getList(1))(newValue)
     Func(name, args)
+  }
+
+  /*-
+     KEY LParen VarAccessOrTypeConstant RParen
+   */
+  def mapKey(node: Node) = {
+    val expr = visit(node.getNode(0))(varAccessOrTypeConstant)
+    MapKey(expr)
+  }
+
+  /*-
+     VALUE LParen VarAccessOrTypeConstant RParen
+   */
+  def mapValue(node: Node) = {
+    val expr = visit(node.getNode(0))(varAccessOrTypeConstant)
+    MapValue(expr)
   }
 
   /*-

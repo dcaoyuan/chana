@@ -73,20 +73,20 @@ final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extend
     }
   }
 
-  override def valueOf(qual: Qual, attrPaths: List[String], record: Any): Any = {
+  override def valueOf(qual: String, attrPaths: List[String], record: Any): Any = {
     record match {
       case rec: GenericRecord => valueOfRecord(qual, attrPaths, rec)
     }
   }
 
-  override def valueOfRecord(qual: Qual, attrPaths: List[String], record: GenericRecord): Any = {
-    // TODO in case of record does not contain schema, get entityNames from DistributedSchemaBoard?
+  override def valueOfRecord(qual: String, attrPaths: List[String], record: GenericRecord): Any = {
+    // TODO in case of record does not contain schema, get EntityNames from DistributedSchemaBoard?
     val recSchema = record.getSchema
     val EntityName = recSchema.getName.toLowerCase
 
-    var paths = asToEntity.get(qual.name) match {
+    var paths = asToEntity.get(qual) match {
       case Some(EntityName) => attrPaths
-      case None => asToJoin.get(qual.name) match {
+      case None => asToJoin.get(qual) match {
         case Some(qualAlias :: xs) =>
           asToEntity.get(qualAlias) match {
             case Some(EntityName) => xs ::: attrPaths
@@ -185,18 +185,18 @@ final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extend
                 }
 
               case _ =>
-                // TODO when currCollector is map or array
+                // TODO when currGather is map or array
                 currGather.asInstanceOf[GenericRecord].put(path, currValue)
                 currGather = currValue
 
             }
 
-          case arr: java.util.Collection[_]             => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path) // TODO
-          case map: java.util.Map[String, _] @unchecked => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path) // TODO
+          case arr: java.util.Collection[_]             => throw JPQLRuntimeException(currValue, "is an avro array when fetch its attribute: " + path) // TODO
+          case map: java.util.Map[String, _] @unchecked => throw JPQLRuntimeException(currValue, "is an avro map when fetch its attribute: " + path) // TODO
           case null                                     => throw JPQLRuntimeException(currValue, "is null when fetch its attribute: " + path)
           case _                                        => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path)
         }
-      }
+      } // end while
     } else {
       while (paths.nonEmpty) {
         val path = paths.head
@@ -209,7 +209,7 @@ final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extend
           case null                                     => throw JPQLRuntimeException(currValue, "is null when fetch its attribute: " + path)
           case _                                        => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path)
         }
-      }
+      } // end while
     }
 
     currValue

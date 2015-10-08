@@ -186,11 +186,6 @@ object JPQLFunctions {
   def currentDateTime() = LocalDateTime.now()
 }
 
-sealed trait Qual { def name: String }
-final case class PlainQual(name: String) extends Qual
-final case class KeyQual(name: String) extends Qual
-final case class ValueQual(name: String) extends Qual
-
 object JPQLEvaluator {
 
   def keyOf(qual: String, attrPaths: List[String]) = {
@@ -251,33 +246,40 @@ class JPQLEvaluator {
 
   final def entityOf(as: String): Option[String] = asToEntity.get(as)
 
-  def valueOf(qual: Qual, attrPaths: List[String], record: Any): Any = {
+  def valueOf(qual: String, attrPaths: List[String], record: Any): Any = {
     record match {
       case rec: GenericRecord => valueOfRecord(qual, attrPaths, rec)
     }
   }
 
-  def valueOfRecord(qual: Qual, attrPaths: List[String], record: GenericRecord): Any = {
-    // TODO in case of record does not contain schema, get entityNames from DistributedSchemaBoard?
-    val EntityName = record.getSchema.getName.toLowerCase
-    asToEntity.get(qual.name) match {
+  def valueOfRecord(qual: String, attrPaths: List[String], record: GenericRecord): Any = {
+    // TODO in case of record does not contain schema, get EntityNames from DistributedSchemaBoard?
+    val recSchema = record.getSchema
+    val EntityName = recSchema.getName.toLowerCase
+
+    asToEntity.get(qual) match {
       case Some(EntityName) =>
         var paths = attrPaths
-        var curr: Any = record
+        var currValue: Any = record
+
         while (paths.nonEmpty) {
-          curr match {
-            case x: GenericRecord =>
-              val path = paths.head
-              paths = paths.tail
-              curr = x.get(path)
-            case null => throw JPQLRuntimeException(curr, "is null when fetch its attribute: " + paths)
-            case _    => throw JPQLRuntimeException(curr, "is not a record when fetch its attribute: " + paths)
+          val path = paths.head
+          paths = paths.tail
+
+          currValue match {
+            case fieldRec: GenericRecord =>
+              currValue = fieldRec.get(path)
+            case arr: java.util.Collection[_]             => throw JPQLRuntimeException(currValue, "is an avro array when fetch its attribute: " + path) // TODO
+            case map: java.util.Map[String, _] @unchecked => throw JPQLRuntimeException(currValue, "is an avro map when fetch its attribute: " + path) // TODO
+            case null                                     => throw JPQLRuntimeException(currValue, "is null when fetch its attribute: " + paths)
+            case _                                        => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + paths)
           }
-        }
-        if (curr.isInstanceOf[Utf8]) {
-          curr.toString
+        } // end while
+
+        if (currValue.isInstanceOf[Utf8]) {
+          currValue.toString
         } else {
-          curr
+          currValue
         }
       case _ => throw JPQLRuntimeException(qual, "is not an AS alias of entity: " + EntityName)
     }
@@ -355,13 +357,8 @@ class JPQLEvaluator {
     valueOf(qual, paths, record)
   }
 
-  // SELECT e from Employee e join e.contactInfo c where KEY(c) = 'Email' and VALUE(c) = 'joe@gmail.com'
-  def qualIdentVar(qual: QualIdentVar, record: Any): Qual = {
-    qual match {
-      case QualIdentVar_VarAccessOrTypeConstant(v) => PlainQual(varAccessOrTypeConstant(v, record))
-      case QualIdentVar_KEY(v)                     => KeyQual(varAccessOrTypeConstant(v, record))
-      case QualIdentVar_VALUE(v)                   => ValueQual(varAccessOrTypeConstant(v, record))
-    }
+  def qualIdentVar(qual: QualIdentVar, record: Any): String = {
+    varAccessOrTypeConstant(qual.v, record)
   }
 
   def aggregateExpr(expr: AggregateExpr, record: Any) = {
@@ -488,7 +485,7 @@ class JPQLEvaluator {
   def joinAssocPathExpr(expr: JoinAssocPathExpr, record: Any): List[String] = {
     val qual = qualIdentVar(expr.qualId, record)
     val paths = expr.attrbutes map { x => attribute(x, record) }
-    qual.name :: paths
+    qual :: paths
   }
 
   def singleValuedPathExpr(expr: SingleValuedPathExpr, record: Any) = {
@@ -694,12 +691,13 @@ class JPQLEvaluator {
 
   def arithPrimary(primary: ArithPrimary, record: Any) = {
     primary match {
-      case ArithPrimary_PathExprOrVarAccess(expr)    => pathExprOrVarAccess(expr, record)
-      case ArithPrimary_InputParam(expr)             => inputParam(expr, record)
-      case ArithPrimary_CaseExpr(expr)               => caseExpr(expr, record)
-      case ArithPrimary_FuncsReturningNumerics(expr) => funcsReturningNumerics(expr, record)
-      case ArithPrimary_SimpleArithExpr(expr)        => simpleArithExpr(expr, record)
-      case ArithPrimary_LiteralNumeric(expr)         => expr
+      case ArithPrimary_PathExprOrVarAccess(expr)       => pathExprOrVarAccess(expr, record)
+      case ArithPrimary_InputParam(expr)                => inputParam(expr, record)
+      case ArithPrimary_CaseExpr(expr)                  => caseExpr(expr, record)
+      case ArithPrimary_FuncsReturningNumeric(expr)     => funcsReturningNumeric(expr, record)
+      case ArithPrimary_FuncsReturningMapKeyValue(expr) => funcsReturningMapKeyValue(expr, record)
+      case ArithPrimary_SimpleArithExpr(expr)           => simpleArithExpr(expr, record)
+      case ArithPrimary_LiteralNumeric(expr)            => expr
     }
   }
 
@@ -720,7 +718,7 @@ class JPQLEvaluator {
   def nonArithScalarExpr(expr: NonArithScalarExpr, record: Any): Any = {
     expr match {
       case NonArithScalarExpr_FuncsReturningDatetime(expr) => funcsReturningDatetime(expr, record)
-      case NonArithScalarExpr_FuncsReturningStrings(expr)  => funcsReturningStrings(expr, record)
+      case NonArithScalarExpr_FuncsReturningString(expr)   => funcsReturningString(expr, record)
       case NonArithScalarExpr_LiteralString(expr)          => expr
       case NonArithScalarExpr_LiteralBoolean(expr)         => expr
       case NonArithScalarExpr_LiteralTemporal(expr)        => expr
@@ -818,7 +816,7 @@ class JPQLEvaluator {
       case StringPrimary_LiteralString(expr) => Left(expr)
       case StringPrimary_FuncsReturningStrings(expr) =>
         try {
-          Left(funcsReturningStrings(expr, record))
+          Left(funcsReturningString(expr, record))
         } catch {
           case ex: Throwable => throw ex
         }
@@ -840,7 +838,7 @@ class JPQLEvaluator {
     }
   }
 
-  def funcsReturningNumerics(expr: FuncsReturningNumerics, record: Any): Any = {
+  def funcsReturningNumeric(expr: FuncsReturningNumeric, record: Any): Any = {
     expr match {
       case Abs(expr) =>
         val v = simpleArithExpr(expr, record)
@@ -915,7 +913,7 @@ class JPQLEvaluator {
     }
   }
 
-  def funcsReturningStrings(expr: FuncsReturningStrings, record: Any): String = {
+  def funcsReturningString(expr: FuncsReturningString, record: Any): String = {
     expr match {
       case Concat(expr, exprs: List[ScalarExpr]) =>
         scalarExpr(expr, record) match {
@@ -971,6 +969,14 @@ class JPQLEvaluator {
           case base: CharSequence => base.toString.toLowerCase
           case x                  => throw JPQLRuntimeException(x, "is not a string")
         }
+    }
+  }
+
+  // SELECT e from Employee e join e.contactInfo c where KEY(c) = 'Email' and VALUE(c) = 'joe@gmail.com'
+  def funcsReturningMapKeyValue(expr: FuncsReturningMapKeyValue, record: Any): Any = {
+    expr match {
+      case MapKey(expr)   =>
+      case MapValue(expr) =>
     }
   }
 
