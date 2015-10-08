@@ -157,7 +157,7 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
         val rootNode = r.semanticValue[Node]
         val parser = new JPQLParser(rootNode)
         val stmt = parser.visitRoot()
-        val projectionSchemas = new JPQLMetadataEvaluator(jpqlKey, DistributedSchemaBoard).collectMetadata(stmt, null)
+        val projectionSchemas = new JPQLMetaEvaluator(jpqlKey, DistributedSchemaBoard).collectMetadata(stmt, null)
         Success(stmt, projectionSchemas.head)
       } else {
         Failure(new Exception(r.parseError.msg + " at " + r.parseError.index))

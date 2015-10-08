@@ -8,7 +8,7 @@ import scala.collection.immutable
 
 final case class Metadata(projectionSchema: Schema, withGroupby: Boolean)
 
-final class JPQLMetadataEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends JPQLEvaluator {
+final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends JPQLEvaluator {
 
   private var asToProjectionNode = Map[String, (Schema, Projection.Node)]()
 
