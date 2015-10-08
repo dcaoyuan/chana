@@ -14,11 +14,11 @@ import scala.collection.generic.TraversableFactory
 import scala.collection.immutable
 import scala.collection.mutable.Builder
 
-final class IteratorWrapper(record: GenericRecord, flatField: Schema.Field, flatFieldIterator: java.util.Iterator[AnyRef]) extends AbstractIterator[GenericRecord] with Iterator[GenericRecord] {
+final class IteratorWrapper(record: GenericRecord, flatField: Schema.Field, flatFieldIterator: java.util.Iterator[_]) extends AbstractIterator[GenericRecord] with Iterator[GenericRecord] {
   var i = 0
   def hasNext = flatFieldIterator.hasNext
   def next() = {
-    val rec = new FlattenRecord(record, flatField, flatFieldIterator.next, i)
+    val rec = new FlattenRecord(record, flatField, flatFieldIterator.next.asInstanceOf[AnyRef], i)
     i += 1
     rec
   }
@@ -27,7 +27,7 @@ final class IteratorWrapper(record: GenericRecord, flatField: Schema.Field, flat
 final case class FlattenRecord(underlying: GenericRecord, flatField: Schema.Field, fieldValue: AnyRef, index: Int) extends GenericRecord {
   def getSchema() = underlying.getSchema
 
-  def put(key: String, value: AnyRef) {
+  def put(key: String, value: Any) {
     if (key == flatField.name) {
       // we should add value to this collection field instead of just put it
       underlying.get(key) match {
@@ -48,11 +48,11 @@ final case class FlattenRecord(underlying: GenericRecord, flatField: Schema.Fiel
           }
 
         // TODO create an empty collection
-        case xs: java.util.Collection[AnyRef] @unchecked =>
+        case xs: java.util.Collection[Any] @unchecked =>
           xs.add(value)
-        case xs: java.util.Map[String, AnyRef] @unchecked =>
+        case xs: java.util.Map[String, Any] @unchecked =>
           value match {
-            case entry: java.util.Map.Entry[String, AnyRef] @unchecked => xs.put(entry.getKey, entry.getValue)
+            case entry: java.util.Map.Entry[String, Any] @unchecked => xs.put(entry.getKey, entry.getValue)
             case (k: String, v: AnyRef) => xs.put(k, v)
             case _ => throw new AvroRuntimeException("value is not a pair: " + value)
           }
@@ -135,7 +135,8 @@ final case class FlattenRecord(underlying: GenericRecord, flatField: Schema.Fiel
 final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) extends AbstractIterable[GenericRecord] {
   def fieldIterable = underlying.get(flatFieldKey) match {
     case iterable: java.lang.Iterable[AnyRef] @unchecked => iterable
-    case _ => throw new AvroRuntimeException("Not an iterable field: " + flatFieldKey)
+    case map: java.util.Map[String, AnyRef] @unchecked => map.entrySet()
+    case x => throw new AvroRuntimeException("Not an iterable field: " + flatFieldKey + " which class is: " + x.getClass.getName)
   }
 
   def flatField = {

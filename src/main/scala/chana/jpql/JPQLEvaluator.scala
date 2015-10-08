@@ -16,8 +16,7 @@ case class JPQLRuntimeException(value: Any, message: String)
       case null      => null
       case x: AnyRef => x.getClass.getName
       case _         => value
-    }) + " " + message + ":" + value
-  )
+    }) + " " + message + ":" + value)
 
 object JPQLEvaluator {
 
@@ -806,7 +805,7 @@ class JPQLEvaluator {
 
   // SELECT e from Employee e join e.contactInfo c where KEY(c) = 'Email' and VALUE(c) = 'joe@gmail.com'
   def funcsReturningMapKeyValue(expr: FuncsReturningMapKeyValue, record: Any): Any = {
-    expr match {
+    val value = expr match {
       case MapKey(expr) =>
         record match {
           case FlattenRecord(_, field, fieldValue: java.util.Map.Entry[String, _] @unchecked, index) => fieldValue.getKey // jpql index start at 1 // TODO check flat field name
@@ -817,6 +816,12 @@ class JPQLEvaluator {
           case FlattenRecord(_, field, fieldValue: java.util.Map.Entry[String, _] @unchecked, index) => fieldValue.getValue // jpql index start at 1 // TODO check flat field name
           case x => throw JPQLRuntimeException(x, "is not a map entry")
         }
+    }
+
+    if (value.isInstanceOf[Utf8]) {
+      value.toString
+    } else {
+      value
     }
   }
 

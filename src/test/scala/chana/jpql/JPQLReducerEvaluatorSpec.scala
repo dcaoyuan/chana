@@ -68,7 +68,7 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
     val parser = new JPQLParser(rootNode)
     val stmt = parser.visitRoot()
     //info("\nParsed:\n" + stmt)
-    val metaEval = new JPQLMetadataEvaluator("2", schemaBoard)
+    val metaEval = new JPQLMetaEvaluator("2", schemaBoard)
     val projectionSchema = metaEval.collectMetadata(stmt, null).head
     info("Projection Schema:\n" + projectionSchema)
     (stmt, projectionSchema)
@@ -228,10 +228,34 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
       expectMsgPF(2.seconds) {
         case result: Array[List[_]] => result map { xs =>
           xs.map {
-            case chargeRecords: java.util.Collection[Record] @unchecked => chargeRecords map { x => (x.get("time"), x.get("amount")) }
+            case chargeRecords: java.util.Collection[Record] @unchecked =>
+              chargeRecords map { x => (x.get("time"), x.get("amount")) }
             case x => x
           }
         } should be(Array(List(5, List((2, -50.0))), List(6, List((2, -50.0))), List(7, List((2, -50.0))), List(8, List((2, -50.0))), List(9, List((2, -50.0)))))
+      }
+    }
+
+    "query with join and KEY/VALUE fucntion" in {
+      val q = "SELECT a.registerTime, a.devApps FROM account a JOIN a.devApps c " +
+        "WHERE a.registerTime >= 5 AND KEY(c) = 'b' ORDER BY a.registerTime"
+      val (stmt, projectionSchema) = parse(q)
+
+      val reducer = system.actorOf(JPQLReducer.props("test", stmt, projectionSchema))
+
+      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], stmt, projectionSchema, record) }
+
+      reducer ! AskReducedResult
+
+      import scala.collection.JavaConversions._
+      expectMsgPF(2.seconds) {
+        case result: Array[List[_]] => result map { xs =>
+          xs.map {
+            case devApps: java.util.Map[CharSequence, Record] @unchecked =>
+              devApps.map { case (key, value) => (key.toString, value.get("numBlackApps"), value.get("numInstalledApps")) }.toList
+            case x => x
+          }
+        } should be(Array(List(5, List(("b", 2, 0))), List(6, List(("b", 2, 0))), List(7, List(("b", 2, 0))), List(8, List(("b", 2, 0))), List(9, List(("b", 2, 0)))))
       }
     }
   }
