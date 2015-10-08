@@ -73,20 +73,20 @@ final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extend
     }
   }
 
-  override def valueOf(qual: String, attrPaths: List[String], record: Any): Any = {
+  override def valueOf(qual: Qual, attrPaths: List[String], record: Any): Any = {
     record match {
       case rec: GenericRecord => valueOfRecord(qual, attrPaths, rec)
     }
   }
 
-  override def valueOfRecord(qual: String, attrPaths: List[String], record: GenericRecord): Any = {
+  override def valueOfRecord(qual: Qual, attrPaths: List[String], record: GenericRecord): Any = {
     // TODO in case of record does not contain schema, get entityNames from DistributedSchemaBoard?
     val recSchema = record.getSchema
     val EntityName = recSchema.getName.toLowerCase
 
-    var paths = asToEntity.get(qual) match {
+    var paths = asToEntity.get(qual.name) match {
       case Some(EntityName) => attrPaths
-      case None => asToJoin.get(qual) match {
+      case None => asToJoin.get(qual.name) match {
         case Some(qualAlias :: xs) =>
           asToEntity.get(qualAlias) match {
             case Some(EntityName) => xs ::: attrPaths

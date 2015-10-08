@@ -14,11 +14,11 @@ import scala.collection.generic.TraversableFactory
 import scala.collection.immutable
 import scala.collection.mutable.Builder
 
-final class IteratorWrapper(record: GenericRecord, flatField: Schema.Field, underlying: java.util.Iterator[AnyRef]) extends AbstractIterator[GenericRecord] with Iterator[GenericRecord] {
+final class IteratorWrapper(record: GenericRecord, flatField: Schema.Field, flatFieldIterator: java.util.Iterator[AnyRef]) extends AbstractIterator[GenericRecord] with Iterator[GenericRecord] {
   var i = 0
-  def hasNext = underlying.hasNext
+  def hasNext = flatFieldIterator.hasNext
   def next() = {
-    val rec = new FlattenRecord(record, flatField, underlying.next, i)
+    val rec = new FlattenRecord(record, flatField, flatFieldIterator.next, i)
     i += 1
     rec
   }

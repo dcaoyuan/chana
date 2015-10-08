@@ -41,14 +41,13 @@ final class JPQLMetadataEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) ext
     }
   }
 
-  private def collectLeastProjectionNodes(qual: String, attrPaths: List[String]) {
+  private def collectLeastProjectionNodes(qual: Qual, attrPaths: List[String]) {
     if (isToGather) {
-      asToProjectionNode.get(qual) match {
+      asToProjectionNode.get(qual.name) match {
         case Some((schema, projectionNode)) =>
           var currSchema = schema
           var currNode: Projection.Node = projectionNode
 
-          var key = new StringBuilder(qual)
           var paths = attrPaths
           while (paths.nonEmpty) {
             val path = paths.head

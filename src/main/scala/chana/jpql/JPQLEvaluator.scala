@@ -186,6 +186,11 @@ object JPQLFunctions {
   def currentDateTime() = LocalDateTime.now()
 }
 
+sealed trait Qual { def name: String }
+final case class PlainQual(name: String) extends Qual
+final case class KeyQual(name: String) extends Qual
+final case class ValueQual(name: String) extends Qual
+
 object JPQLEvaluator {
 
   def keyOf(qual: String, attrPaths: List[String]) = {
@@ -246,16 +251,16 @@ class JPQLEvaluator {
 
   final def entityOf(as: String): Option[String] = asToEntity.get(as)
 
-  def valueOf(qual: String, attrPaths: List[String], record: Any): Any = {
+  def valueOf(qual: Qual, attrPaths: List[String], record: Any): Any = {
     record match {
       case rec: GenericRecord => valueOfRecord(qual, attrPaths, rec)
     }
   }
 
-  def valueOfRecord(qual: String, attrPaths: List[String], record: GenericRecord): Any = {
+  def valueOfRecord(qual: Qual, attrPaths: List[String], record: GenericRecord): Any = {
     // TODO in case of record does not contain schema, get entityNames from DistributedSchemaBoard?
     val EntityName = record.getSchema.getName.toLowerCase
-    asToEntity.get(qual) match {
+    asToEntity.get(qual.name) match {
       case Some(EntityName) =>
         var paths = attrPaths
         var curr: Any = record
@@ -351,11 +356,11 @@ class JPQLEvaluator {
   }
 
   // SELECT e from Employee e join e.contactInfo c where KEY(c) = 'Email' and VALUE(c) = 'joe@gmail.com'
-  def qualIdentVar(qual: QualIdentVar, record: Any): String = {
+  def qualIdentVar(qual: QualIdentVar, record: Any): Qual = {
     qual match {
-      case QualIdentVar_VarAccessOrTypeConstant(v) => varAccessOrTypeConstant(v, record)
-      case QualIdentVar_KEY(v)                     => varAccessOrTypeConstant(v, record)
-      case QualIdentVar_VALUE(v)                   => varAccessOrTypeConstant(v, record)
+      case QualIdentVar_VarAccessOrTypeConstant(v) => PlainQual(varAccessOrTypeConstant(v, record))
+      case QualIdentVar_KEY(v)                     => KeyQual(varAccessOrTypeConstant(v, record))
+      case QualIdentVar_VALUE(v)                   => ValueQual(varAccessOrTypeConstant(v, record))
     }
   }
 
@@ -483,7 +488,7 @@ class JPQLEvaluator {
   def joinAssocPathExpr(expr: JoinAssocPathExpr, record: Any): List[String] = {
     val qual = qualIdentVar(expr.qualId, record)
     val paths = expr.attrbutes map { x => attribute(x, record) }
-    qual :: paths
+    qual.name :: paths
   }
 
   def singleValuedPathExpr(expr: SingleValuedPathExpr, record: Any) = {
