@@ -237,8 +237,8 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
     }
 
     "query with join and KEY/VALUE fucntion" in {
-      val q = "SELECT a.registerTime, a.devApps FROM account a JOIN a.devApps c " +
-        "WHERE a.registerTime >= 5 AND KEY(c) = 'b' ORDER BY a.registerTime"
+      val q = "SELECT a.registerTime, a.devApps, d FROM account a JOIN a.devApps d " +
+        "WHERE a.registerTime >= 5 AND KEY(d) = 'b' ORDER BY a.registerTime"
       val (stmt, projectionSchema) = parse(q)
 
       val reducer = system.actorOf(JPQLReducer.props("test", stmt, projectionSchema))
@@ -255,7 +255,12 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
               devApps.map { case (key, value) => (key.toString, value.get("numBlackApps"), value.get("numInstalledApps")) }.toList
             case x => x
           }
-        } should be(Array(List(5, List(("b", 2, 0))), List(6, List(("b", 2, 0))), List(7, List(("b", 2, 0))), List(8, List(("b", 2, 0))), List(9, List(("b", 2, 0)))))
+        } should be(Array(
+          List(5, List(("b", 2, 0)), List(("b", 2, 0))),
+          List(6, List(("b", 2, 0)), List(("b", 2, 0))),
+          List(7, List(("b", 2, 0)), List(("b", 2, 0))),
+          List(8, List(("b", 2, 0)), List(("b", 2, 0))),
+          List(9, List(("b", 2, 0)), List(("b", 2, 0)))))
       }
     }
   }

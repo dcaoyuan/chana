@@ -12,13 +12,15 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
 
   private var asToProjectionNode = Map[String, Projection.Node]()
 
+  /**
+   * Entrance
+   */
   def collectMetadata(root: Statement, record: Any): Iterable[Schema] = {
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
-        fromClause(from, record)
+        fromClause(from, record) // collect asToEntity and asToJoin
         asToProjectionNode = asToEntity.foldLeft(Map[String, Projection.Node]()) {
           case (acc, (as, entityName)) =>
-            println("asToEntity: " + as + "->")
             schemaBoard.schemaOf(entityName) match {
               case Some(schema) => acc + (as -> Projection.FieldNode(schema.getName.toLowerCase, None, schema))
               case None         => acc
@@ -34,8 +36,7 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
         orderby foreach { x => orderbyClause(x, record) }
 
         asToProjectionNode map {
-          case (as, projectionNode) =>
-            Projection.visitProjectionNode(jpqlKey, projectionNode, null).endRecord
+          case (as, projectionNode) => Projection.visitProjectionNode(jpqlKey, projectionNode, null).endRecord
         }
 
       case UpdateStatement(update, set, where) => null // NOT YET
@@ -45,12 +46,17 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
 
   private def collectLeastProjectionNodes(qual: String, attrPaths: List[String]) {
     if (isToGather) {
-      asToProjectionNode.get(qual) match {
+      val (qual1, attrPaths1) = asToJoin.get(qual) match {
+        case Some(paths) => (paths.head, paths.tail ::: attrPaths)
+        case None        => (qual, attrPaths)
+      }
+
+      asToProjectionNode.get(qual1) match {
         case Some(projectionNode) =>
           var currSchema = projectionNode.schema
           var currNode: Projection.Node = projectionNode
 
-          var paths = attrPaths
+          var paths = attrPaths1
           while (paths.nonEmpty) {
             val path = paths.head
             paths = paths.tail
@@ -93,7 +99,7 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
           }
           currNode.close()
 
-        case _ => throw JPQLRuntimeException(qual, "is not an AS alias of entity")
+        case _ => throw JPQLRuntimeException(qual1, "is not an AS alias of entity")
       }
     }
   }
@@ -163,6 +169,14 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
       case SimpleCondExprRem_IsExpr(not, expr) =>
     }
     true
+  }
+
+  // SELECT e from Employee e join e.contactInfo c where KEY(c) = 'Email' and VALUE(c) = 'joe@gmail.com'
+  override def funcsReturningMapKeyValue(expr: FuncsReturningMapKeyValue, record: Any): Any = {
+    expr match {
+      case MapKey(_)   =>
+      case MapValue(_) =>
+    }
   }
 
 }

@@ -199,7 +199,7 @@ class JPQLGrammarSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
       "with Special Operators" in {
         val queris = List(
           "SELECT toDo FROM Employee e JOIN e.toDoList toDo WHERE INDEX(toDo) = 1",
-          "SELECT p FROM Employee e JOIN e.priorities p WHERE KEY(p) = 'high'",
+          "SELECT p, KEY(p) FROM Employee e JOIN e.priorities p WHERE KEY(p) = 'high'",
           "SELECT e FROM Employee e WHERE SIZE(e.managedEmployees) < 2",
           "SELECT e FROM Employee e WHERE e.managedEmployees IS EMPTY",
           "SELECT e FROM Employee e WHERE 'write code' MEMBER OF e.responsibilities",

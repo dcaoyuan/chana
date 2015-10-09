@@ -12,11 +12,11 @@ import org.apache.avro.util.Utf8
 
 case class JPQLRuntimeException(value: Any, message: String)
   extends RuntimeException(
-    (value match {
+    value + " " + message + ". " + value + "'s type is: " + (value match {
       case null      => null
       case x: AnyRef => x.getClass.getName
-      case _         => value
-    }) + " " + message + ":" + value)
+      case _         => "primary type."
+    }))
 
 object JPQLEvaluator {
 
@@ -89,9 +89,14 @@ class JPQLEvaluator {
     val recSchema = record.getSchema
     val EntityName = recSchema.getName.toLowerCase
 
-    asToEntity.get(qual) match {
+    val (qual1, attrPaths1) = asToJoin.get(qual) match {
+      case Some(paths) => (paths.head, paths.tail ::: attrPaths)
+      case None        => (qual, attrPaths)
+    }
+
+    asToEntity.get(qual1) match {
       case Some(EntityName) =>
-        var paths = attrPaths
+        var paths = attrPaths1
         var currValue: Any = record
 
         while (paths.nonEmpty) {
@@ -113,7 +118,7 @@ class JPQLEvaluator {
         } else {
           currValue
         }
-      case _ => throw JPQLRuntimeException(qual, "is not an AS alias of entity: " + EntityName)
+      case _ => throw JPQLRuntimeException(qual1, "is not an AS alias of entity: " + EntityName)
     }
   }
 
@@ -227,6 +232,9 @@ class JPQLEvaluator {
     }
   }
 
+  /**
+   * Will collect asToEntity and asToJoin etc
+   */
   def fromClause(from: FromClause, record: Any) = {
     identVarDecl(from.from, record)
     from.froms foreach {
@@ -806,12 +814,12 @@ class JPQLEvaluator {
   // SELECT e from Employee e join e.contactInfo c where KEY(c) = 'Email' and VALUE(c) = 'joe@gmail.com'
   def funcsReturningMapKeyValue(expr: FuncsReturningMapKeyValue, record: Any): Any = {
     val value = expr match {
-      case MapKey(expr) =>
+      case MapKey(_) =>
         record match {
           case FlattenRecord(_, field, fieldValue: java.util.Map.Entry[String, _] @unchecked, index) => fieldValue.getKey // jpql index start at 1 // TODO check flat field name
           case x => throw JPQLRuntimeException(x, "is not a map entry")
         }
-      case MapValue(expr) =>
+      case MapValue(_) =>
         record match {
           case FlattenRecord(_, field, fieldValue: java.util.Map.Entry[String, _] @unchecked, index) => fieldValue.getValue // jpql index start at 1 // TODO check flat field name
           case x => throw JPQLRuntimeException(x, "is not a map entry")
