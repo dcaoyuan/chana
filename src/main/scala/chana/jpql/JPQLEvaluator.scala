@@ -47,7 +47,7 @@ class JPQLEvaluator {
   protected var selectedItems = List[Any]()
   protected var isSelectDistinct: Boolean = _
   protected var isToGather: Boolean = _
-  protected var isJoin: Boolean = _
+  protected var enterJoin: Boolean = _
 
   /**
    * For simple test
@@ -252,7 +252,7 @@ class JPQLEvaluator {
    *  relationships will be fetched, unless the FETCH option is included.
    */
   def join(join: Join, record: Any) = {
-    isJoin = true
+    enterJoin = true
     join match {
       case Join_General(spec, expr, as, cond) =>
         spec match {
@@ -294,7 +294,7 @@ class JPQLEvaluator {
           case None    =>
         }
     }
-    isJoin = false
+    enterJoin = false
   }
 
   def joinCond(joinCond: JoinCond, record: Any) = {

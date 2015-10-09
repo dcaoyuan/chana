@@ -10,16 +10,17 @@ final case class Metadata(projectionSchema: Schema, withGroupby: Boolean)
 
 final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends JPQLEvaluator {
 
-  private var asToProjectionNode = Map[String, (Schema, Projection.Node)]()
+  private var asToProjectionNode = Map[String, Projection.Node]()
 
   def collectMetadata(root: Statement, record: Any): Iterable[Schema] = {
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         fromClause(from, record)
-        asToProjectionNode = asToEntity.foldLeft(Map[String, (Schema, Projection.Node)]()) {
+        asToProjectionNode = asToEntity.foldLeft(Map[String, Projection.Node]()) {
           case (acc, (as, entityName)) =>
+            println("asToEntity: " + as + "->")
             schemaBoard.schemaOf(entityName) match {
-              case Some(schema) => acc + (as -> (schema, Projection.FieldNode(schema.getName.toLowerCase, None, schema)))
+              case Some(schema) => acc + (as -> Projection.FieldNode(schema.getName.toLowerCase, None, schema))
               case None         => acc
             }
         }
@@ -33,7 +34,8 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
         orderby foreach { x => orderbyClause(x, record) }
 
         asToProjectionNode map {
-          case (as, (entitySchema, projectionNode)) => Projection.visitProjectionNode(jpqlKey, projectionNode, null).endRecord
+          case (as, projectionNode) =>
+            Projection.visitProjectionNode(jpqlKey, projectionNode, null).endRecord
         }
 
       case UpdateStatement(update, set, where) => null // NOT YET
@@ -44,8 +46,8 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
   private def collectLeastProjectionNodes(qual: String, attrPaths: List[String]) {
     if (isToGather) {
       asToProjectionNode.get(qual) match {
-        case Some((schema, projectionNode)) =>
-          var currSchema = schema
+        case Some(projectionNode) =>
+          var currSchema = projectionNode.schema
           var currNode: Projection.Node = projectionNode
 
           var paths = attrPaths
