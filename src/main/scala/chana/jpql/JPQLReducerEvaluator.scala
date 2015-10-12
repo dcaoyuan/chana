@@ -1,6 +1,7 @@
 package chana.jpql
 
 import akka.event.LoggingAdapter
+import chana.avro.RecordFlatView
 import chana.jpql.nodes._
 import org.apache.avro.generic.GenericRecord
 
@@ -28,22 +29,44 @@ final class JPQLReducerEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
     }
   }
 
-  def visitOneRecord(root: Statement, record: GenericRecord): WorkingSet = {
+  def visitOneRecord(root: Statement, record: GenericRecord): List[WorkingSet] = {
     selectedItems = List()
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         // collect aliases
         fromClause(from, record)
 
-        val havingCond = having.fold(true) { x => havingClause(x, record) }
-        if (havingCond) {
-          selectClause(select, record)
+        if (asToJoin.nonEmpty) {
+          val joinField = asToJoin.head._2.tail.head
+          val recordFlatView = new RecordFlatView(record.asInstanceOf[GenericRecord], joinField)
+          val itr = recordFlatView.iterator
 
-          val orderbys = orderby.fold(List[Any]()) { x => orderbyClause(x, record) }
+          var res = List[WorkingSet]()
+          while (itr.hasNext) {
+            val rec = itr.next
+            val havingCond = having.fold(true) { x => havingClause(x, record) }
+            if (havingCond) {
+              selectClause(select, rec)
 
-          WorkingSet(selectedItems.reverse, orderbys)
+              val orderbys = orderby.fold(List[Any]()) { x => orderbyClause(x, rec) }
+
+              res ::= WorkingSet(selectedItems.reverse, orderbys)
+            }
+          }
+          res
+
         } else {
-          null
+
+          val havingCond = having.fold(true) { x => havingClause(x, record) }
+          if (havingCond) {
+            selectClause(select, record)
+
+            val orderbys = orderby.fold(List[Any]()) { x => orderbyClause(x, record) }
+
+            List(WorkingSet(selectedItems.reverse, orderbys))
+          } else {
+            List()
+          }
         }
 
       case UpdateStatement(update, set, where) => null // NOT YET

@@ -124,47 +124,50 @@ class JPQLReducer(jqplKey: String, stmt: Statement, projectionSchema: Schema) ex
     } else {
       val datasets = idToDataset.values
       val reduced = if (withGroupby) {
-        calcGroupbys(datasets).groupBy { _._1 }.map {
-          case (groupKey, subDatasets) => reduceDataset(subDatasets.map { _._2 }).find { _ ne null }
-        }.flatten.toArray
+        applyGroupbys(datasets).toArray
       } else {
-        reduceDataset(datasets)
+        reduceDataset(datasets).toArray
       }
 
-      val isOrderby = reduced.headOption.fold(false) { _.orderbys.nonEmpty }
-      if (isOrderby) {
-        Sorting.quickSort(reduced)(ResultItemOrdering)
-        log.debug("sorted by {} etc", reduced.head.orderbys)
-      }
+      if (reduced.length > 0) {
+        val isOrderby = reduced(0).orderbys.nonEmpty
+        if (isOrderby) {
+          Sorting.quickSort(reduced)(ResultItemOrdering)
+          log.debug("sorted by {}", reduced(0).orderbys)
+        }
 
-      val n = reduced.length
-      val result = Array.ofDim[List[Any]](n)
-      var i = 0
-      while (i < n) {
-        result(i) = reduced(i).selectedItems
-        i += 1
+        val n = reduced.length
+        val res = Array.ofDim[List[Any]](n)
+        var i = 0
+        while (i < n) {
+          res(i) = reduced(i).selectedItems
+          i += 1
+        }
+        res
+
+      } else {
+        Array()
       }
-      result
     }
   }
 
-  def calcGroupbys(datasets: Iterable[RecordProjection]) = {
+  def applyGroupbys(datasets: Iterable[RecordProjection]) = {
     evaluator.reset(datasets)
-    datasets.map { dataset => (evaluator.visitGroupbys(stmt, dataset.projection), dataset) }
+    val xs = datasets.map { dataset => (evaluator.visitGroupbys(stmt, dataset.projection), dataset) }
+    xs.groupBy { _._1 }.map {
+      case (groupKey, subDatasets) => reduceDataset(subDatasets.map { _._2 }).find { _ ne null }
+    }.flatten
   }
 
-  def reduceDataset(datasets: Iterable[RecordProjection]): Array[WorkingSet] = {
+  def reduceDataset(datasets: Iterable[RecordProjection]): List[WorkingSet] = {
     evaluator.reset(datasets)
-    val n = datasets.size
-    val reduced = Array.ofDim[WorkingSet](n)
-    var i = 0
+    var reduced = List[WorkingSet]()
     val itr = datasets.iterator
     while (itr.hasNext) {
       val entry = itr.next
-      reduced(i) = evaluator.visitOneRecord(stmt, entry.projection)
-      i += 1
+      reduced :::= evaluator.visitOneRecord(stmt, entry.projection)
     }
-    log.debug("reduced: {}", reduced.mkString("Array(", ",", ")"))
+    log.debug("reduced: {}", reduced)
 
     reduced
   }

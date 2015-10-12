@@ -21,6 +21,7 @@ final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extend
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         fromClause(from, record)
+
         if (asToJoin.nonEmpty) {
           val joinField = asToJoin.head._2.tail.head
           val recordFlatView = new RecordFlatView(record.asInstanceOf[GenericRecord], joinField)

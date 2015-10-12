@@ -172,7 +172,7 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
-        case result: Array[List[_]] => result should be(Array(List(5.5), List(5.0), List(6.0)))
+        case result: Array[List[_]] => result should be(Array(List(5.0), List(6.0), List(5.5)))
       }
     }
 
@@ -187,7 +187,7 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
-        case result: Array[List[_]] => result should be(Array(List(5.5), List(5.0), List(6.0)))
+        case result: Array[List[_]] => result should be(Array(List(6.0), List(5.5), List(5.0)))
       }
     }
 
@@ -202,14 +202,13 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
 
       reducer ! AskReducedResult
 
-      import scala.collection.JavaConversions._
       expectMsgPF(2.seconds) {
         case result: Array[List[_]] => result map { xs =>
           xs.map {
-            case chargeRecords: java.util.Collection[Record] @unchecked => chargeRecords map { x => (x.get("time"), x.get("amount")) }
-            case x => x
+            case chargeRecord: Record => (chargeRecord.get("time"), chargeRecord.get("amount"))
+            case x                    => x
           }
-        } should be(Array(List(5, List((2, -50.0))), List(6, List((2, -50.0))), List(7, List((2, -50.0))), List(8, List((2, -50.0))), List(9, List((2, -50.0)))))
+        } should be(Array(List(5, (2, -50.0)), List(6, (2, -50.0)), List(7, (2, -50.0)), List(8, (2, -50.0)), List(9, (2, -50.0))))
       }
     }
 
@@ -224,20 +223,18 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
 
       reducer ! AskReducedResult
 
-      import scala.collection.JavaConversions._
       expectMsgPF(2.seconds) {
         case result: Array[List[_]] => result map { xs =>
           xs.map {
-            case chargeRecords: java.util.Collection[Record] @unchecked =>
-              chargeRecords map { x => (x.get("time"), x.get("amount")) }
-            case x => x
+            case chargeRecord: Record => (chargeRecord.get("time"), chargeRecord.get("amount"))
+            case x                    => x
           }
-        } should be(Array(List(5, List((2, -50.0))), List(6, List((2, -50.0))), List(7, List((2, -50.0))), List(8, List((2, -50.0))), List(9, List((2, -50.0)))))
+        } should be(Array(List(5, (2, -50.0)), List(6, (2, -50.0)), List(7, (2, -50.0)), List(8, (2, -50.0)), List(9, (2, -50.0))))
       }
     }
 
     "query with join and KEY/VALUE fucntion" in {
-      val q = "SELECT a.registerTime, a.devApps, d FROM account a JOIN a.devApps d " +
+      val q = "SELECT a.registerTime, a.devApps, KEY(d) FROM account a JOIN a.devApps d " +
         "WHERE a.registerTime >= 5 AND KEY(d) = 'b' ORDER BY a.registerTime"
       val (stmt, projectionSchema) = parse(q)
 
@@ -247,20 +244,18 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
 
       reducer ! AskReducedResult
 
-      import scala.collection.JavaConversions._
       expectMsgPF(2.seconds) {
         case result: Array[List[_]] => result map { xs =>
           xs.map {
-            case devApps: java.util.Map[CharSequence, Record] @unchecked =>
-              devApps.map { case (key, value) => (key.toString, value.get("numBlackApps"), value.get("numInstalledApps")) }.toList
+            case devApp: java.util.Map.Entry[CharSequence, Record] @unchecked => (devApp.getKey.toString, devApp.getValue.get("numBlackApps"), devApp.getValue.get("numInstalledApps"))
             case x => x
           }
         } should be(Array(
-          List(5, List(("b", 2, 0)), List(("b", 2, 0))),
-          List(6, List(("b", 2, 0)), List(("b", 2, 0))),
-          List(7, List(("b", 2, 0)), List(("b", 2, 0))),
-          List(8, List(("b", 2, 0)), List(("b", 2, 0))),
-          List(9, List(("b", 2, 0)), List(("b", 2, 0)))))
+          List(5, ("b", 2, 0), "b"),
+          List(6, ("b", 2, 0), "b"),
+          List(7, ("b", 2, 0), "b"),
+          List(8, ("b", 2, 0), "b"),
+          List(9, ("b", 2, 0), "b")))
       }
     }
   }

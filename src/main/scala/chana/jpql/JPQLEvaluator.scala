@@ -816,12 +816,12 @@ class JPQLEvaluator {
     val value = expr match {
       case MapKey(_) =>
         record match {
-          case FlattenRecord(_, field, fieldValue: java.util.Map.Entry[String, _] @unchecked, index) => fieldValue.getKey // jpql index start at 1 // TODO check flat field name
+          case FlattenRecord(_, field, fieldValue: java.util.Map.Entry[CharSequence, _] @unchecked, index) => fieldValue.getKey // jpql index start at 1 // TODO check flat field name
           case x => throw JPQLRuntimeException(x, "is not a map entry")
         }
       case MapValue(_) =>
         record match {
-          case FlattenRecord(_, field, fieldValue: java.util.Map.Entry[String, _] @unchecked, index) => fieldValue.getValue // jpql index start at 1 // TODO check flat field name
+          case FlattenRecord(_, field, fieldValue: java.util.Map.Entry[CharSequence, _] @unchecked, index) => fieldValue.getValue // jpql index start at 1 // TODO check flat field name
           case x => throw JPQLRuntimeException(x, "is not a map entry")
         }
     }
