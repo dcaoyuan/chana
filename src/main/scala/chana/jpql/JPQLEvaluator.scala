@@ -33,10 +33,13 @@ object JPQLEvaluator {
   val timeZone = ZoneId.systemDefault
 }
 
-class JPQLEvaluator {
+abstract class JPQLEvaluator {
 
-  protected var asToEntity = Map[String, String]()
-  protected var asToJoin = Map[String, List[String]]()
+  protected def asToEntity: Map[String, String]
+  protected def asToJoin: Map[String, List[String]]
+  protected def addAsToEntity(as: String, entity: String): Unit = throw new RuntimeException("Do not supported")
+  protected def addAsToJoin(as: String, joinPath: List[String]): Unit = throw new RuntimeException("Do not supported")
+
   private var asToItem = Map[String, Any]()
   private var asToCollectionMember = Map[String, Any]()
 
@@ -75,8 +78,6 @@ class JPQLEvaluator {
       case DeleteStatement(delete, where)      => List() // NOT YET
     }
   }
-
-  final def entityOf(as: String): Option[String] = asToEntity.get(as)
 
   def valueOf(qual: String, attrPaths: List[String], record: Any): Any = {
     record match {
@@ -251,7 +252,7 @@ class JPQLEvaluator {
   }
 
   def rangeVarDecl(range: RangeVarDecl, record: Any): Unit = {
-    asToEntity += (range.as.ident.toLowerCase -> range.entityName.ident.toLowerCase)
+    addAsToEntity(range.as.ident.toLowerCase, range.entityName.ident.toLowerCase)
   }
 
   /**
@@ -270,7 +271,7 @@ class JPQLEvaluator {
           case INNER_JOIN      =>
         }
         val joinPath = joinAssocPathExpr(expr, record)
-        asToJoin += (as.ident.toLowerCase -> joinPath)
+        addAsToJoin(as.ident.toLowerCase, joinPath)
         cond match {
           case Some(x) => joinCond(x, record)
           case None    =>
@@ -283,7 +284,7 @@ class JPQLEvaluator {
           case INNER_JOIN      =>
         }
         val joinPath = joinAssocPathExpr(expr, record)
-        asToJoin += (as.ident.toLowerCase -> joinPath)
+        addAsToJoin(as.ident.toLowerCase, joinPath)
         cond match {
           case Some(x) => joinCond(x, record)
           case None    =>
@@ -296,7 +297,7 @@ class JPQLEvaluator {
           case INNER_JOIN      =>
         }
         val joinPath = joinAssocPathExpr(expr, record)
-        alias foreach { x => asToJoin += (x.ident.toLowerCase -> joinPath) }
+        alias foreach { x => addAsToJoin(x.ident.toLowerCase, joinPath) }
         cond match {
           case Some(x) => joinCond(x, record)
           case None    =>

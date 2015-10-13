@@ -6,19 +6,25 @@ import chana.schema.SchemaBoard
 import org.apache.avro.Schema
 import scala.collection.immutable
 
-final case class Metadata(projectionSchema: Schema, withGroupby: Boolean)
+final case class MetaData(stmt: Statement, projectionSchema: List[Schema], asToEntity: Map[String, String], asToJoin: Map[String, List[String]])
 
 final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends JPQLEvaluator {
+
+  protected var asToEntity = Map[String, String]()
+  protected var asToJoin = Map[String, List[String]]()
+  override protected def addAsToEntity(as: String, entity: String) = asToEntity += (as -> entity)
+  override protected def addAsToJoin(as: String, joinPath: List[String]) = asToJoin += (as -> joinPath)
 
   private var asToProjectionNode = Map[String, Projection.Node]()
 
   /**
    * Entrance
    */
-  def collectMetadata(root: Statement, record: Any): Iterable[Schema] = {
+  def collectMetadata(root: Statement, record: Any): MetaData = {
     root match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         fromClause(from, record) // collect asToEntity and asToJoin
+
         asToProjectionNode = asToEntity.foldLeft(Map[String, Projection.Node]()) {
           case (acc, (as, entityName)) =>
             schemaBoard.schemaOf(entityName) match {
@@ -35,9 +41,11 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
         having foreach { x => havingClause(x, record) }
         orderby foreach { x => orderbyClause(x, record) }
 
-        asToProjectionNode map {
+        val projectionSchemas = asToProjectionNode map {
           case (as, projectionNode) => Projection.visitProjectionNode(jpqlKey, projectionNode, null).endRecord
         }
+
+        MetaData(root, projectionSchemas.toList, asToEntity, asToJoin)
 
       case UpdateStatement(update, set, where) => null // NOT YET
       case DeleteStatement(delete, where)      => null // NOT YET

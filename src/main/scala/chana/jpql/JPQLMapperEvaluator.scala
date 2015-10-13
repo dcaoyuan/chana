@@ -14,13 +14,15 @@ sealed trait AvroProjection extends Serializable { def id: String }
 final case class BinaryProjection(id: String, projection: Array[Byte]) extends AvroProjection
 final case class RemoveProjection(id: String) extends AvroProjection // used to remove
 
-final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extends JPQLEvaluator {
-  val projection = new Record(projectionSchema)
+final class JPQLMapperEvaluator(metaData: MetaData) extends JPQLEvaluator {
+  private val projection = new Record(metaData.projectionSchema.head) // TODO multiple projections
 
-  def gatherProjection(entityId: String, root: Statement, record: Any): AvroProjection = {
-    root match {
+  protected def asToEntity = metaData.asToEntity
+  protected def asToJoin = metaData.asToJoin
+
+  def gatherProjection(entityId: String, record: Any): AvroProjection = {
+    metaData.stmt match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
-        fromClause(from, record)
 
         if (asToJoin.nonEmpty) {
           val joinField = asToJoin.head._2.tail.head
@@ -44,7 +46,7 @@ final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extend
             }
           }
           if (hasResult) {
-            BinaryProjection(entityId, chana.avro.avroEncode(projection, projectionSchema).get)
+            BinaryProjection(entityId, chana.avro.avroEncode(projection, metaData.projectionSchema.head).get)
           } else {
             RemoveProjection(entityId)
           }
@@ -62,7 +64,7 @@ final class JPQLMapperEvaluator(schema: Schema, projectionSchema: Schema) extend
             having foreach { x => havingClause(x, record) }
             orderby foreach { x => orderbyClause(x, record) }
 
-            BinaryProjection(entityId, chana.avro.avroEncode(projection, projectionSchema).get)
+            BinaryProjection(entityId, chana.avro.avroEncode(projection, metaData.projectionSchema.head).get)
           } else {
             RemoveProjection(entityId) // an empty data may be used to COUNT, but null won't
           }

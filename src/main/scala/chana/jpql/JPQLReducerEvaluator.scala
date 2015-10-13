@@ -7,7 +7,10 @@ import org.apache.avro.generic.GenericRecord
 
 final case class WorkingSet(selectedItems: List[Any], orderbys: List[Any])
 
-final class JPQLReducerEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
+final class JPQLReducerEvaluator(metaData: MetaData, log: LoggingAdapter) extends JPQLEvaluator {
+
+  protected def asToEntity = metaData.asToEntity
+  protected def asToJoin = metaData.asToJoin
 
   private var idToProjection = Iterable[RecordProjection]()
   private var aggrCaches = Map[AggregateExpr, Number]()
@@ -17,27 +20,23 @@ final class JPQLReducerEvaluator(log: LoggingAdapter) extends JPQLEvaluator {
     aggrCaches = Map()
   }
 
-  def visitGroupbys(root: Statement, record: GenericRecord): List[Any] = {
-    root match {
+  def visitGroupbys(record: GenericRecord): List[Any] = {
+    metaData.stmt match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
-        // collect aliases
-        fromClause(from, record)
-
         groupby.fold(List[Any]()) { x => groupbyClause(x, record) }
+
       case UpdateStatement(update, set, where) => null // NOT YET
       case DeleteStatement(delete, where)      => null // NOT YET
     }
   }
 
-  def visitOneRecord(root: Statement, record: GenericRecord): List[WorkingSet] = {
+  def visitOneRecord(record: GenericRecord): List[WorkingSet] = {
     selectedItems = List()
-    root match {
+    metaData.stmt match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
-        // collect aliases
-        fromClause(from, record)
 
-        if (asToJoin.nonEmpty) {
-          val joinField = asToJoin.head._2.tail.head
+        if (metaData.asToJoin.nonEmpty) {
+          val joinField = metaData.asToJoin.head._2.tail.head
           val recordFlatView = new RecordFlatView(record.asInstanceOf[GenericRecord], joinField)
           val itr = recordFlatView.iterator
 

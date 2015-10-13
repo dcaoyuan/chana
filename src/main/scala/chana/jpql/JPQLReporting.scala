@@ -1,7 +1,6 @@
 package chana.jpql
 
 import chana.Entity
-import chana.jpql.nodes.Statement
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData.Record
 import scala.concurrent.duration._
@@ -29,8 +28,8 @@ trait JPQLReporting extends Entity {
     case ReportingTick("") => reportAll(false)
     case ReportingTick(jpqlKey) =>
       DistributedJPQLBoard.keyToStatement.get(jpqlKey) match {
-        case null                               =>
-        case (stmt, projectionSchema, interval) => report(jpqlKey, stmt, projectionSchema, interval, record)
+        case null                 =>
+        case (metaData, interval) => report(jpqlKey, metaData, interval, record)
       }
   }
 
@@ -41,22 +40,22 @@ trait JPQLReporting extends Entity {
       val entry = jpqls.next
       val key = entry.getKey
       if (force || !reportingJpqls.contains(key)) {
-        val (stmt, projectionSchema, interval) = entry.getValue
-        report(key, stmt, projectionSchema, interval, record) // report at once
+        val (metaData, interval) = entry.getValue
+        report(key, metaData, interval, record) // report at once
       }
       newReportingJpqls ::= key
     }
     reportingJpqls = newReportingJpqls
   }
 
-  def eval(stmt: Statement, projectionSchema: Schema, record: Record) = {
-    val e = new JPQLMapperEvaluator(schema, projectionSchema)
-    e.gatherProjection(id, stmt, record)
+  def eval(metaData: MetaData, record: Record) = {
+    val e = new JPQLMapperEvaluator(metaData)
+    e.gatherProjection(id, record)
   }
 
-  def report(jpqlKey: String, stmt: Statement, projectionSchema: Schema, interval: FiniteDuration, record: Record) {
+  def report(jpqlKey: String, metaData: MetaData, interval: FiniteDuration, record: Record) {
     try {
-      val dataset = if (isDeleted) null else eval(stmt, projectionSchema, record)
+      val dataset = if (isDeleted) null else eval(metaData, record)
       JPQLReducer.reducerProxy(context.system, jpqlKey) ! dataset
       context.system.scheduler.scheduleOnce(interval, self, ReportingTick(jpqlKey))
     } catch {

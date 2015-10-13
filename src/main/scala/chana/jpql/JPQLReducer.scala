@@ -8,9 +8,7 @@ import akka.actor.Props
 import akka.actor.Stash
 import akka.contrib.pattern.{ ClusterReceptionistExtension, ClusterSingletonManager, ClusterSingletonProxy }
 import chana.jpql.nodes.SelectStatement
-import chana.jpql.nodes.Statement
 import java.time.LocalDate
-import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
 import scala.concurrent.duration._
 import scala.util.Failure
@@ -41,7 +39,7 @@ object ResultItemOrdering extends Ordering[WorkingSet] {
 final case class RecordProjection(projection: GenericRecord)
 
 object JPQLReducer {
-  def props(jpqlKey: String, stmt: Statement, projectionSchema: Schema): Props = Props(classOf[JPQLReducer], jpqlKey, stmt, projectionSchema)
+  def props(jpqlKey: String, metaData: MetaData): Props = Props(classOf[JPQLReducer], jpqlKey, metaData)
 
   case object AskResult
   case object AskReducedResult
@@ -53,10 +51,10 @@ object JPQLReducer {
   def reducerProxyName(key: String) = "jpqlProxy-" + key
   def reducerProxyPath(key: String) = "/user/" + reducerProxyName(key)
 
-  def startReducer(system: ActorSystem, role: Option[String], jpqlKey: String, stmt: Statement, projectionSchema: Schema) = {
+  def startReducer(system: ActorSystem, role: Option[String], jpqlKey: String, metaData: MetaData) = {
     system.actorOf(
       ClusterSingletonManager.props(
-        singletonProps = props(jpqlKey, stmt, projectionSchema),
+        singletonProps = props(jpqlKey, metaData),
         singletonName = jpqlKey,
         terminationMessage = PoisonPill,
         role = role),
@@ -73,7 +71,7 @@ object JPQLReducer {
   def reducerProxy(system: ActorSystem, jpqlKey: String) = system.actorSelection(reducerProxyPath(jpqlKey))
 }
 
-class JPQLReducer(jqplKey: String, stmt: Statement, projectionSchema: Schema) extends Actor with Stash with ActorLogging {
+class JPQLReducer(jqplKey: String, metaData: MetaData) extends Actor with Stash with ActorLogging {
 
   import chana.jpql.JPQLReducer._
   import context.dispatcher
@@ -84,8 +82,8 @@ class JPQLReducer(jqplKey: String, stmt: Statement, projectionSchema: Schema) ex
   private var idToProjection = Map[String, RecordProjection]()
   private var prevUpdateTime: LocalDate = _
   private var today: LocalDate = _
-  private val evaluator = new JPQLReducerEvaluator(log)
-  private val withGroupby = stmt match {
+  private val evaluator = new JPQLReducerEvaluator(metaData, log)
+  private val withGroupby = metaData.stmt match {
     case x: SelectStatement => x.groupby.isDefined
     case _                  => false
   }
@@ -102,7 +100,7 @@ class JPQLReducer(jqplKey: String, stmt: Statement, projectionSchema: Schema) ex
     case RemoveProjection(id) =>
       idToProjection -= id // remove
     case BinaryProjection(id, bytes) =>
-      chana.avro.avroDecode[GenericRecord](bytes, projectionSchema) match {
+      chana.avro.avroDecode[GenericRecord](bytes, metaData.projectionSchema.head) match { // TODO multiple projectionSchema
         case Success(projection) => idToProjection += (id -> RecordProjection(projection))
         case Failure(ex)         => log.warning("Failed to decode projection bytes: " + ex.getMessage)
       }
@@ -153,7 +151,7 @@ class JPQLReducer(jqplKey: String, stmt: Statement, projectionSchema: Schema) ex
 
   def applyGroupbys(datasets: Iterable[RecordProjection]) = {
     evaluator.reset(datasets)
-    val xs = datasets.map { dataset => (evaluator.visitGroupbys(stmt, dataset.projection), dataset) }
+    val xs = datasets.map { dataset => (evaluator.visitGroupbys(dataset.projection), dataset) }
     xs.groupBy { _._1 }.map {
       case (groupKey, subDatasets) => reduceDataset(subDatasets.map { _._2 }).find { _ ne null }
     }.flatten
@@ -165,7 +163,7 @@ class JPQLReducer(jqplKey: String, stmt: Statement, projectionSchema: Schema) ex
     val itr = datasets.iterator
     while (itr.hasNext) {
       val entry = itr.next
-      reduced :::= evaluator.visitOneRecord(stmt, entry.projection)
+      reduced :::= evaluator.visitOneRecord(entry.projection)
     }
     log.debug("reduced: {}", reduced)
 

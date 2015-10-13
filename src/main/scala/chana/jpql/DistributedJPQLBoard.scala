@@ -14,13 +14,11 @@ import akka.contrib.datareplication.LWWMap
 import akka.pattern.ask
 import akka.cluster.Cluster
 import chana.jpql.nodes.JPQLParser
-import chana.jpql.nodes.Statement
 import chana.jpql.rats.JPQLGrammar
 import chana.schema.DistributedSchemaBoard
 import java.io.StringReader
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantReadWriteLock
-import org.apache.avro.Schema
 import scala.collection.JavaConversions._
 import scala.concurrent.duration._
 import scala.util.Failure
@@ -44,14 +42,14 @@ object DistributedJPQLBoard extends ExtensionId[DistributedJPQLBoardExtension] w
    */
   def props(): Props = Props(classOf[DistributedJPQLBoard])
 
-  val keyToStatement = new ConcurrentHashMap[String, (Statement, Schema, FiniteDuration)]()
+  val keyToStatement = new ConcurrentHashMap[String, (MetaData, FiniteDuration)]()
   private val jpqlsLock = new ReentrantReadWriteLock()
   private def keyOf(entity: String, field: String, id: String) = entity + "/" + field + "/" + id
 
-  private def putJPQL(system: ActorSystem, key: String, stmt: Statement, projectionSchema: Schema, interval: FiniteDuration = 1.seconds): Unit = {
-    keyToStatement.putIfAbsent(key, (stmt, projectionSchema, interval)) match {
+  private def putJPQL(system: ActorSystem, key: String, metaData: MetaData, interval: FiniteDuration = 1.seconds): Unit = {
+    keyToStatement.putIfAbsent(key, (metaData, interval)) match {
       case null =>
-        JPQLReducer.startReducer(system, JPQLReducer.role, key, stmt, projectionSchema)
+        JPQLReducer.startReducer(system, JPQLReducer.role, key, metaData)
         JPQLReducer.startReducerProxy(system, JPQLReducer.role, key)
       case old => // TODO if existed
     }
@@ -60,10 +58,6 @@ object DistributedJPQLBoard extends ExtensionId[DistributedJPQLBoardExtension] w
   private def removeJPQL(key: String): Unit = {
     keyToStatement.remove(key)
     // TODO remove aggregator
-  }
-
-  def JPQLOf(key: String): Option[Statement] = {
-    Option(keyToStatement.get(key)).map(_._1)
   }
 
   val DataKey = "chana-jpqls"
@@ -83,10 +77,10 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
     case chana.PutJPQL(key, jpql, interval) =>
       val commander = sender()
       parseJPQL(key, jpql) match {
-        case Success((stmt, projectionSchema)) =>
+        case Success(metaData) =>
           replicator.ask(Update(DistributedJPQLBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ + (key -> jpql)))(60.seconds).onComplete {
             case Success(_: UpdateSuccess) =>
-              DistributedJPQLBoard.putJPQL(context.system, key, stmt, projectionSchema, interval)
+              DistributedJPQLBoard.putJPQL(context.system, key, metaData, interval)
               log.info("put jpql (Update) [{}]:\n{} ", key, jpql)
               commander ! Success(key)
 
@@ -130,8 +124,8 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
           DistributedJPQLBoard.keyToStatement.get(key) match {
             case null =>
               parseJPQL(key, jpql) match {
-                case Success((stmt, projectionSchema)) =>
-                  DistributedJPQLBoard.putJPQL(context.system, key, stmt, projectionSchema)
+                case Success(metaData) =>
+                  DistributedJPQLBoard.putJPQL(context.system, key, metaData)
                   log.info("put jpql (Changed) [{}]:\n{} ", key, jpql)
                 case Failure(ex) =>
                   log.error(ex, ex.getMessage)
@@ -157,8 +151,8 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
         val rootNode = r.semanticValue[Node]
         val parser = new JPQLParser(rootNode)
         val stmt = parser.visitRoot()
-        val projectionSchemas = new JPQLMetaEvaluator(jpqlKey, DistributedSchemaBoard).collectMetadata(stmt, null)
-        Success(stmt, projectionSchemas.head)
+        val metaData = new JPQLMetaEvaluator(jpqlKey, DistributedSchemaBoard).collectMetadata(stmt, null)
+        Success(metaData)
       } else {
         Failure(new Exception(r.parseError.msg + " at " + r.parseError.index))
       }

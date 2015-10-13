@@ -22,7 +22,13 @@ class JPQLEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterAl
     val parser = new JPQLParser(rootNode)
     val stmt = parser.visitRoot()
     info("\nParsed:\n" + stmt)
-    val e = new JPQLEvaluator()
+
+    val e = new JPQLEvaluator {
+      protected var asToEntity = Map[String, String]()
+      protected var asToJoin = Map[String, List[String]]()
+      override protected def addAsToEntity(as: String, entity: String) = asToEntity += (as -> entity)
+      override protected def addAsToJoin(as: String, joinPath: List[String]) = asToJoin += (as -> joinPath)
+    }
     val res = e.simpleEval(stmt, record)
     info("\nResult:\n" + res)
     res
