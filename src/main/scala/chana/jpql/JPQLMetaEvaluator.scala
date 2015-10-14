@@ -179,11 +179,46 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
     true
   }
 
-  // SELECT e from Employee e join e.contactInfo c where KEY(c) = 'Email' and VALUE(c) = 'joe@gmail.com'
-  override def funcsReturningMapKeyValue(expr: FuncsReturningMapKeyValue, record: Any): Any = {
+  override def funcsReturningString(expr: FuncsReturningString, record: Any): String = {
     expr match {
-      case MapKey(_)   =>
-      case MapValue(_) =>
+      case Concat(expr, exprs: List[ScalarExpr]) =>
+        scalarExpr(expr, record)
+        exprs foreach { x => scalarExpr(x, record) }
+
+      case Substring(expr, startExpr, lengthExpr: Option[ScalarExpr]) =>
+        scalarExpr(expr, record)
+        scalarExpr(startExpr, record)
+        lengthExpr foreach { x => scalarExpr(x, record) }
+
+      case Trim(trimSpec: Option[TrimSpec], trimChar: Option[TrimChar], from) =>
+        stringPrimary(from, record)
+        trimChar match {
+          case Some(TrimChar_String(_))         =>
+          case Some(TrimChar_InputParam(param)) => inputParam(param, record)
+          case None                             => ""
+        }
+        trimSpec match {
+          case Some(BOTH) | None =>
+          case Some(LEADING)     =>
+          case Some(TRAILING)    =>
+        }
+
+      case Upper(expr) =>
+        scalarExpr(expr, record)
+
+      case Lower(expr) =>
+        scalarExpr(expr, record)
+
+      case MapKey(expr) => varAccessOrTypeConstant(expr, record)
+
+    }
+    ""
+  }
+
+  // SELECT e from Employee e join e.contactInfo c where KEY(c) = 'Email' and VALUE(c) = 'joe@gmail.com'
+  override def funcsReturningAny(expr: FuncsReturningAny, record: Any): Any = {
+    expr match {
+      case MapValue(expr) => varAccessOrTypeConstant(expr, record)
     }
   }
 

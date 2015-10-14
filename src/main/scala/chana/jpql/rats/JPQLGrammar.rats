@@ -318,7 +318,7 @@ generic ArithPrimary =
 / InputParam
 / CaseExpr
 / FuncsReturningNumeric
-/ FuncsReturningMapKeyValue
+/ FuncsReturningAny
 / LParen SimpleArithExpr RParen
 / LiteralNumeric 
 ;
@@ -443,11 +443,11 @@ generic FuncsReturningString =
 / Trim
 / Upper
 / Lower
+/ MapKey
 ;
 
-generic FuncsReturningMapKeyValue = 
-  MapKey
-/ MapValue
+generic FuncsReturningAny = 
+  MapValue
 ;
 
 // --- Functions returning string

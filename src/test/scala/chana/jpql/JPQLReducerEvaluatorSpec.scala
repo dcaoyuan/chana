@@ -155,7 +155,12 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
-        case result: Array[List[_]] => result should be(Array(List(5.0, 7.0, 35.0, 9.0, 0.0), List(5.0, 7.0, 35.0, 9.0, 0.0), List(5.0, 7.0, 35.0, 9.0, 0.0), List(5.0, 7.0, 35.0, 9.0, 0.0), List(5.0, 7.0, 35.0, 9.0, 0.0)))
+        case result: Array[List[_]] => result should be(Array(
+          List(5.0, 7.0, 35.0, 9.0, 0.0),
+          List(5.0, 7.0, 35.0, 9.0, 0.0),
+          List(5.0, 7.0, 35.0, 9.0, 0.0),
+          List(5.0, 7.0, 35.0, 9.0, 0.0),
+          List(5.0, 7.0, 35.0, 9.0, 0.0)))
       }
     }
 
@@ -199,7 +204,6 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
       records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], metaData, record) }
 
       reducer ! AskReducedResult
-
       expectMsgPF(2.seconds) {
         case result: Array[List[_]] => result map { xs =>
           xs.map {
@@ -220,7 +224,6 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
       records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], metaData, record) }
 
       reducer ! AskReducedResult
-
       expectMsgPF(2.seconds) {
         case result: Array[List[_]] => result map { xs =>
           xs.map {
@@ -232,7 +235,7 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
     }
 
     "query with join and KEY/VALUE fucntion" in {
-      val q = "SELECT a.registerTime, a.devApps, KEY(d) FROM account a JOIN a.devApps d " +
+      val q = "SELECT a.registerTime, a.devApps, CONCAT('k=', KEY(d)) FROM account a JOIN a.devApps d " +
         "WHERE a.registerTime >= 5 AND KEY(d) = 'b' ORDER BY a.registerTime"
 
       val metaData = parse(q)
@@ -241,7 +244,6 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
       records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], metaData, record) }
 
       reducer ! AskReducedResult
-
       expectMsgPF(2.seconds) {
         case result: Array[List[_]] => result map { xs =>
           xs.map {
@@ -249,11 +251,11 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
             case x => x
           }
         } should be(Array(
-          List(5, ("b", 2, 0), "b"),
-          List(6, ("b", 2, 0), "b"),
-          List(7, ("b", 2, 0), "b"),
-          List(8, ("b", 2, 0), "b"),
-          List(9, ("b", 2, 0), "b")))
+          List(5, ("b", 2, 0), "k=b"),
+          List(6, ("b", 2, 0), "k=b"),
+          List(7, ("b", 2, 0), "k=b"),
+          List(8, ("b", 2, 0), "k=b"),
+          List(9, ("b", 2, 0), "k=b")))
       }
     }
   }

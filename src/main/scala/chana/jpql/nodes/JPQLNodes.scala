@@ -6,9 +6,22 @@ package chana.jpql.nodes
  * @author Caoyuan Deng
  */
 sealed trait Statement
-final case class SelectStatement(select: SelectClause, from: FromClause, where: Option[WhereClause], groupby: Option[GroupbyClause], having: Option[HavingClause], orderby: Option[OrderbyClause]) extends Statement
-final case class UpdateStatement(update: UpdateClause, set: SetClause, where: Option[WhereClause]) extends Statement
-final case class DeleteStatement(delete: DeleteClause, where: Option[WhereClause]) extends Statement
+final case class SelectStatement(
+  select: SelectClause,
+  from: FromClause,
+  where: Option[WhereClause],
+  groupby: Option[GroupbyClause],
+  having: Option[HavingClause],
+  orderby: Option[OrderbyClause]) extends Statement
+
+final case class UpdateStatement(
+  update: UpdateClause,
+  set: SetClause,
+  where: Option[WhereClause]) extends Statement
+
+final case class DeleteStatement(
+  delete: DeleteClause,
+  where: Option[WhereClause]) extends Statement
 
 final case class UpdateClause(entityName: EntityName, as: Option[Ident])
 
@@ -177,7 +190,7 @@ final case class ArithPrimary_PathExprOrVarAccess(expr: PathExprOrVarAccess) ext
 final case class ArithPrimary_InputParam(expr: InputParam) extends ArithPrimary
 final case class ArithPrimary_CaseExpr(expr: CaseExpr) extends ArithPrimary
 final case class ArithPrimary_FuncsReturningNumeric(expr: FuncsReturningNumeric) extends ArithPrimary
-final case class ArithPrimary_FuncsReturningMapKeyValue(expr: FuncsReturningMapKeyValue) extends ArithPrimary
+final case class ArithPrimary_FuncsReturningAny(expr: FuncsReturningAny) extends ArithPrimary
 final case class ArithPrimary_SimpleArithExpr(expr: SimpleArithExpr) extends ArithPrimary
 final case class ArithPrimary_LiteralNumeric(expr: Number) extends ArithPrimary
 
@@ -232,7 +245,7 @@ final case class VarOrSingleValuedPath(expr: Either[SingleValuedPathExpr, VarAcc
 
 sealed trait StringPrimary
 final case class StringPrimary_LiteralString(expr: String) extends StringPrimary
-final case class StringPrimary_FuncsReturningStrings(expr: FuncsReturningString) extends StringPrimary
+final case class StringPrimary_FuncsReturningString(expr: FuncsReturningString) extends StringPrimary
 final case class StringPrimary_InputParam(expr: InputParam) extends StringPrimary
 final case class StringPrimary_StateFieldPathExpr(expr: StateFieldPathExpr) extends StringPrimary
 
@@ -276,10 +289,10 @@ final case class Substring(expr: ScalarExpr, startExpr: ScalarExpr, lengthExpr: 
 final case class Trim(trimSpec: Option[TrimSpec], trimChar: Option[TrimChar], from: StringPrimary) extends FuncsReturningString
 final case class Upper(expr: ScalarExpr) extends FuncsReturningString
 final case class Lower(expr: ScalarExpr) extends FuncsReturningString
+final case class MapKey(expr: VarAccessOrTypeConstant) extends FuncsReturningString
 
-sealed trait FuncsReturningMapKeyValue
-final case class MapKey(expr: VarAccessOrTypeConstant) extends FuncsReturningMapKeyValue
-final case class MapValue(expr: VarAccessOrTypeConstant) extends FuncsReturningMapKeyValue
+sealed trait FuncsReturningAny
+final case class MapValue(expr: VarAccessOrTypeConstant) extends FuncsReturningAny
 
 sealed trait TrimSpec
 case object LEADING extends TrimSpec

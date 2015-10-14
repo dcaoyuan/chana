@@ -707,12 +707,12 @@ class JPQLParser(rootNode: Node) {
     node.get(0) match {
       case n: Node =>
         n.getName match {
-          case "PathExprOrVarAccess"       => ArithPrimary_PathExprOrVarAccess(visit(n)(pathExprOrVarAccess))
-          case "InputParam"                => ArithPrimary_InputParam(visit(n)(inputParam))
-          case "CaseExpr"                  => ArithPrimary_CaseExpr(visit(n)(caseExpr))
-          case "FuncsReturningNumeric"     => ArithPrimary_FuncsReturningNumeric(visit(n)(funcsReturningNumeric))
-          case "FuncsReturningMapKeyValue" => ArithPrimary_FuncsReturningMapKeyValue(visit(n)(funcsReturningMapKeyValue))
-          case "SimpleArithExpr"           => ArithPrimary_SimpleArithExpr(visit(n)(simpleArithExpr))
+          case "PathExprOrVarAccess"   => ArithPrimary_PathExprOrVarAccess(visit(n)(pathExprOrVarAccess))
+          case "InputParam"            => ArithPrimary_InputParam(visit(n)(inputParam))
+          case "CaseExpr"              => ArithPrimary_CaseExpr(visit(n)(caseExpr))
+          case "FuncsReturningNumeric" => ArithPrimary_FuncsReturningNumeric(visit(n)(funcsReturningNumeric))
+          case "FuncsReturningAny"     => ArithPrimary_FuncsReturningAny(visit(n)(funcsReturningAny))
+          case "SimpleArithExpr"       => ArithPrimary_SimpleArithExpr(visit(n)(simpleArithExpr))
         }
       case v: Number => ArithPrimary_LiteralNumeric(v)
     }
@@ -910,7 +910,7 @@ class JPQLParser(rootNode: Node) {
       case v: String => StringPrimary_LiteralString(v)
       case n: Node =>
         n.getName match {
-          case "FuncsReturningString" => StringPrimary_FuncsReturningStrings(visit(n)(funcsReturningString))
+          case "FuncsReturningString" => StringPrimary_FuncsReturningString(visit(n)(funcsReturningString))
           case "InputParam"           => StringPrimary_InputParam(visit(n)(inputParam))
           case "StateFieldPathExpr"   => StringPrimary_StateFieldPathExpr(visit(n)(stateFieldPathExpr))
         }
@@ -1002,17 +1002,16 @@ class JPQLParser(rootNode: Node) {
       case "Trim"      => visit(n)(trim)
       case "Upper"     => visit(n)(upper)
       case "Lower"     => visit(n)(lower)
+      case "MapKey"    => visit(n)(mapKey)
     }
   }
 
   /*_
-      MapKey
     / MapValue
    */
-  def funcsReturningMapKeyValue(node: Node) = {
+  def funcsReturningAny(node: Node) = {
     val n = node.getNode(0)
     n.getName match {
-      case "MapKey"   => visit(n)(mapKey)
       case "MapValue" => visit(n)(mapValue)
     }
   }

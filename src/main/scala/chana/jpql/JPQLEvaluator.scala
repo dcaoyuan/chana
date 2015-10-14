@@ -532,13 +532,13 @@ abstract class JPQLEvaluator {
 
   def arithPrimary(primary: ArithPrimary, record: Any) = {
     primary match {
-      case ArithPrimary_PathExprOrVarAccess(expr)       => pathExprOrVarAccess(expr, record)
-      case ArithPrimary_InputParam(expr)                => inputParam(expr, record)
-      case ArithPrimary_CaseExpr(expr)                  => caseExpr(expr, record)
-      case ArithPrimary_FuncsReturningNumeric(expr)     => funcsReturningNumeric(expr, record)
-      case ArithPrimary_FuncsReturningMapKeyValue(expr) => funcsReturningMapKeyValue(expr, record)
-      case ArithPrimary_SimpleArithExpr(expr)           => simpleArithExpr(expr, record)
-      case ArithPrimary_LiteralNumeric(expr)            => expr
+      case ArithPrimary_PathExprOrVarAccess(expr)   => pathExprOrVarAccess(expr, record)
+      case ArithPrimary_InputParam(expr)            => inputParam(expr, record)
+      case ArithPrimary_CaseExpr(expr)              => caseExpr(expr, record)
+      case ArithPrimary_FuncsReturningNumeric(expr) => funcsReturningNumeric(expr, record)
+      case ArithPrimary_FuncsReturningAny(expr)     => funcsReturningAny(expr, record)
+      case ArithPrimary_SimpleArithExpr(expr)       => simpleArithExpr(expr, record)
+      case ArithPrimary_LiteralNumeric(expr)        => expr
     }
   }
 
@@ -655,7 +655,7 @@ abstract class JPQLEvaluator {
   def stringPrimary(expr: StringPrimary, record: Any): Either[String, Any => String] = {
     expr match {
       case StringPrimary_LiteralString(expr) => Left(expr)
-      case StringPrimary_FuncsReturningStrings(expr) =>
+      case StringPrimary_FuncsReturningString(expr) =>
         try {
           Left(funcsReturningString(expr, record))
         } catch {
@@ -809,28 +809,23 @@ abstract class JPQLEvaluator {
           case base: CharSequence => base.toString.toLowerCase
           case x                  => throw JPQLRuntimeException(x, "is not a string")
         }
+
+      case MapKey(_) =>
+        record match {
+          case FlattenRecord(_, field, fieldValue: java.util.Map.Entry[CharSequence, _] @unchecked, index) => fieldValue.getKey.toString
+          case x => throw JPQLRuntimeException(x, "is not a map entry")
+        }
     }
   }
 
   // SELECT e from Employee e join e.contactInfo c where KEY(c) = 'Email' and VALUE(c) = 'joe@gmail.com'
-  def funcsReturningMapKeyValue(expr: FuncsReturningMapKeyValue, record: Any): Any = {
-    val value = expr match {
-      case MapKey(_) =>
-        record match {
-          case FlattenRecord(_, field, fieldValue: java.util.Map.Entry[CharSequence, _] @unchecked, index) => fieldValue.getKey // jpql index start at 1 // TODO check flat field name
-          case x => throw JPQLRuntimeException(x, "is not a map entry")
-        }
+  def funcsReturningAny(expr: FuncsReturningAny, record: Any): Any = {
+    expr match {
       case MapValue(_) =>
         record match {
-          case FlattenRecord(_, field, fieldValue: java.util.Map.Entry[CharSequence, _] @unchecked, index) => fieldValue.getValue // jpql index start at 1 // TODO check flat field name
+          case FlattenRecord(_, field, fieldValue: java.util.Map.Entry[CharSequence, _] @unchecked, index) => fieldValue.getValue
           case x => throw JPQLRuntimeException(x, "is not a map entry")
         }
-    }
-
-    if (value.isInstanceOf[Utf8]) {
-      value.toString
-    } else {
-      value
     }
   }
 
