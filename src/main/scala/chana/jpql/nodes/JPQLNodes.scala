@@ -48,7 +48,9 @@ final case class SelectExpr_MapEntryExpr(expr: MapEntryExpr) extends SelectExpr
 
 final case class MapEntryExpr(entry: VarAccessOrTypeConstant)
 
-final case class PathExprOrVarAccess(qual: QualIdentVar, attributes: List[Attribute])
+sealed trait PathExprOrVarAccess
+final case class PathExprOrVarAccess_QualIdentVar(qual: QualIdentVar, attributes: List[Attribute]) extends PathExprOrVarAccess
+final case class PathExprOrVarAccess_FuncsReturingAny(expr: FuncsReturningAny, attributes: List[Attribute]) extends PathExprOrVarAccess
 
 final case class QualIdentVar(v: VarAccessOrTypeConstant)
 
@@ -190,7 +192,6 @@ final case class ArithPrimary_PathExprOrVarAccess(expr: PathExprOrVarAccess) ext
 final case class ArithPrimary_InputParam(expr: InputParam) extends ArithPrimary
 final case class ArithPrimary_CaseExpr(expr: CaseExpr) extends ArithPrimary
 final case class ArithPrimary_FuncsReturningNumeric(expr: FuncsReturningNumeric) extends ArithPrimary
-final case class ArithPrimary_FuncsReturningAny(expr: FuncsReturningAny) extends ArithPrimary
 final case class ArithPrimary_SimpleArithExpr(expr: SimpleArithExpr) extends ArithPrimary
 final case class ArithPrimary_LiteralNumeric(expr: Number) extends ArithPrimary
 

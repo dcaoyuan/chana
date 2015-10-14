@@ -96,30 +96,33 @@ abstract class JPQLEvaluator {
     }
 
     asToEntity.get(qual1) match {
-      case Some(EntityName) =>
-        var paths = attrPaths1
-        var currValue: Any = record
+      case Some(EntityName) => valueOfRecord(attrPaths1, record, toGather = true)
+      case _                => throw JPQLRuntimeException(qual1, "is not an AS alias of entity: " + EntityName)
+    }
+  }
 
-        while (paths.nonEmpty) {
-          val path = paths.head
-          paths = paths.tail
+  def valueOfRecord(attrPaths: List[String], record: GenericRecord, toGather: Boolean): Any = {
+    var paths = attrPaths
+    var currValue: Any = record
 
-          currValue match {
-            case fieldRec: GenericRecord =>
-              currValue = fieldRec.get(path)
-            case arr: java.util.Collection[_]             => throw JPQLRuntimeException(currValue, "is an avro array when fetch its attribute: " + path) // TODO
-            case map: java.util.Map[String, _] @unchecked => throw JPQLRuntimeException(currValue, "is an avro map when fetch its attribute: " + path) // TODO
-            case null                                     => throw JPQLRuntimeException(currValue, "is null when fetch its attribute: " + paths)
-            case _                                        => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + paths)
-          }
-        } // end while
+    while (paths.nonEmpty) {
+      val path = paths.head
+      paths = paths.tail
 
-        if (currValue.isInstanceOf[Utf8]) {
-          currValue.toString
-        } else {
-          currValue
-        }
-      case _ => throw JPQLRuntimeException(qual1, "is not an AS alias of entity: " + EntityName)
+      currValue match {
+        case fieldRec: GenericRecord =>
+          currValue = fieldRec.get(path)
+        case arr: java.util.Collection[_]             => throw JPQLRuntimeException(currValue, "is an avro array when fetch its attribute: " + path) // TODO
+        case map: java.util.Map[String, _] @unchecked => throw JPQLRuntimeException(currValue, "is an avro map when fetch its attribute: " + path) // TODO
+        case null                                     => throw JPQLRuntimeException(currValue, "is null when fetch its attribute: " + paths)
+        case _                                        => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + paths)
+      }
+    } // end while
+
+    if (currValue.isInstanceOf[Utf8]) {
+      currValue.toString
+    } else {
+      currValue
     }
   }
 
@@ -190,9 +193,20 @@ abstract class JPQLEvaluator {
   }
 
   def pathExprOrVarAccess(expr: PathExprOrVarAccess, record: Any): Any = {
-    val qual = qualIdentVar(expr.qual, record)
-    val paths = expr.attributes map { x => attribute(x, record) }
-    valueOf(qual, paths, record)
+    expr match {
+      case PathExprOrVarAccess_QualIdentVar(qual, attrs) =>
+        val qualx = qualIdentVar(qual, record)
+        val paths = attrs map { x => attribute(x, record) }
+        valueOf(qualx, paths, record)
+      case PathExprOrVarAccess_FuncsReturingAny(expr, attrs) =>
+        funcsReturningAny(expr, record) match {
+          case rec: GenericRecord =>
+            val paths = attrs map { x => attribute(x, record) }
+            valueOfRecord(paths, rec, toGather = false) // return fieldRec's attribute, but do not gather 
+          case v if (attrs.nonEmpty) => throw new JPQLRuntimeException(v, "is not a record, can not be applied attributes")
+          case v                     => v
+        }
+    }
   }
 
   def qualIdentVar(qual: QualIdentVar, record: Any): String = {
@@ -536,7 +550,6 @@ abstract class JPQLEvaluator {
       case ArithPrimary_InputParam(expr)            => inputParam(expr, record)
       case ArithPrimary_CaseExpr(expr)              => caseExpr(expr, record)
       case ArithPrimary_FuncsReturningNumeric(expr) => funcsReturningNumeric(expr, record)
-      case ArithPrimary_FuncsReturningAny(expr)     => funcsReturningAny(expr, record)
       case ArithPrimary_SimpleArithExpr(expr)       => simpleArithExpr(expr, record)
       case ArithPrimary_LiteralNumeric(expr)        => expr
     }
@@ -810,9 +823,12 @@ abstract class JPQLEvaluator {
           case x                  => throw JPQLRuntimeException(x, "is not a string")
         }
 
-      case MapKey(_) =>
+      case MapKey(expr) =>
         record match {
-          case FlattenRecord(_, field, fieldValue: java.util.Map.Entry[CharSequence, _] @unchecked, index) => fieldValue.getKey.toString
+          case FlattenRecord(_, field, fieldValue: java.util.Map.Entry[CharSequence, _] @unchecked, index) =>
+            val as = varAccessOrTypeConstant(expr, record)
+            valueOf(as, List(), record) // force to gather this map field. TODO
+            fieldValue.getKey.toString
           case x => throw JPQLRuntimeException(x, "is not a map entry")
         }
     }
@@ -821,9 +837,12 @@ abstract class JPQLEvaluator {
   // SELECT e from Employee e join e.contactInfo c where KEY(c) = 'Email' and VALUE(c) = 'joe@gmail.com'
   def funcsReturningAny(expr: FuncsReturningAny, record: Any): Any = {
     expr match {
-      case MapValue(_) =>
+      case MapValue(expr) =>
         record match {
-          case FlattenRecord(_, field, fieldValue: java.util.Map.Entry[CharSequence, _] @unchecked, index) => fieldValue.getValue
+          case FlattenRecord(_, field, fieldValue: java.util.Map.Entry[CharSequence, _] @unchecked, index) =>
+            val as = varAccessOrTypeConstant(expr, record)
+            valueOf(as, List(), record) // force to gather this map field. TODO
+            fieldValue.getValue
           case x => throw JPQLRuntimeException(x, "is not a map entry")
         }
     }

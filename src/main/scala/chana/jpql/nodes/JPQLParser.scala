@@ -198,12 +198,20 @@ class JPQLParser(rootNode: Node) {
   }
 
   /*-
-     QualIdentVar ( DOT Attribute )*
+     QualIdentVar      ( DOT Attribute )*
+   / FuncsReturningAny ( DOT Attribute )*
    */
   def pathExprOrVarAccess(node: Node) = {
-    val qual = visit(node.getNode(0))(qualIdentVar)
+    val n = node.getNode(0)
     val attributes = visitList(node.getList(1))(attribute)
-    PathExprOrVarAccess(qual, attributes)
+    n.getName match {
+      case "QualIdentVar" =>
+        val qual = visit(n)(qualIdentVar)
+        PathExprOrVarAccess_QualIdentVar(qual, attributes)
+      case "FuncsReturningAny" =>
+        val value = visit(n)(funcsReturningAny)
+        PathExprOrVarAccess_FuncsReturingAny(value, attributes)
+    }
   }
 
   /*-
@@ -711,7 +719,6 @@ class JPQLParser(rootNode: Node) {
           case "InputParam"            => ArithPrimary_InputParam(visit(n)(inputParam))
           case "CaseExpr"              => ArithPrimary_CaseExpr(visit(n)(caseExpr))
           case "FuncsReturningNumeric" => ArithPrimary_FuncsReturningNumeric(visit(n)(funcsReturningNumeric))
-          case "FuncsReturningAny"     => ArithPrimary_FuncsReturningAny(visit(n)(funcsReturningAny))
           case "SimpleArithExpr"       => ArithPrimary_SimpleArithExpr(visit(n)(simpleArithExpr))
         }
       case v: Number => ArithPrimary_LiteralNumeric(v)

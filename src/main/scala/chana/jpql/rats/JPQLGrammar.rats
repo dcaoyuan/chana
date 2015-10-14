@@ -79,7 +79,8 @@ generic MapEntryExpr =
 ;
 
 generic PathExprOrVarAccess =
-  QualIdentVar ( DOT Attribute )*
+  QualIdentVar      ( DOT Attribute )*
+/ FuncsReturningAny ( DOT Attribute )*
 ;
 
 generic QualIdentVar =
@@ -318,7 +319,6 @@ generic ArithPrimary =
 / InputParam
 / CaseExpr
 / FuncsReturningNumeric
-/ FuncsReturningAny
 / LParen SimpleArithExpr RParen
 / LiteralNumeric 
 ;

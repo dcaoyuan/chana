@@ -113,9 +113,15 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
   }
 
   override def pathExprOrVarAccess(expr: PathExprOrVarAccess, record: Any): Any = {
-    val qual = qualIdentVar(expr.qual, record)
-    val paths = expr.attributes map { x => attribute(x, record) }
-    collectLeastProjectionNodes(qual, paths)
+    expr match {
+      case PathExprOrVarAccess_QualIdentVar(qual, attrs) =>
+        val qualx = qualIdentVar(qual, record)
+        val paths = attrs map { x => attribute(x, record) }
+        collectLeastProjectionNodes(qualx, paths)
+      case PathExprOrVarAccess_FuncsReturingAny(expr, attrs) =>
+        funcsReturningAny(expr, record)
+      // For MapValue, the field should have been collected during MapValue
+    }
   }
 
   override def pathExpr(expr: PathExpr, record: Any): Any = {
@@ -209,8 +215,9 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
       case Lower(expr) =>
         scalarExpr(expr, record)
 
-      case MapKey(expr) => varAccessOrTypeConstant(expr, record)
-
+      case MapKey(expr) =>
+        val qual = varAccessOrTypeConstant(expr, record)
+        collectLeastProjectionNodes(qual, List())
     }
     ""
   }
@@ -218,7 +225,9 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
   // SELECT e from Employee e join e.contactInfo c where KEY(c) = 'Email' and VALUE(c) = 'joe@gmail.com'
   override def funcsReturningAny(expr: FuncsReturningAny, record: Any): Any = {
     expr match {
-      case MapValue(expr) => varAccessOrTypeConstant(expr, record)
+      case MapValue(expr) =>
+        val qual = varAccessOrTypeConstant(expr, record)
+        collectLeastProjectionNodes(qual, List())
     }
   }
 

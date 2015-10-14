@@ -73,18 +73,6 @@ final class JPQLReducerEvaluator(metaData: MetaData, log: LoggingAdapter) extend
     }
   }
 
-  override def pathExprOrVarAccess(expr: PathExprOrVarAccess, record: Any): Any = {
-    val qual = qualIdentVar(expr.qual, record)
-    val paths = expr.attributes map { x => attribute(x, record) }
-    valueOf(qual, paths, record)
-  }
-
-  override def pathExpr(expr: PathExpr, record: Any): Any = {
-    val qual = qualIdentVar(expr.qual, record)
-    val paths = expr.attributes map { x => attribute(x, record) }
-    valueOf(qual, paths, record)
-  }
-
   override def aggregateExpr(expr: AggregateExpr, record: Any) = {
     aggrCaches.getOrElse(expr, {
       // TODO isDistinct

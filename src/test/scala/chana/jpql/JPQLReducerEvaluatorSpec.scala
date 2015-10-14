@@ -234,8 +234,8 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
       }
     }
 
-    "query with join and KEY/VALUE fucntion" in {
-      val q = "SELECT a.registerTime, a.devApps, CONCAT('k=', KEY(d)) FROM account a JOIN a.devApps d " +
+    "query with join and KEY/VALUE function" in {
+      val q = "SELECT a.registerTime, d, CONCAT('k=', KEY(d)), VALUE(d).numBlackApps FROM account a JOIN a.devApps d " +
         "WHERE a.registerTime >= 5 AND KEY(d) = 'b' ORDER BY a.registerTime"
 
       val metaData = parse(q)
@@ -248,14 +248,41 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
         case result: Array[List[_]] => result map { xs =>
           xs.map {
             case devApp: java.util.Map.Entry[CharSequence, Record] @unchecked => (devApp.getKey.toString, devApp.getValue.get("numBlackApps"), devApp.getValue.get("numInstalledApps"))
+            case devAppValue: Record => (devAppValue.get("numBlackApps"), devAppValue.get("numInstalledApps"))
             case x => x
           }
         } should be(Array(
-          List(5, ("b", 2, 0), "k=b"),
-          List(6, ("b", 2, 0), "k=b"),
-          List(7, ("b", 2, 0), "k=b"),
-          List(8, ("b", 2, 0), "k=b"),
-          List(9, ("b", 2, 0), "k=b")))
+          List(5, ("b", 2, 0), "k=b", 2),
+          List(6, ("b", 2, 0), "k=b", 2),
+          List(7, ("b", 2, 0), "k=b", 2),
+          List(8, ("b", 2, 0), "k=b", 2),
+          List(9, ("b", 2, 0), "k=b", 2)))
+      }
+    }
+
+    "query with join and KEY/VALUE function, without refer to d directly" in {
+      val q = "SELECT a.registerTime, CONCAT('k=', KEY(d)), VALUE(d).numBlackApps FROM account a JOIN a.devApps d " +
+        "WHERE a.registerTime >= 5 AND KEY(d) = 'b' ORDER BY a.registerTime"
+
+      val metaData = parse(q)
+      val reducer = system.actorOf(JPQLReducer.props("test", metaData))
+
+      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], metaData, record) }
+
+      reducer ! AskReducedResult
+      expectMsgPF(2.seconds) {
+        case result: Array[List[_]] => result map { xs =>
+          xs.map {
+            case devApp: java.util.Map.Entry[CharSequence, Record] @unchecked => (devApp.getKey.toString, devApp.getValue.get("numBlackApps"), devApp.getValue.get("numInstalledApps"))
+            case devAppValue: Record => (devAppValue.get("numBlackApps"), devAppValue.get("numInstalledApps"))
+            case x => x
+          }
+        } should be(Array(
+          List(5, "k=b", 2),
+          List(6, "k=b", 2),
+          List(7, "k=b", 2),
+          List(8, "k=b", 2),
+          List(9, "k=b", 2)))
       }
     }
   }
