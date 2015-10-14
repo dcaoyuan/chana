@@ -110,8 +110,7 @@ abstract class JPQLEvaluator {
       paths = paths.tail
 
       currValue match {
-        case fieldRec: GenericRecord =>
-          currValue = fieldRec.get(path)
+        case fieldRec: GenericRecord                  => currValue = fieldRec.get(path)
         case arr: java.util.Collection[_]             => throw JPQLRuntimeException(currValue, "is an avro array when fetch its attribute: " + path) // TODO
         case map: java.util.Map[String, _] @unchecked => throw JPQLRuntimeException(currValue, "is an avro map when fetch its attribute: " + path) // TODO
         case null                                     => throw JPQLRuntimeException(currValue, "is null when fetch its attribute: " + paths)
@@ -825,9 +824,9 @@ abstract class JPQLEvaluator {
 
       case MapKey(expr) =>
         record match {
-          case FlattenRecord(_, field, fieldValue: java.util.Map.Entry[CharSequence, _] @unchecked, index) =>
-            val as = varAccessOrTypeConstant(expr, record)
-            valueOf(as, List(), record) // force to gather this map field. TODO
+          case r @ FlattenRecord(_, field, fieldValue: java.util.Map.Entry[CharSequence, _] @unchecked, index) =>
+            val qual = varAccessOrTypeConstant(expr, record)
+            valueOfRecord(qual, List(), r) // force to gather this map field. TODO
             fieldValue.getKey.toString
           case x => throw JPQLRuntimeException(x, "is not a map entry")
         }
@@ -839,9 +838,9 @@ abstract class JPQLEvaluator {
     expr match {
       case MapValue(expr) =>
         record match {
-          case FlattenRecord(_, field, fieldValue: java.util.Map.Entry[CharSequence, _] @unchecked, index) =>
-            val as = varAccessOrTypeConstant(expr, record)
-            valueOf(as, List(), record) // force to gather this map field. TODO
+          case r @ FlattenRecord(_, field, fieldValue: java.util.Map.Entry[CharSequence, _] @unchecked, index) =>
+            val qual = varAccessOrTypeConstant(expr, record)
+            valueOfRecord(qual, List(), r) // force to gather this map field. TODO
             fieldValue.getValue
           case x => throw JPQLRuntimeException(x, "is not a map entry")
         }

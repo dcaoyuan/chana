@@ -20,10 +20,13 @@ final class JPQLMapperEvaluator(metaData: MetaData) extends JPQLEvaluator {
   protected def asToEntity = metaData.asToEntity
   protected def asToJoin = metaData.asToJoin
 
+  /**
+   * Main Entrance
+   */
   def gatherProjection(entityId: String, record: Any): AvroProjection = {
     metaData.stmt match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
-        println("stmt: " + metaData.stmt)
+
         if (asToJoin.nonEmpty) {
           val joinField = asToJoin.head._2.tail.head
           val recordFlatView = new RecordFlatView(record.asInstanceOf[GenericRecord], joinField)
@@ -75,10 +78,10 @@ final class JPQLMapperEvaluator(metaData: MetaData) extends JPQLEvaluator {
   }
 
   override def valueOfRecord(attrPaths: List[String], record: GenericRecord, toGather: Boolean): Any = {
-    var paths = attrPaths
-    var currValue: Any = record
-
     if (isToGather && toGather) {
+      var paths = attrPaths
+      var currValue: Any = record
+
       var currSchema = record.getSchema
       var currGather: Any = projection
       while (paths.nonEmpty) {
@@ -175,22 +178,11 @@ final class JPQLMapperEvaluator(metaData: MetaData) extends JPQLEvaluator {
           case _                                        => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path)
         }
       } // end while
+
+      currValue
     } else {
-      while (paths.nonEmpty) {
-        val path = paths.head
-        paths = paths.tail
-
-        currValue match {
-          case x: GenericRecord                         => currValue = x.get(path)
-          case arr: java.util.Collection[_]             => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path) // TODO
-          case map: java.util.Map[String, _] @unchecked => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path) // TODO
-          case null                                     => throw JPQLRuntimeException(currValue, "is null when fetch its attribute: " + path)
-          case _                                        => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + path)
-        }
-      } // end while
+      super.valueOfRecord(attrPaths, record, toGather = false)
     }
-
-    currValue
   }
 
 }
