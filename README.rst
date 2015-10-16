@@ -237,7 +237,7 @@ Simple GET/PUT REST-JSON Result:
 ::
 
     Simple GET: 169,437 [req#/sec] (mean)
-    Simple PUT 102,961 [req#/sec] (mean)
+    Simple PUT: 102,961 [req#/sec] (mean)
 
 Details: 
 
@@ -251,7 +251,7 @@ To run:
 
     sbt run
     cd src/test/resources/avsc
-    ./bench.sh
+    ./bench-get.sh
     ./bench-put.sh
 
 Preface
