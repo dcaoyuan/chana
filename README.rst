@@ -116,10 +116,10 @@ Try it:
     
     $ ./jpql.ask
     
-    #### update record with random id
+    #### update record with random id (effected by ?benchmark_only=10240). Repeat it to update more person's age to 40
     $ echo '{"age":40}' | curl -d @- 'http://127.0.0.1:8080/personinfo/put/1?benchmark_only=10240'
 
-    #### benchmark test
+    #### finally, a simple benchmark test
     $ ab -c100 -n100000 -k 'http://127.0.0.1:8080/personinfo/get/1?benchmark_only=1024'
 
 
