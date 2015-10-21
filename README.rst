@@ -102,7 +102,22 @@ Try it:
     $ curl 'http://127.0.0.1:8080/personinfo/get/1/name'
     "James Bond"
 
+    #### JPQL Simple test
+    $ echo 'SELECT COUNT(p.age), AVG(p.age), p.age FROM PersonInfo p WHERE p.age >= 30 ORDER BY p.age' | curl -d @- 'http://127.0.0.1:8080/putjpql/JPQL_NO_1'
+   
+    $ cat ./jpql.ask
+    while :
+    do
+       sleep 1s
+       curl 'http://127.0.0.1:8080/askjpql/JPQL_NO_1'
+    done
+
+    $ ./jpql.ask
+    
+    $ echo '{"age":40}' | curl -d @- 'http://127.0.0.1:8080/personinfo/put/1?benchmark_only=10240'
+
     $ ab -c100 -n100000 -k 'http://127.0.0.1:8080/personinfo/get/1?benchmark_only=1024'
+
 
 Script example: (requires JDK8+)
 ''''''''''''''''''''''''''''''''
