@@ -105,17 +105,21 @@ Try it:
     #### JPQL Simple test
     $ echo 'SELECT COUNT(p.age), AVG(p.age), p.age FROM PersonInfo p WHERE p.age >= 30 ORDER BY p.age' | curl -d @- 'http://127.0.0.1:8080/putjpql/JPQL_NO_1'
    
+    #### watching jpql results
     $ cat ./jpql.ask
     while :
     do
        sleep 1s
        curl 'http://127.0.0.1:8080/askjpql/JPQL_NO_1'
+       echo -e '\n'
     done
-
+    
     $ ./jpql.ask
     
+    #### update record with random id
     $ echo '{"age":40}' | curl -d @- 'http://127.0.0.1:8080/personinfo/put/1?benchmark_only=10240'
 
+    #### benchmark test
     $ ab -c100 -n100000 -k 'http://127.0.0.1:8080/personinfo/get/1?benchmark_only=1024'
 
 
