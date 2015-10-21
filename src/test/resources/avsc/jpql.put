@@ -1,0 +1,2 @@
+#/bin/sh
+echo '{"age":20}' | curl -d @- 'http://127.0.0.1:8080/personinfo/put/1?benchmark_only=10240'
