@@ -23,12 +23,14 @@ final case class DeleteStatement(
   delete: DeleteClause,
   where: Option[WhereClause]) extends Statement
 
+final case class InsertStatement(
+  insert: InsertClause,
+  attributes: Option[AttributesClause],
+  values: ValuesClause) extends Statement
+
 final case class UpdateClause(entityName: EntityName, as: Option[Ident])
-
 final case class SetClause(assign: SetAssignClause, assigns: List[SetAssignClause])
-
 final case class SetAssignClause(target: SetAssignTarget, value: NewValue)
-
 final case class SetAssignTarget(path: Either[PathExpr, Attribute])
 
 final case class NewValue(v: ScalarExpr) // could be null
@@ -38,6 +40,10 @@ final case class DeleteClause(from: EntityName, as: Option[Ident])
 final case class SelectClause(isDistinct: Boolean, item: SelectItem, items: List[SelectItem])
 
 final case class SelectItem(expr: SelectExpr, as: Option[Ident])
+
+final case class InsertClause(entityName: EntityName)
+final case class AttributesClause(attr: Attribute, attrs: List[Attribute])
+final case class ValuesClause(value: NewValue, values: List[NewValue])
 
 sealed trait SelectExpr
 final case class SelectExpr_AggregateExpr(expr: AggregateExpr) extends SelectExpr

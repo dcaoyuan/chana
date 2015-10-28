@@ -54,6 +54,7 @@ body {
       "IN",
       "INDEX",
       "INNER",
+      "INSERT",
       "IS",
       "JOIN",
       "KEY",
@@ -95,6 +96,7 @@ body {
       "UPDATE",
       "UPPER",
       "VALUE",
+      "VALUES",
       "WHEN",
       "WHERE"
     });
@@ -142,6 +144,7 @@ ignoringCase void   HAVING            = "having"            :Word ;
 ignoringCase void   IN                = "in"                :Word ;
 ignoringCase void   INDEX             = "index"             :Word ;
 ignoringCase String INNER             = "inner"             :Word ;
+ignoringCase void   INSERT            = "insert"            :Word ;
 ignoringCase void   IS                = "is"                :Word ;
 ignoringCase String JOIN              = "join"              :Word ;
 ignoringCase void   KEY               = "key"               :Word ;
@@ -183,6 +186,7 @@ ignoringCase void   UPDATE            = "update"            :Word ;
 ignoringCase String UNKNOWN           = "unknown"           :Word ;
 ignoringCase void   UPPER             = "upper"             :Word ;
 ignoringCase void   VALUE             = "value"             :Word ;
+ignoringCase void   VALUES            = "values"            :Word ;
 ignoringCase void   WHEN              = "when"              :Word ;
 ignoringCase void   WHERE             = "where"             :Word ;
 

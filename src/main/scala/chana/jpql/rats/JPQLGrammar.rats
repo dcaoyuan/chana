@@ -18,6 +18,7 @@ public generic JPQL =
   SelectStatement SKIP EOF
 / UpdateStatement SKIP EOF
 / DeleteStatement SKIP EOF
+/ InsertStatement SKIP EOF
 ;
 
 generic SelectStatement = 
@@ -56,6 +57,22 @@ generic DeleteStatement =
 
 generic DeleteClause =
   DELETE FROM EntityName ( AS? Ident )?
+;
+
+generic InsertStatement =
+  InsertClause AttributesClause? ValuesClause
+;
+
+generic InsertClause =
+  INSERT EntityName
+;
+
+generic AttributesClause =
+  LParen Attribute ( COMMA Attribute )* RParen
+;
+
+generic ValuesClause =
+  VALUES LParen NewValue ( COMMA NewValue )* RParen
 ;
 
 generic SelectClause = 

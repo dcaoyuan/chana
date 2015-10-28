@@ -56,6 +56,7 @@ class JPQLParser(rootNode: Node) {
       case "SelectStatement" => visit(n)(selectStatement)
       case "UpdateStatement" => visit(n)(updateStatement)
       case "DeleteStatement" => visit(n)(deleteStatement)
+      case "InsertStatement" => visit(n)(insertStatement)
     }
   }
 
@@ -150,6 +151,42 @@ class JPQLParser(rootNode: Node) {
     val name = visit(node.getNode(0))(entityName)
     val as = visitOpt(node.getNode(1))(ident)
     DeleteClause(name, as)
+  }
+
+  /*-
+    InsertClause AttributesClause? ValuesClause 
+   */
+  def insertStatement(node: Node) = {
+    val insert = visit(node.getNode(0))(insertClause)
+    val attrbutes = visitOpt(node.getNode(1))(attributesClause)
+    val values = visit(node.getNode(2))(valuesClause)
+    InsertStatement(insert, attrbutes, values)
+  }
+
+  /*-
+    INSERT EntityName   
+   */
+  def insertClause(node: Node) = {
+    val name = visit(node.getNode(0))(entityName)
+    InsertClause(name)
+  }
+
+  /*-
+    LParen Attribute ( COMMA Attribute )* RParen 
+   */
+  def attributesClause(node: Node) = {
+    val attr = visit(node.getNode(0))(attribute)
+    val attrs = visitList(node.getList(1))(attribute)
+    AttributesClause(attr, attrs)
+  }
+
+  /*-
+    VALUES LParen NewValue ( COMMA NewValue )* RParen
+   */
+  def valuesClause(node: Node) = {
+    val value = visit(node.getNode(0))(newValue)
+    val values = visitList(node.getList(1))(newValue)
+    ValuesClause(value, values)
   }
 
   /*-

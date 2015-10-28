@@ -34,7 +34,7 @@ class JPQLGrammarSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
       "with Aggregation functions" in {
         val queris = List(
           "SELECT COUNT(e) FROM Employee e",
-          " SELECT COUNT(e) FROM Employee e  ",
+          " SELECT COUNT(e) FROM Employee e  ", // leave spaces at head and tail
           "SELECT MAX(e.salary) FROM Employee e")
 
         queris foreach parse
@@ -145,6 +145,14 @@ class JPQLGrammarSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
       "with Delete Queries" in {
         val queris = List(
           "DELETE FROM Employee e WHERE e.department IS NULL")
+
+        queris foreach parse
+      }
+
+      "with Insert" in {
+        val queris = List(
+          "INSERT Employee (id, name, salary) VALUES('1234', 'Bob', 50000)",
+          "INSERT Employee VALUES('1234', 'Bob', 50000)")
 
         queris foreach parse
       }
