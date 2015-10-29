@@ -42,7 +42,6 @@ object Entity {
 
   case object IdleTimeout
   final case class SetIdleTimeout(milliseconds: Long)
-
   final case class Bootstrap(record: Record)
 }
 
@@ -220,33 +219,11 @@ trait Entity extends Actor with Stash with PersistentActor {
 
     case PutField(_, fieldName, value) =>
       resetIdleTimeout()
-      val commander = sender()
-      val field = schema.getField(fieldName)
-      if (field != null) {
-        commitField(id, value, field, commander, doLimitSize = true)
-      } else {
-        val ex = new RuntimeException("Field does not exist: " + fieldName)
-        log.error(ex, ex.getMessage)
-        commander ! Failure(ex)
-      }
+      putField(sender(), fieldName, value)
 
     case PutFieldJson(_, fieldName, json) =>
       resetIdleTimeout()
-      val commander = sender()
-      val field = schema.getField(fieldName)
-      if (field != null) {
-        avro.jsonDecode(json, field.schema) match {
-          case Success(value) =>
-            commitField(id, value, field, commander, doLimitSize = true)
-          case x @ Failure(ex) =>
-            log.error(ex, ex.getMessage)
-            commander ! x
-        }
-      } else {
-        val ex = new RuntimeException("Field does not exist: " + fieldName)
-        log.error(ex, ex.getMessage)
-        commander ! Failure(ex)
-      }
+      putFieldJson(sender(), fieldName, json)
 
     case Select(_, path) =>
       resetIdleTimeout()
@@ -398,6 +375,61 @@ trait Entity extends Actor with Stash with PersistentActor {
       log.info("{}: {} idle timeout", entityName, id)
       cancelIdleTimeout()
       context.parent ! ShardRegion.Passivate(stopMessage = PoisonPill)
+  }
+
+  private def putField(commander: ActorRef, fieldName: String, value: Any) = {
+    val field = schema.getField(fieldName)
+    if (field != null) {
+      commitField(id, value, field, commander, doLimitSize = true)
+    } else {
+      val ex = new RuntimeException("Field does not exist: " + fieldName)
+      log.error(ex, ex.getMessage)
+      commander ! Failure(ex)
+    }
+  }
+
+  private def putFieldJson(commander: ActorRef, fieldName: String, json: String) = {
+    val commander = sender()
+    val field = schema.getField(fieldName)
+    if (field != null) {
+      avro.jsonDecode(json, field.schema) match {
+        case Success(value) =>
+          commitField(id, value, field, commander, doLimitSize = true)
+        case x @ Failure(ex) =>
+          log.error(ex, ex.getMessage)
+          commander ! x
+      }
+    } else {
+      val ex = new RuntimeException("Field does not exist: " + fieldName)
+      log.error(ex, ex.getMessage)
+      commander ! Failure(ex)
+    }
+  }
+
+  protected def putFields(commander: ActorRef, _fieldToValue: List[(String, Any)]) = {
+    var fieldToValue = _fieldToValue
+    var updatedFields = List[(Schema.Field, Any)]()
+    var error: Option[Exception] = None
+    while (fieldToValue.nonEmpty && error.isEmpty) {
+      val (fieldName, value) = fieldToValue.head
+      val field = schema.getField(fieldName)
+      if (field != null) {
+        updatedFields ::= (field, value)
+      } else {
+        val ex = new RuntimeException("Field does not exist: " + fieldName)
+        log.error(ex, ex.getMessage)
+        error = Some(ex)
+      }
+      fieldToValue = fieldToValue.tail
+    }
+
+    error match {
+      case None =>
+        //TODO if (doLimitSize) avro.limitToSize(rec, field, limitedSize)
+        commitUpdatedFields(id, updatedFields, commander)
+      case Some(ex) =>
+        commander ! Failure(ex)
+    }
   }
 
   private def commitRecord(id: String, toBe: Record, commander: ActorRef, doLimitSize: Boolean) {
