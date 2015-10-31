@@ -33,12 +33,15 @@ trait JPQLBehavior extends Entity {
     case ReportingTick("") => reportAll(false)
     case ReportingTick(jpqlKey) =>
       DistributedJPQLBoard.keyToStatement.get(jpqlKey) match {
-        case null                 =>
-        case (metaData, interval) => report(jpqlKey, metaData, interval, record)
+        case null             =>
+        case (meta, interval) => report(jpqlKey, meta, interval, record)
       }
 
     case SubscribeAck(Subscribe(JPQLTopic, None, `self`)) =>
       log.info("Subscribed " + JPQLTopic)
+
+    case JPQLDelete(stmt, projectionSchema, asToEntity, asToJoin) =>
+
   }
 
   def reportAll(force: Boolean) {
@@ -48,22 +51,22 @@ trait JPQLBehavior extends Entity {
       val entry = jpqls.next
       val key = entry.getKey
       if (force || !reportingJpqls.contains(key)) {
-        val (metaData, interval) = entry.getValue
-        report(key, metaData, interval, record) // report at once
+        val (meta, interval) = entry.getValue
+        report(key, meta, interval, record) // report at once
       }
       newReportingJpqls ::= key
     }
     reportingJpqls = newReportingJpqls
   }
 
-  def eval(metaData: MetaData, record: Record) = {
-    val e = new JPQLMapperEvaluator(metaData)
+  def eval(meta: JPQLMeta, record: Record) = {
+    val e = new JPQLMapperEvaluator(meta)
     e.gatherProjection(id, record)
   }
 
-  def report(jpqlKey: String, metaData: MetaData, interval: FiniteDuration, record: Record) {
+  def report(jpqlKey: String, meta: JPQLMeta, interval: FiniteDuration, record: Record) {
     try {
-      val dataset = if (isDeleted) null else eval(metaData, record)
+      val dataset = if (isDeleted) null else eval(meta, record)
       JPQLReducer.reducerProxy(context.system, jpqlKey) ! dataset
       context.system.scheduler.scheduleOnce(interval, self, ReportingTick(jpqlKey))
     } catch {

@@ -11,6 +11,8 @@ import akka.actor.ExtensionIdProvider
 import akka.actor.Props
 import akka.contrib.datareplication.DataReplication
 import akka.contrib.datareplication.LWWMap
+import akka.contrib.pattern.DistributedPubSubExtension
+import akka.contrib.pattern.DistributedPubSubMediator.Publish
 import akka.pattern.ask
 import akka.cluster.Cluster
 import chana.jpql.nodes.JPQLParser
@@ -42,14 +44,14 @@ object DistributedJPQLBoard extends ExtensionId[DistributedJPQLBoardExtension] w
    */
   def props(): Props = Props(classOf[DistributedJPQLBoard])
 
-  val keyToStatement = new ConcurrentHashMap[String, (MetaData, FiniteDuration)]()
+  val keyToStatement = new ConcurrentHashMap[String, (JPQLMeta, FiniteDuration)]()
   private val jpqlsLock = new ReentrantReadWriteLock()
   private def keyOf(entity: String, field: String, id: String) = entity + "/" + field + "/" + id
 
-  private def putJPQL(system: ActorSystem, key: String, metaData: MetaData, interval: FiniteDuration = 1.seconds): Unit = {
-    keyToStatement.putIfAbsent(key, (metaData, interval)) match {
+  private def putJPQL(system: ActorSystem, key: String, meta: JPQLMeta, interval: FiniteDuration = 1.seconds): Unit = {
+    keyToStatement.putIfAbsent(key, (meta, interval)) match {
       case null =>
-        JPQLReducer.startReducer(system, JPQLReducer.role, key, metaData)
+        JPQLReducer.startReducer(system, JPQLReducer.role, key, meta)
         JPQLReducer.startReducerProxy(system, JPQLReducer.role, key)
       case old => // TODO if existed
     }
@@ -70,17 +72,22 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
   implicit val cluster = Cluster(context.system)
   import context.dispatcher
 
-  val replicator = DataReplication(context.system).replicator
-  replicator ! Subscribe(DistributedJPQLBoard.DataKey, self)
+  val replicator = {
+    val x = DataReplication(context.system).replicator
+    x ! Subscribe(DistributedJPQLBoard.DataKey, self)
+    x
+  }
+
+  val mediator = DistributedPubSubExtension(context.system).mediator
 
   def receive = {
     case chana.PutJPQL(key, jpql, interval) =>
       val commander = sender()
       parseJPQL(key, jpql) match {
-        case Success(metaData) =>
+        case Success(meta: JPQLSelect) =>
           replicator.ask(Update(DistributedJPQLBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ + (key -> jpql)))(60.seconds).onComplete {
             case Success(_: UpdateSuccess) =>
-              DistributedJPQLBoard.putJPQL(context.system, key, metaData, interval)
+              DistributedJPQLBoard.putJPQL(context.system, key, meta, interval)
               log.info("put jpql (Update) [{}]:\n{} ", key, jpql)
               commander ! Success(key)
 
@@ -89,6 +96,16 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
             case Success(x: ModifyFailure) => commander ! Failure(x)
             case failure                   => commander ! failure
           }
+
+        case Success(meta: JPQLDelete) =>
+          // check if whereClause has id
+          mediator ! Publish(JPQLBehavior.JPQLTopic, meta)
+
+        case Success(meta: JPQLUpdate) =>
+          // check if whereClause has id
+          mediator ! Publish(JPQLBehavior.JPQLTopic, meta)
+
+        case Success(meta: JPQLInsert) =>
 
         case Failure(ex) =>
           log.error(ex, ex.getMessage)
@@ -124,8 +141,8 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
           DistributedJPQLBoard.keyToStatement.get(key) match {
             case null =>
               parseJPQL(key, jpql) match {
-                case Success(metaData) =>
-                  DistributedJPQLBoard.putJPQL(context.system, key, metaData)
+                case Success(meta) =>
+                  DistributedJPQLBoard.putJPQL(context.system, key, meta)
                   log.info("put jpql (Changed) [{}]:\n{} ", key, jpql)
                 case Failure(ex) =>
                   log.error(ex, ex.getMessage)
@@ -151,8 +168,8 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
         val rootNode = r.semanticValue[Node]
         val parser = new JPQLParser(rootNode)
         val stmt = parser.visitRoot()
-        val metaData = new JPQLMetaEvaluator(jpqlKey, DistributedSchemaBoard).collectMetadata(stmt, null)
-        Success(metaData)
+        val meta = new JPQLMetaEvaluator(jpqlKey, DistributedSchemaBoard).collectMeta(stmt, null)
+        Success(meta)
       } else {
         Failure(new Exception(r.parseError.msg + " at " + r.parseError.index))
       }

@@ -6,7 +6,16 @@ import chana.schema.SchemaBoard
 import org.apache.avro.Schema
 import scala.collection.immutable
 
-final case class MetaData(stmt: Statement, projectionSchema: List[Schema], asToEntity: Map[String, String], asToJoin: Map[String, List[String]])
+trait JPQLMeta {
+  def stmt: Statement
+  def projectionSchema: List[Schema]
+  def asToEntity: Map[String, String]
+  def asToJoin: Map[String, List[String]]
+}
+final case class JPQLSelect(stmt: SelectStatement, projectionSchema: List[Schema], asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
+final case class JPQLDelete(stmt: DeleteStatement, projectionSchema: List[Schema], asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
+final case class JPQLInsert(stmt: InsertStatement, projectionSchema: List[Schema], asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
+final case class JPQLUpdate(stmt: UpdateStatement, projectionSchema: List[Schema], asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
 
 final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends JPQLEvaluator {
 
@@ -20,9 +29,9 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
   /**
    * Entrance
    */
-  def collectMetadata(root: Statement, record: Any): MetaData = {
+  def collectMeta(root: Statement, record: Any): JPQLMeta = {
     root match {
-      case SelectStatement(select, from, where, groupby, having, orderby) =>
+      case stmt @ SelectStatement(select, from, where, groupby, having, orderby) =>
         fromClause(from, record) // collect asToEntity and asToJoin
 
         asToProjectionNode = asToEntity.foldLeft(Map[String, Projection.Node]()) {
@@ -45,7 +54,7 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
           case (as, projectionNode) => Projection.visitProjectionNode(jpqlKey, projectionNode, null).endRecord
         }
 
-        MetaData(root, projectionSchemas.toList, asToEntity, asToJoin)
+        JPQLSelect(stmt, projectionSchemas.toList, asToEntity, asToJoin)
 
       case UpdateStatement(update, set, where) => null // NOT YET
       case DeleteStatement(delete, where)      => null // NOT YET

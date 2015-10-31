@@ -14,17 +14,17 @@ sealed trait AvroProjection extends Serializable { def id: String }
 final case class BinaryProjection(id: String, projection: Array[Byte]) extends AvroProjection
 final case class RemoveProjection(id: String) extends AvroProjection // used to remove
 
-final class JPQLMapperEvaluator(metaData: MetaData) extends JPQLEvaluator {
-  private val projection = new Record(metaData.projectionSchema.head) // TODO multiple projections
+final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
+  private val projection = new Record(meta.projectionSchema.head) // TODO multiple projections
 
-  protected def asToEntity = metaData.asToEntity
-  protected def asToJoin = metaData.asToJoin
+  protected def asToEntity = meta.asToEntity
+  protected def asToJoin = meta.asToJoin
 
   /**
    * Main Entrance
    */
   def gatherProjection(entityId: String, record: Any): AvroProjection = {
-    metaData.stmt match {
+    meta.stmt match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
 
         if (asToJoin.nonEmpty) {
@@ -49,7 +49,7 @@ final class JPQLMapperEvaluator(metaData: MetaData) extends JPQLEvaluator {
             }
           }
           if (hasResult) {
-            BinaryProjection(entityId, chana.avro.avroEncode(projection, metaData.projectionSchema.head).get)
+            BinaryProjection(entityId, chana.avro.avroEncode(projection, meta.projectionSchema.head).get)
           } else {
             RemoveProjection(entityId)
           }
@@ -67,7 +67,7 @@ final class JPQLMapperEvaluator(metaData: MetaData) extends JPQLEvaluator {
             having foreach { x => havingClause(x, record) }
             orderby foreach { x => orderbyClause(x, record) }
 
-            BinaryProjection(entityId, chana.avro.avroEncode(projection, metaData.projectionSchema.head).get)
+            BinaryProjection(entityId, chana.avro.avroEncode(projection, meta.projectionSchema.head).get)
           } else {
             RemoveProjection(entityId) // an empty data may be used to COUNT, but null won't
           }

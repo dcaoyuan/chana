@@ -67,16 +67,16 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
     val stmt = parser.visitRoot()
     //info("\nParsed:\n" + stmt)
     val metaEval = new JPQLMetaEvaluator("2", schemaBoard)
-    val metaData = metaEval.collectMetadata(stmt, null)
-    info("metaData:\n" + metaData)
-    metaData
+    val meta = metaEval.collectMeta(stmt, null)
+    info("meta:\n" + meta)
+    meta
   }
 
-  def gatherProjection(entityId: String, metaData: MetaData, record: Record) = {
-    val e = new JPQLMapperEvaluator(metaData)
+  def gatherProjection(entityId: String, meta: JPQLMeta, record: Record) = {
+    val e = new JPQLMapperEvaluator(meta)
     val projection = e.gatherProjection(entityId, record)
     projection match {
-      case x: BinaryProjection => info("\nCollected: " + x.id + ", " + RecordProjection(chana.avro.avroDecode[Record](x.projection, metaData.projectionSchema.head).get))
+      case x: BinaryProjection => info("\nCollected: " + x.id + ", " + RecordProjection(chana.avro.avroDecode[Record](x.projection, meta.projectionSchema.head).get))
       case x: RemoveProjection => info("\nCollected: " + x)
     }
     projection
@@ -88,10 +88,10 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
       val q = "SELECT a.registerTime FROM account a " +
         "WHERE a.registerTime >= 5 ORDER BY a.registerTime"
 
-      val metaData = parse(q)
-      val reducer = system.actorOf(JPQLReducer.props("test", metaData))
+      val meta = parse(q)
+      val reducer = system.actorOf(JPQLReducer.props("test", meta))
 
-      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], metaData, record) }
+      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], meta, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -103,10 +103,10 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
       val q = "SELECT a.registerTime, a.lastChargeRecord.time FROM account a " +
         "WHERE a.registerTime >= 5 ORDER BY a.registerTime"
 
-      val metaData = parse(q)
-      val reducer = system.actorOf(JPQLReducer.props("test", metaData))
+      val meta = parse(q)
+      val reducer = system.actorOf(JPQLReducer.props("test", meta))
 
-      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], metaData, record) }
+      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], meta, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -118,10 +118,10 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
       val q = "SELECT a.registerTime FROM account a " +
         "WHERE a.registerTime >= 5 ORDER BY a.registerTime DESC"
 
-      val metaData = parse(q)
-      val reducer = system.actorOf(JPQLReducer.props("test", metaData))
+      val meta = parse(q)
+      val reducer = system.actorOf(JPQLReducer.props("test", meta))
 
-      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], metaData, record) }
+      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], meta, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -133,10 +133,10 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
       val q = "SELECT a.id, a.registerTime FROM account a " +
         "WHERE a.registerTime >= 5 ORDER BY a.id DESC"
 
-      val metaData = parse(q)
-      val reducer = system.actorOf(JPQLReducer.props("test", metaData))
+      val meta = parse(q)
+      val reducer = system.actorOf(JPQLReducer.props("test", meta))
 
-      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], metaData, record) }
+      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], meta, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -148,10 +148,10 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
       val q = "SELECT COUNT(a.id), AVG(a.registerTime), SUM(a.registerTime), MAX(a.registerTime), MIN(a.registerTime) FROM account a " +
         "WHERE a.registerTime >= 5 ORDER BY a.id DESC"
 
-      val metaData = parse(q)
-      val reducer = system.actorOf(JPQLReducer.props("test", metaData))
+      val meta = parse(q)
+      val reducer = system.actorOf(JPQLReducer.props("test", meta))
 
-      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], metaData, record) }
+      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], meta, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -168,10 +168,10 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
       val q = "SELECT AVG(a.registerTime) FROM account a " +
         "WHERE a.registerTime > 1 GROUP BY a.lastLoginTime ORDER BY a.id"
 
-      val metaData = parse(q)
-      val reducer = system.actorOf(JPQLReducer.props("test", metaData))
+      val meta = parse(q)
+      val reducer = system.actorOf(JPQLReducer.props("test", meta))
 
-      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], metaData, record) }
+      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], meta, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -183,10 +183,10 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
       val q = "SELECT AVG(a.registerTime) FROM account a " +
         "WHERE a.registerTime > 1 GROUP BY a.lastLoginTime HAVING a.registerTime > 5 ORDER BY a.id"
 
-      val metaData = parse(q)
-      val reducer = system.actorOf(JPQLReducer.props("test", metaData))
+      val meta = parse(q)
+      val reducer = system.actorOf(JPQLReducer.props("test", meta))
 
-      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], metaData, record) }
+      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], meta, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -198,10 +198,10 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
       val q = "SELECT a.registerTime, a.chargeRecords FROM account a JOIN a.chargeRecords c " +
         "WHERE a.registerTime >= 5 AND c.time > 1 ORDER BY a.registerTime"
 
-      val metaData = parse(q)
-      val reducer = system.actorOf(JPQLReducer.props("test", metaData))
+      val meta = parse(q)
+      val reducer = system.actorOf(JPQLReducer.props("test", meta))
 
-      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], metaData, record) }
+      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], meta, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -218,10 +218,10 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
       val q = "SELECT a.registerTime, a.chargeRecords FROM account a JOIN a.chargeRecords c " +
         "WHERE a.registerTime >= 5 AND c.time > 0 AND INDEX(c) = 2 ORDER BY a.registerTime"
 
-      val metaData = parse(q)
-      val reducer = system.actorOf(JPQLReducer.props("test", metaData))
+      val meta = parse(q)
+      val reducer = system.actorOf(JPQLReducer.props("test", meta))
 
-      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], metaData, record) }
+      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], meta, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -238,10 +238,10 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
       val q = "SELECT a.registerTime, d, CONCAT('k=', KEY(d)), VALUE(d).numBlackApps FROM account a JOIN a.devApps d " +
         "WHERE a.registerTime >= 5 AND KEY(d) = 'b' ORDER BY a.registerTime"
 
-      val metaData = parse(q)
-      val reducer = system.actorOf(JPQLReducer.props("test", metaData))
+      val meta = parse(q)
+      val reducer = system.actorOf(JPQLReducer.props("test", meta))
 
-      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], metaData, record) }
+      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], meta, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -264,10 +264,10 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
       val q = "SELECT a.registerTime, CONCAT('k=', KEY(d)), VALUE(d).numBlackApps FROM account a JOIN a.devApps d " +
         "WHERE a.registerTime >= 5 AND KEY(d) = 'b' ORDER BY a.registerTime"
 
-      val metaData = parse(q)
-      val reducer = system.actorOf(JPQLReducer.props("test", metaData))
+      val meta = parse(q)
+      val reducer = system.actorOf(JPQLReducer.props("test", meta))
 
-      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], metaData, record) }
+      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], meta, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {

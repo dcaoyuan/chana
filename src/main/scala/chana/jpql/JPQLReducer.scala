@@ -39,7 +39,7 @@ object ResultItemOrdering extends Ordering[WorkingSet] {
 final case class RecordProjection(projection: GenericRecord)
 
 object JPQLReducer {
-  def props(jpqlKey: String, metaData: MetaData): Props = Props(classOf[JPQLReducer], jpqlKey, metaData)
+  def props(jpqlKey: String, meta: JPQLMeta): Props = Props(classOf[JPQLReducer], jpqlKey, meta)
 
   case object AskResult
   case object AskReducedResult
@@ -51,10 +51,10 @@ object JPQLReducer {
   def reducerProxyName(key: String) = "jpqlProxy-" + key
   def reducerProxyPath(key: String) = "/user/" + reducerProxyName(key)
 
-  def startReducer(system: ActorSystem, role: Option[String], jpqlKey: String, metaData: MetaData) = {
+  def startReducer(system: ActorSystem, role: Option[String], jpqlKey: String, meta: JPQLMeta) = {
     system.actorOf(
       ClusterSingletonManager.props(
-        singletonProps = props(jpqlKey, metaData),
+        singletonProps = props(jpqlKey, meta),
         singletonName = jpqlKey,
         terminationMessage = PoisonPill,
         role = role),
@@ -71,7 +71,7 @@ object JPQLReducer {
   def reducerProxy(system: ActorSystem, jpqlKey: String) = system.actorSelection(reducerProxyPath(jpqlKey))
 }
 
-class JPQLReducer(jqplKey: String, metaData: MetaData) extends Actor with Stash with ActorLogging {
+class JPQLReducer(jqplKey: String, meta: JPQLMeta) extends Actor with Stash with ActorLogging {
 
   import chana.jpql.JPQLReducer._
   import context.dispatcher
@@ -82,8 +82,8 @@ class JPQLReducer(jqplKey: String, metaData: MetaData) extends Actor with Stash 
   private var idToProjection = Map[String, RecordProjection]()
   private var prevUpdateTime: LocalDate = _
   private var today: LocalDate = _
-  private val evaluator = new JPQLReducerEvaluator(metaData, log)
-  private val withGroupby = metaData.stmt match {
+  private val evaluator = new JPQLReducerEvaluator(meta, log)
+  private val withGroupby = meta.stmt match {
     case x: SelectStatement => x.groupby.isDefined
     case _                  => false
   }
@@ -100,7 +100,7 @@ class JPQLReducer(jqplKey: String, metaData: MetaData) extends Actor with Stash 
     case RemoveProjection(id) =>
       idToProjection -= id // remove
     case BinaryProjection(id, bytes) =>
-      chana.avro.avroDecode[GenericRecord](bytes, metaData.projectionSchema.head) match { // TODO multiple projectionSchema
+      chana.avro.avroDecode[GenericRecord](bytes, meta.projectionSchema.head) match { // TODO multiple projectionSchema
         case Success(projection) => idToProjection += (id -> RecordProjection(projection))
         case Failure(ex)         => log.warning("Failed to decode projection bytes: " + ex.getMessage)
       }
