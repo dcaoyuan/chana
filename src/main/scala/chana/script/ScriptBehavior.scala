@@ -10,7 +10,7 @@ import scala.concurrent.duration._
 import spray.can.Http
 import spray.httpx.RequestBuilding._
 
-trait Scriptable extends Entity {
+trait ScriptBehavior extends Entity {
 
   import context.dispatcher
 

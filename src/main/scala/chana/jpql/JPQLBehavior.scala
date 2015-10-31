@@ -1,21 +1,26 @@
 package chana.jpql
 
+import akka.contrib.pattern.DistributedPubSubMediator.{ Subscribe, SubscribeAck }
 import chana.Entity
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData.Record
 import scala.concurrent.duration._
 import scala.concurrent.forkjoin.ThreadLocalRandom
 
-object JPQLReporting {
+object JPQLBehavior {
   final case class ReportingTick(key: String)
 
   private def reportingDelay(interval: Duration) = ThreadLocalRandom.current.nextLong(100, interval.toMillis).millis
+
+  val JPQLTopic = "jpql_topic"
 }
 
-trait JPQLReporting extends Entity {
-  import JPQLReporting._
+trait JPQLBehavior extends Entity {
+  import JPQLBehavior._
 
   private var reportingJpqls = List[String]()
+
+  mediator ! Subscribe(JPQLTopic, self)
 
   import context.dispatcher
   // TODO: 
@@ -24,13 +29,16 @@ trait JPQLReporting extends Entity {
   // 3. report only on updated 
   context.system.scheduler.schedule(1.seconds, 1.seconds, self, ReportingTick(""))
 
-  def JPQLReportingBehavior: Receive = {
+  def jpqlBehavior: Receive = {
     case ReportingTick("") => reportAll(false)
     case ReportingTick(jpqlKey) =>
       DistributedJPQLBoard.keyToStatement.get(jpqlKey) match {
         case null                 =>
         case (metaData, interval) => report(jpqlKey, metaData, interval, record)
       }
+
+    case SubscribeAck(Subscribe(JPQLTopic, None, `self`)) =>
+      log.info("Subscribed " + JPQLTopic)
   }
 
   def reportAll(force: Boolean) {

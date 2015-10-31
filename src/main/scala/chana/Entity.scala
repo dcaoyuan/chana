@@ -1,13 +1,13 @@
 package chana
 
 import akka.actor.{ Actor, ActorLogging, ActorRef, ActorSystem, Cancellable, PoisonPill, Props, Stash }
-import akka.contrib.pattern.{ ClusterSharding, ShardRegion }
+import akka.contrib.pattern.{ ClusterSharding, ShardRegion, DistributedPubSubExtension }
 import akka.event.LoggingAdapter
 import akka.persistence._
 import chana.avpath.Evaluator.Ctx
 import chana.avro.DefaultRecordBuilder
-import chana.jpql.JPQLReporting
-import chana.script.Scriptable
+import chana.jpql.JPQLBehavior
+import chana.script.ScriptBehavior
 import chana.serializer.AvroMarshaler
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData
@@ -47,8 +47,8 @@ object Entity {
 
 class AEntity(val entityName: String, val schema: Schema, val builder: DefaultRecordBuilder, idleTimeout: Duration)
     extends Entity
-    with Scriptable
-    with JPQLReporting
+    with ScriptBehavior
+    with JPQLBehavior
     with Actor
     with ActorLogging {
 
@@ -59,11 +59,11 @@ class AEntity(val entityName: String, val schema: Schema, val builder: DefaultRe
     case _ =>
   }
 
-  override def receiveCommand = accessBehavior orElse persistBehavior orElse JPQLReportingBehavior
+  override def receiveCommand = accessBehavior orElse persistBehavior orElse jpqlBehavior
 
   override def onUpdated(fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record) {
-    super[Scriptable].onUpdated(fieldsBefore, recordAfter)
-    super[JPQLReporting].onUpdated(fieldsBefore, recordAfter)
+    super[ScriptBehavior].onUpdated(fieldsBefore, recordAfter)
+    super[JPQLBehavior].onUpdated(fieldsBefore, recordAfter)
   }
 }
 
@@ -79,6 +79,7 @@ trait Entity extends Actor with Stash with PersistentActor {
   def onUpdated(fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record) {}
   def onDeleted() {}
 
+  lazy val mediator = DistributedPubSubExtension(context.system).mediator
   lazy val avroMarshaler = new AvroMarshaler(schema)
 
   protected val id = self.path.name
