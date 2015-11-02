@@ -79,7 +79,7 @@ trait Entity extends Actor with Stash with PersistentActor {
   def onUpdated(fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record) {}
   def onDeleted() {}
 
-  lazy val mediator = DistributedPubSubExtension(context.system).mediator
+  def mediator = DistributedPubSubExtension(context.system).mediator
   lazy val avroMarshaler = new AvroMarshaler(schema)
 
   protected val id = self.path.name

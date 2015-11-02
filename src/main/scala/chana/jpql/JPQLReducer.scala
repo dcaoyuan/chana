@@ -44,7 +44,7 @@ object JPQLReducer {
   case object AskResult
   case object AskReducedResult
 
-  val role = Some("jpql")
+  val role = Some("chana-jpql")
 
   def singletonManagerName(key: String) = "jpqlSingleton-" + key
   def reducerPath(key: String) = "/user/" + singletonManagerName(key) + "/" + key
