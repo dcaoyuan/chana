@@ -106,6 +106,7 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
           mediator ! Publish(JPQLBehavior.JPQLTopic, meta)
 
         case Success(meta: JPQLInsert) =>
+        // check id and sent to entity with id only
 
         case Failure(ex) =>
           log.error(ex, ex.getMessage)

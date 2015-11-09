@@ -14,6 +14,8 @@ sealed trait AvroProjection extends Serializable { def id: String }
 final case class BinaryProjection(id: String, projection: Array[Byte]) extends AvroProjection
 final case class RemoveProjection(id: String) extends AvroProjection // used to remove
 
+final case class DeletedRecord(id: String)
+
 final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
   private val projection = new Record(meta.projectionSchema.head) // TODO multiple projections
 
@@ -185,4 +187,91 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
     }
   }
 
+  def deleteEval(root: DeleteStatement, record: GenericRecord): Boolean = {
+    val entityName = deleteClause(root.delete, record)
+    if (entityName.equalsIgnoreCase(record.getSchema.getName)) {
+      root.where.fold(true) { x => whereClause(x, record) }
+    } else {
+      false
+    }
+  }
+
+  def insertEval(root: InsertStatement, record: GenericRecord): List[(String, Any)] = {
+    var fieldToValues = List[(String, Any)]()
+
+    val entityName = insertClause(root.insert, record)
+    if (entityName.equalsIgnoreCase(record.getSchema.getName)) {
+      var values = valuesClause(root.values, record)
+      root.attributes match {
+        case Some(x) =>
+          var attrs = attributesClause(x, record)
+          while (attrs.nonEmpty) {
+            if (values.nonEmpty) {
+              fieldToValues ::= (attrs.head, values.head)
+              attrs = attrs.tail
+              values = values.tail
+            } else {
+              throw JPQLRuntimeException(attrs.head, "does not have corresponding value.")
+            }
+          }
+
+        case None =>
+          val fields = record.getSchema.getFields.iterator
+          while (fields.hasNext) {
+            val field = fields.next
+            if (values.nonEmpty) {
+              fieldToValues ::= (field.name, values.head)
+              values = values.tail
+            } else {
+              throw JPQLRuntimeException(field, "does not have corresponding value.")
+            }
+          }
+      }
+    } else {
+      // do nothing 
+    }
+
+    fieldToValues
+  }
+
+  //  def updateEval(root: UpdateStatement, record: GenericRecord): List[(String, Any)] = {
+  //    var fieldToValues = List[(String, Any)]()
+  //
+  //    val entityName = insertClause(root.update, record)
+  //    if (entityName.equalsIgnoreCase(record.getSchema.getName)) {
+  //      val where = root.where.fold(true) {x => whereClause(x, record)}
+  //      if (where) {
+  //      var values = valuesClause(root.values, record)
+  //      root.attributes match {
+  //        case Some(x) =>
+  //          var attrs = attributesClause(x, record)
+  //          while (attrs.nonEmpty) {
+  //            if (values.nonEmpty) {
+  //              fieldToValues ::= (attrs.head, values.head)
+  //              attrs = attrs.tail
+  //              values = values.tail
+  //            } else {
+  //              throw JPQLRuntimeException(attrs.head, "does not have corresponding value.")
+  //            }
+  //          }
+  //
+  //        case None =>
+  //          val fields = record.getSchema.getFields.iterator
+  //          while (fields.hasNext) {
+  //            val field = fields.next
+  //            if (values.nonEmpty) {
+  //              fieldToValues ::= (field.name, values.head)
+  //              values = values.tail
+  //            } else {
+  //              throw JPQLRuntimeException(field, "does not have corresponding value.")
+  //            }
+  //          }
+  //      }
+  //      }
+  //    } else {
+  //      // do nothing 
+  //    }
+  //
+  //    fieldToValues
+  //  }
 }

@@ -97,13 +97,15 @@ class JPQLReducer(jqplKey: String, meta: JPQLMeta) extends Actor with Stash with
   }
 
   def receive: Receive = {
-    case RemoveProjection(id) =>
-      idToProjection -= id // remove
     case BinaryProjection(id, bytes) =>
       chana.avro.avroDecode[GenericRecord](bytes, meta.projectionSchema.head) match { // TODO multiple projectionSchema
         case Success(projection) => idToProjection += (id -> RecordProjection(projection))
         case Failure(ex)         => log.warning("Failed to decode projection bytes: " + ex.getMessage)
       }
+    case RemoveProjection(id) =>
+      idToProjection -= id // remove
+    case DeletedRecord(id) =>
+      idToProjection -= id // remove
 
     case AskResult =>
       val commander = sender()

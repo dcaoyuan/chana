@@ -27,6 +27,7 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
 
       case UpdateStatement(update, set, where) => null // NOT YET
       case DeleteStatement(delete, where)      => null // NOT YET
+      case InsertStatement(_, _, _)            => null // NOT YET
     }
   }
 

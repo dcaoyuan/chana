@@ -38,10 +38,20 @@ trait JPQLBehavior extends Entity {
       }
 
     case SubscribeAck(Subscribe(JPQLTopic, None, `self`)) =>
-      log.info("Subscribed " + JPQLTopic)
+      log.debug("Subscribed " + JPQLTopic)
 
-    case JPQLDelete(stmt, projectionSchema, asToEntity, asToJoin) =>
+    case jpqlMeta @ JPQLDelete(stmt, projectionSchema, asToEntity, asToJoin) =>
+      val eval = new JPQLMapperEvaluator(jpqlMeta)
+      if (eval.deleteEval(stmt, record)) {
+        isDeleted(true)
+        reportAll(true)
+      }
 
+    case jpqlMeta @ JPQLInsert(stmt, projectionSchema, asToEntity, asToJoin) =>
+      val commander = sender()
+      val eval = new JPQLMapperEvaluator(jpqlMeta)
+      val fieldToValue = eval.insertEval(stmt, record)
+      putFields(commander, fieldToValue)
   }
 
   def reportAll(force: Boolean) {
@@ -66,8 +76,12 @@ trait JPQLBehavior extends Entity {
 
   def report(jpqlKey: String, meta: JPQLMeta, interval: FiniteDuration, record: Record) {
     try {
-      val dataset = if (isDeleted) null else eval(meta, record)
-      JPQLReducer.reducerProxy(context.system, jpqlKey) ! dataset
+      if (isDeleted) {
+        JPQLReducer.reducerProxy(context.system, jpqlKey) ! DeletedRecord(id)
+      } else {
+        val projection = eval(meta, record)
+        JPQLReducer.reducerProxy(context.system, jpqlKey) ! projection
+      }
       context.system.scheduler.scheduleOnce(interval, self, ReportingTick(jpqlKey))
     } catch {
       case ex: Throwable => log.error(ex, ex.getMessage)
