@@ -23,7 +23,7 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
   protected def asToJoin = meta.asToJoin
 
   /**
-   * Main Entrance
+   * Main Entrance for select statement during mapping.
    */
   def gatherProjection(entityId: String, record: Any): AvroProjection = {
     meta.stmt match {
@@ -74,14 +74,14 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
             RemoveProjection(entityId) // an empty data may be used to COUNT, but null won't
           }
         }
-      case UpdateStatement(update, set, where) => null // NOT YET
-      case DeleteStatement(delete, where)      => null // NOT YET
+
+      case _ => throw new RuntimeException("Applicable on SelectStatement only")
     }
   }
 
-  override def valueOfRecord(attrPaths: List[String], record: GenericRecord, toGather: Boolean): Any = {
+  override def valueOfRecord(attrs: List[String], record: GenericRecord, toGather: Boolean): Any = {
     if (isToGather && toGather) {
-      var paths = attrPaths
+      var paths = attrs
       var currValue: Any = record
 
       var currSchema = record.getSchema
@@ -183,26 +183,26 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
 
       currValue
     } else {
-      super.valueOfRecord(attrPaths, record, toGather = false)
+      super.valueOfRecord(attrs, record, toGather = false)
     }
   }
 
-  def deleteEval(root: DeleteStatement, record: GenericRecord): Boolean = {
-    val entityName = deleteClause(root.delete, record)
+  def deleteEval(stmt: DeleteStatement, record: GenericRecord): Boolean = {
+    val entityName = deleteClause(stmt.delete, record)
     if (entityName.equalsIgnoreCase(record.getSchema.getName)) {
-      root.where.fold(true) { x => whereClause(x, record) }
+      stmt.where.fold(true) { x => whereClause(x, record) }
     } else {
       false
     }
   }
 
-  def insertEval(root: InsertStatement, record: GenericRecord): List[(String, Any)] = {
+  def insertEval(stmt: InsertStatement, record: GenericRecord): List[(String, Any)] = {
     var fieldToValues = List[(String, Any)]()
 
-    val entityName = insertClause(root.insert, record)
+    val entityName = insertClause(stmt.insert, record)
     if (entityName.equalsIgnoreCase(record.getSchema.getName)) {
-      var values = valuesClause(root.values, record)
-      root.attributes match {
+      var values = valuesClause(stmt.values, record)
+      stmt.attributes match {
         case Some(x) =>
           var attrs = attributesClause(x, record)
           while (attrs.nonEmpty) {
@@ -234,44 +234,68 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
     fieldToValues
   }
 
-  //  def updateEval(root: UpdateStatement, record: GenericRecord): List[(String, Any)] = {
-  //    var fieldToValues = List[(String, Any)]()
-  //
-  //    val entityName = insertClause(root.update, record)
-  //    if (entityName.equalsIgnoreCase(record.getSchema.getName)) {
-  //      val where = root.where.fold(true) {x => whereClause(x, record)}
-  //      if (where) {
-  //      var values = valuesClause(root.values, record)
-  //      root.attributes match {
-  //        case Some(x) =>
-  //          var attrs = attributesClause(x, record)
-  //          while (attrs.nonEmpty) {
-  //            if (values.nonEmpty) {
-  //              fieldToValues ::= (attrs.head, values.head)
-  //              attrs = attrs.tail
-  //              values = values.tail
-  //            } else {
-  //              throw JPQLRuntimeException(attrs.head, "does not have corresponding value.")
-  //            }
-  //          }
-  //
-  //        case None =>
-  //          val fields = record.getSchema.getFields.iterator
-  //          while (fields.hasNext) {
-  //            val field = fields.next
-  //            if (values.nonEmpty) {
-  //              fieldToValues ::= (field.name, values.head)
-  //              values = values.tail
-  //            } else {
-  //              throw JPQLRuntimeException(field, "does not have corresponding value.")
-  //            }
-  //          }
-  //      }
-  //      }
-  //    } else {
-  //      // do nothing 
-  //    }
-  //
-  //    fieldToValues
-  //  }
+  def updateEval(stmt: UpdateStatement, record: GenericRecord) = {
+    var toUpdates = List[GenericRecord]()
+    if (asToJoin.nonEmpty) {
+      val joinField = asToJoin.head._2.tail.head
+      val recordFlatView = new RecordFlatView(record.asInstanceOf[GenericRecord], joinField)
+      val itr = recordFlatView.iterator
+      var hasResult = false
+      while (itr.hasNext) {
+        val rec = itr.next
+        val whereCond = stmt.where.fold(true) { x => whereClause(x, rec) }
+        if (whereCond) {
+          toUpdates ::= rec
+        }
+      }
+    } else {
+      val whereCond = stmt.where.fold(true) { x => whereClause(x, record) }
+      if (whereCond) {
+        toUpdates ::= record
+      }
+    }
+
+    (stmt.set.assign :: stmt.set.assigns) foreach {
+      case SetAssignClause(target, value) =>
+        toUpdates foreach { toUpdate =>
+          val v = newValue(value, toUpdate)
+          target.path match {
+            case Left(path) =>
+              val qual = qualIdentVar(path.qual, toUpdate)
+              val attrs = path.attributes map (x => attribute(x, toUpdate))
+              val attrs1 = normalizeEntityAttrs(qual, attrs, toUpdate.getSchema)
+              updateValue(attrs1, v, toUpdate) // TODO via updateField ?
+
+            case Right(attr) =>
+              val fieldName = attribute(attr, toUpdate) // there should be no AS alias
+              toUpdate.put(fieldName, v) // TODO via updateField ?
+          }
+        }
+    }
+  }
+
+  private def updateValue(attrs: List[String], v: Any, record: GenericRecord): Any = {
+    var paths = attrs
+    var currValue: Any = record
+
+    while (paths.nonEmpty) {
+      val path = paths.head
+      paths = paths.tail
+
+      currValue match {
+        case fieldRec: GenericRecord =>
+          if (paths.isEmpty) { // reaches last path
+            fieldRec.put(path, v)
+          } else {
+            currValue = fieldRec.get(path)
+          }
+
+        case arr: java.util.Collection[_]             => throw JPQLRuntimeException(currValue, "is an avro array when fetch its attribute: " + path) // TODO
+        case map: java.util.Map[String, _] @unchecked => throw JPQLRuntimeException(currValue, "is an avro map when fetch its attribute: " + path) // TODO
+        case null                                     => throw JPQLRuntimeException(currValue, "is null when fetch its attribute: " + paths)
+        case _                                        => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + paths)
+      }
+    }
+
+  }
 }

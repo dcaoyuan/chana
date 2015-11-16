@@ -5,7 +5,7 @@ import chana.avro.RecordFlatView
 import chana.jpql.nodes._
 import org.apache.avro.generic.GenericRecord
 
-final case class WorkingSet(selectedItems: List[Any], orderbys: List[Any])
+final case class WorkSet(selectedItems: List[Any], orderbys: List[Any])
 
 final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JPQLEvaluator {
 
@@ -31,7 +31,7 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
     }
   }
 
-  def visitOneRecord(record: GenericRecord): List[WorkingSet] = {
+  def visitOneRecord(record: GenericRecord): List[WorkSet] = {
     selectedItems = List()
     meta.stmt match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
@@ -41,7 +41,7 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
           val recordFlatView = new RecordFlatView(record.asInstanceOf[GenericRecord], joinField)
           val itr = recordFlatView.iterator
 
-          var res = List[WorkingSet]()
+          var res = List[WorkSet]()
           while (itr.hasNext) {
             val rec = itr.next
             val havingCond = having.fold(true) { x => havingClause(x, record) }
@@ -50,7 +50,7 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
 
               val orderbys = orderby.fold(List[Any]()) { x => orderbyClause(x, rec) }
 
-              res ::= WorkingSet(selectedItems.reverse, orderbys)
+              res ::= WorkSet(selectedItems.reverse, orderbys)
             }
           }
           res
@@ -63,7 +63,7 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
 
             val orderbys = orderby.fold(List[Any]()) { x => orderbyClause(x, record) }
 
-            List(WorkingSet(selectedItems.reverse, orderbys))
+            List(WorkSet(selectedItems.reverse, orderbys))
           } else {
             List()
           }
@@ -71,6 +71,7 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
 
       case UpdateStatement(update, set, where) => null // NOT YET
       case DeleteStatement(delete, where)      => null // NOT YET
+      case _: InsertStatement                  => throw new UnsupportedOperationException()
     }
   }
 

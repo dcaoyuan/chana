@@ -137,7 +137,9 @@ class JPQLGrammarSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
 
       "with Update Querie" in {
         val queris = List(
-          "UPDATE Employee e SET e.salary = 60000 WHERE e.salary = 50000")
+          "UPDATE Employee e SET e.salary = 60000 WHERE e.salary = 50000",
+          "UPDATE Employee e SET e.salary = 60000, e.name = 'James' WHERE e.salary = 50000",
+          "UPDATE Employee SET salary = 60000, name = 'James' WHERE salary = 50000")
 
         queris foreach parse
       }

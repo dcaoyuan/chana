@@ -6,7 +6,7 @@ import chana.schema.SchemaBoard
 import org.apache.avro.Schema
 import scala.collection.immutable
 
-trait JPQLMeta {
+sealed trait JPQLMeta {
   def stmt: Statement
   def projectionSchema: List[Schema]
   def asToEntity: Map[String, String]
@@ -29,8 +29,8 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
   /**
    * Entrance
    */
-  def collectMeta(root: Statement, record: Any): JPQLMeta = {
-    root match {
+  def collectMeta(stmt: Statement, record: Any): JPQLMeta = {
+    stmt match {
       case stmt @ SelectStatement(select, from, where, groupby, having, orderby) =>
         fromClause(from, record) // collect asToEntity and asToJoin
 
@@ -56,8 +56,17 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
 
         JPQLSelect(stmt, projectionSchemas.toList, asToEntity, asToJoin)
 
-      case UpdateStatement(update, set, where) => null // NOT YET
-      case DeleteStatement(delete, where)      => null // NOT YET
+      case stmt @ UpdateStatement(update, set, where) =>
+        updateClause(update, record)
+        JPQLUpdate(stmt, List(), asToEntity, asToJoin)
+
+      case stmt @ DeleteStatement(delete, where) =>
+        deleteClause(delete, record)
+        JPQLDelete(stmt, List(), asToEntity, asToJoin)
+
+      case stmt @ InsertStatement(insert, attributes, values) =>
+        insertClause(insert, record)
+        JPQLInsert(stmt, List(), asToEntity, asToJoin)
     }
   }
 

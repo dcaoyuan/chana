@@ -52,6 +52,11 @@ trait JPQLBehavior extends Entity {
       val eval = new JPQLMapperEvaluator(jpqlMeta)
       val fieldToValue = eval.insertEval(stmt, record)
       putFields(commander, fieldToValue)
+
+    case jpqlMeta @ JPQLUpdate(stmt, projectionSchema, asToEntity, asToJoin) =>
+      val commander = sender()
+      val eval = new JPQLMapperEvaluator(jpqlMeta)
+      eval.updateEval(stmt, record)
   }
 
   def reportAll(force: Boolean) {

@@ -83,6 +83,7 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
   def receive = {
     case chana.PutJPQL(key, jpql, interval) =>
       val commander = sender()
+
       parseJPQL(key, jpql) match {
         case Success(meta: JPQLSelect) =>
           replicator.ask(Update(DistributedJPQLBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ + (key -> jpql)))(60.seconds).onComplete {
@@ -94,7 +95,8 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
             case Success(_: UpdateTimeout) => commander ! Failure(chana.UpdateTimeoutException)
             case Success(x: InvalidUsage)  => commander ! Failure(x)
             case Success(x: ModifyFailure) => commander ! Failure(x)
-            case failure                   => commander ! failure
+            case Success(x)                => log.warning("Got {}", x)
+            case ex: Failure[_]            => commander ! ex
           }
 
         case Success(meta: JPQLDelete) =>
@@ -114,6 +116,7 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
 
     case chana.RemoveJPQL(key) =>
       val commander = sender()
+
       replicator.ask(Update(DistributedJPQLBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ - key))(60.seconds).onComplete {
         case Success(_: UpdateSuccess) =>
           log.info("remove jpql (Update): {}", key)
@@ -123,11 +126,13 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
         case Success(_: UpdateTimeout) => commander ! Failure(chana.UpdateTimeoutException)
         case Success(x: InvalidUsage)  => commander ! Failure(x)
         case Success(x: ModifyFailure) => commander ! Failure(x)
-        case failure                   => commander ! failure
+        case Success(x)                => log.warning("Got {}", x)
+        case ex: Failure[_]            => commander ! ex
       }
 
     case chana.AskJPQL(key) =>
       val commander = sender()
+
       JPQLReducer.reducerProxy(context.system, key).ask(JPQLReducer.AskReducedResult)(300.seconds).onComplete {
         case Success(result: Array[_]) => commander ! Success(result.mkString("Array(", ",", ")")) // TODO
         case failure                   => commander ! failure

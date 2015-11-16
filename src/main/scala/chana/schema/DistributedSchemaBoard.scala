@@ -192,7 +192,8 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
       case Success(_: UpdateTimeout) => commander.foreach(_ ! Failure(chana.UpdateTimeoutException))
       case Success(x: InvalidUsage)  => commander.foreach(_ ! Failure(x))
       case Success(x: ModifyFailure) => commander.foreach(_ ! Failure(x))
-      case failure                   => commander.foreach(_ ! failure)
+      case Success(x)                => log.warning("Got {}", x)
+      case ex: Failure[_]            => commander.foreach(_ ! ex)
     }
   }
 
@@ -213,7 +214,8 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
       case Success(_: UpdateTimeout) => commander.foreach(_ ! Failure(chana.UpdateTimeoutException))
       case Success(x: InvalidUsage)  => commander.foreach(_ ! Failure(x))
       case Success(x: ModifyFailure) => commander.foreach(_ ! Failure(x))
-      case failure                   => commander.foreach(_ ! failure)
+      case Success(x)                => log.warning("Got {}", x)
+      case ex: Failure[_]            => commander.foreach(_ ! ex)
     }
   }
 

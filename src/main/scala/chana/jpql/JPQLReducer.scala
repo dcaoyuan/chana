@@ -15,8 +15,8 @@ import scala.util.Failure
 import scala.util.Success
 import scala.util.Sorting
 
-object ResultItemOrdering extends Ordering[WorkingSet] {
-  def compare(x: WorkingSet, y: WorkingSet) = {
+object ResultItemOrdering extends Ordering[WorkSet] {
+  def compare(x: WorkSet, y: WorkSet) = {
     var xs = x.orderbys
     var ys = y.orderbys
 
@@ -159,9 +159,9 @@ class JPQLReducer(jqplKey: String, meta: JPQLMeta) extends Actor with Stash with
     }.flatten
   }
 
-  def reduceDataset(datasets: Iterable[RecordProjection]): List[WorkingSet] = {
+  def reduceDataset(datasets: Iterable[RecordProjection]): List[WorkSet] = {
     evaluator.reset(datasets)
-    var reduced = List[WorkingSet]()
+    var reduced = List[WorkSet]()
     val itr = datasets.iterator
     while (itr.hasNext) {
       val entry = itr.next

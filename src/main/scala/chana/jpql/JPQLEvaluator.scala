@@ -7,6 +7,7 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.temporal.Temporal
+import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
 import org.apache.avro.util.Utf8
 
@@ -37,8 +38,8 @@ abstract class JPQLEvaluator {
 
   protected def asToEntity: Map[String, String]
   protected def asToJoin: Map[String, List[String]]
-  protected def addAsToEntity(as: String, entity: String): Unit = throw new RuntimeException("Do not supported")
-  protected def addAsToJoin(as: String, joinPath: List[String]): Unit = throw new RuntimeException("Do not supported")
+  protected def addAsToEntity(as: String, entity: String): Unit = throw new UnsupportedOperationException()
+  protected def addAsToJoin(as: String, joinPath: List[String]): Unit = throw new UnsupportedOperationException()
 
   private var asToItem = Map[String, Any]()
   private var asToCollectionMember = Map[String, Any]()
@@ -55,8 +56,8 @@ abstract class JPQLEvaluator {
   /**
    * For simple test
    */
-  private[jpql] def simpleEval(root: Statement, record: Any): List[Any] = {
-    root match {
+  private[jpql] def simpleEval(stmt: Statement, record: Any): List[Any] = {
+    stmt match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         fromClause(from, record)
 
@@ -80,30 +81,37 @@ abstract class JPQLEvaluator {
     }
   }
 
+  /**
+   * Normalize entity attrs from alias and join
+   */
+  def normalizeEntityAttrs(qual: String, attrs: List[String], schema: Schema): List[String] = {
+    // TODO in case of record does not contain schema, get EntityNames from DistributedSchemaBoard?
+    val EntityName = schema.getName.toLowerCase
+
+    val (qual1, attrs1) = asToJoin.get(qual) match {
+      case Some(paths) => (paths.head, paths.tail ::: attrs)
+      case None        => (qual, attrs)
+    }
+
+    asToEntity.get(qual1) match {
+      case Some(EntityName) => attrs1
+      case _                => throw JPQLRuntimeException(qual1, "is not an AS alias of entity: " + EntityName)
+    }
+  }
+
   def valueOf(qual: String, attrPaths: List[String], record: Any): Any = {
     record match {
       case rec: GenericRecord => valueOfRecord(qual, attrPaths, rec)
     }
   }
 
-  def valueOfRecord(qual: String, attrPaths: List[String], record: GenericRecord): Any = {
-    // TODO in case of record does not contain schema, get EntityNames from DistributedSchemaBoard?
-    val recSchema = record.getSchema
-    val EntityName = recSchema.getName.toLowerCase
-
-    val (qual1, attrPaths1) = asToJoin.get(qual) match {
-      case Some(paths) => (paths.head, paths.tail ::: attrPaths)
-      case None        => (qual, attrPaths)
-    }
-
-    asToEntity.get(qual1) match {
-      case Some(EntityName) => valueOfRecord(attrPaths1, record, toGather = true)
-      case _                => throw JPQLRuntimeException(qual1, "is not an AS alias of entity: " + EntityName)
-    }
+  def valueOfRecord(qual: String, attrs: List[String], record: GenericRecord): Any = {
+    val attrs1 = normalizeEntityAttrs(qual, attrs, record.getSchema)
+    valueOfRecord(attrs1, record, toGather = true)
   }
 
-  def valueOfRecord(attrPaths: List[String], record: GenericRecord, toGather: Boolean): Any = {
-    var paths = attrPaths
+  def valueOfRecord(attrs: List[String], record: GenericRecord, toGather: Boolean): Any = {
+    var paths = attrs
     var currValue: Any = record
 
     while (paths.nonEmpty) {
@@ -128,16 +136,12 @@ abstract class JPQLEvaluator {
 
   def updateClause(updateClause: UpdateClause, record: Any) = {
     val entityName = updateClause.entityName.ident
-    updateClause.as foreach { x =>
-      x.ident
-    }
+    updateClause.as foreach { x => addAsToEntity(x.ident, entityName) }
   }
 
   def setClause(setClause: SetClause, record: Any) = {
     val assign = setAssignClause(setClause.assign, record)
-    setClause.assigns foreach { x =>
-      setAssignClause(x, record)
-    }
+    setClause.assigns foreach { x => setAssignClause(x, record) }
   }
 
   def setAssignClause(assign: SetAssignClause, record: Any) = {
@@ -271,9 +275,7 @@ abstract class JPQLEvaluator {
 
   def identVarDecl(ident: IdentVarDecl, record: Any) = {
     rangeVarDecl(ident.range, record)
-    ident.joins foreach { x =>
-      join(x, record)
-    }
+    ident.joins foreach { x => join(x, record) }
   }
 
   def rangeVarDecl(range: RangeVarDecl, record: Any): Unit = {

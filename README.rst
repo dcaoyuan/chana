@@ -102,6 +102,12 @@ Try it:
     $ curl 'http://127.0.0.1:8080/personinfo/get/1/name'
     "James Bond"
 
+
+JPQL example
+''''''''''''
+
+.. code:: shell
+
     #### JPQL Simple test
     $ echo 'SELECT COUNT(p.age), AVG(p.age), p.age FROM PersonInfo p WHERE p.age >= 30 ORDER BY p.age' | curl -d @- 'http://127.0.0.1:8080/putjpql/JPQL_NO_1'
    

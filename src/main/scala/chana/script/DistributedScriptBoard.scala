@@ -119,7 +119,8 @@ class DistributedScriptBoard extends Actor with ActorLogging {
             case Success(_: UpdateTimeout) => commander ! Failure(chana.UpdateTimeoutException)
             case Success(x: InvalidUsage)  => commander ! Failure(x)
             case Success(x: ModifyFailure) => commander ! Failure(x)
-            case failure                   => commander ! failure
+            case Success(x)                => log.warning("Got {}", x)
+            case ex: Failure[_]            => commander ! ex
           }
 
         case Failure(ex) =>
@@ -137,7 +138,8 @@ class DistributedScriptBoard extends Actor with ActorLogging {
         case Success(_: UpdateTimeout) => commander ! Failure(chana.UpdateTimeoutException)
         case Success(x: InvalidUsage)  => commander ! Failure(x)
         case Success(x: ModifyFailure) => commander ! Failure(x)
-        case failure                   => commander ! failure
+        case Success(x)                => log.warning("Got {}", x)
+        case ex: Failure[_]            => commander ! ex
       }
 
     case Changed(DistributedScriptBoard.DataKey, LWWMap(entries: Map[String, String] @unchecked)) =>
