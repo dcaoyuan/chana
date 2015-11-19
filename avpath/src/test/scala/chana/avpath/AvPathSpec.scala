@@ -5,6 +5,7 @@ import chana.avro.ToJson
 import chana.avpath.Evaluator.Ctx
 import chana.avro.Schemas
 import org.apache.avro.generic.GenericData
+import org.apache.avro.generic.GenericRecord
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.Matchers
 import org.scalatest.WordSpecLike
@@ -266,6 +267,34 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
 
         assertResult(Set("chargeRecords"))(res0.map(_.topLevelField.name).toSet)
         assertResult(List(1, 2))(res0.map(_.value))
+      }
+    }
+
+    "select with logic AND" should {
+      val record = initAccount()
+      val path = ".{ .registerTime == 0 && .chargeRecords[0].time == 1 }"
+      val ast = new Parser().parse(path)
+
+      val res0 = Evaluator.select(record, ast)
+      s"select |${path}|" in {
+        info("AST:\n" + ast)
+        info("Got:\n" + res0.map(_.value).mkString("\n"))
+
+        assertResult(List(0))(res0.map(_.value.asInstanceOf[GenericRecord].get("registerTime")))
+      }
+    }
+
+    "select with logic OR" should {
+      val record = initAccount()
+      val path = ".{ .registerTime == 1 || .chargeRecords[0].time == 1 }"
+      val ast = new Parser().parse(path)
+
+      val res0 = Evaluator.select(record, ast)
+      s"select |${path}|" in {
+        info("AST:\n" + ast)
+        info("Got:\n" + res0.map(_.value).mkString("\n"))
+
+        assertResult(List(0))(res0.map(_.value.asInstanceOf[GenericRecord].get("registerTime")))
       }
     }
 

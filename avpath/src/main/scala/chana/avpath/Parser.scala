@@ -148,7 +148,7 @@ final class Parser {
     var operands = List[Syntax]()
     while (match_("&&")) {
       lex[Any]()
-      operands ::= parseLogicalANDExpr()
+      operands = parseLogicalANDExpr() :: (if (operands.isEmpty) List(expr) else operands)
     }
     if (operands.nonEmpty) LogicalExprSyntax("&&", operands.reverse) else expr
   }

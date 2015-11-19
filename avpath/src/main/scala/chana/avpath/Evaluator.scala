@@ -797,8 +797,8 @@ object Evaluator {
 
       case "==" =>
         (v1, v2) match {
-          case (s1: String, s2: String) => s1.toLowerCase == s2.toLowerCase
-          case _                        => v1 == v2
+          case (s1: CharSequence, s2: CharSequence) => s1.toString.toLowerCase == s2.toString.toLowerCase
+          case _                                    => v1 == v2
         }
 
       case "!==" =>
@@ -809,38 +809,38 @@ object Evaluator {
 
       case "^==" =>
         (v1, v2) match {
-          case (s1: String, s2: String) => s1.startsWith(s2)
-          case _                        => false
+          case (s1: CharSequence, s2: CharSequence) => s1.toString.startsWith(s2.toString)
+          case _                                    => false
         }
 
       case "^=" =>
         (v1, v2) match {
-          case (s1: String, s2: String) => s1.toLowerCase.startsWith(s2.toLowerCase)
-          case _                        => false
+          case (s1: CharSequence, s2: CharSequence) => s1.toString.toLowerCase.startsWith(s2.toString.toLowerCase)
+          case _                                    => false
         }
 
       case "$==" =>
         (v1, v2) match {
-          case (s1: String, s2: String) => s1.endsWith(s2)
-          case _                        => false
+          case (s1: CharSequence, s2: CharSequence) => s1.toString.endsWith(s2.toString)
+          case _                                    => false
         }
 
       case "$=" =>
         (v1, v2) match {
-          case (s1: String, s2: String) => s1.toLowerCase.endsWith(s2.toLowerCase)
-          case _                        => false
+          case (s1: CharSequence, s2: CharSequence) => s1.toString.toLowerCase.endsWith(s2.toString.toLowerCase)
+          case _                                    => false
         }
 
       case "*==" =>
         (v1, v2) match {
-          case (s1: String, s2: String) => s1.contains(s2)
-          case _                        => false
+          case (s1: CharSequence, s2: CharSequence) => s1.toString.contains(s2)
+          case _                                    => false
         }
 
       case "*=" =>
         (v1, v2) match {
-          case (s1: String, s2: String) => s1.toLowerCase.contains(s2.toLowerCase)
-          case _                        => false
+          case (s1: CharSequence, s2: CharSequence) => s1.toString.toLowerCase.contains(s2.toString.toLowerCase)
+          case _                                    => false
         }
 
       case ">=" =>
