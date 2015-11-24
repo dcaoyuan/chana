@@ -7,11 +7,12 @@ import scoverage.ScoverageSbtPlugin._
 
 object Build extends sbt.Build {
 
+
   lazy val chana = Project("chana", file("."))
     .aggregate(avpath)
     .dependsOn(avpath % "compile->compile;test->test")
     .settings(basicSettings: _*)
-    .settings(ratsSettings: _*)
+    .settings(RatsSettings.settings_chana: _*)
     .settings(Formatting.settings: _*)
     .settings(Formatting.buildFileSettings: _*)
     .settings(releaseSettings: _*)
@@ -26,10 +27,11 @@ object Build extends sbt.Build {
 
   lazy val avpath = Project("avpath", file("avpath"))
     .settings(basicSettings: _*)
+    .settings(RatsSettings.settings_avpath: _*)
     .settings(Formatting.settings: _*)
     .settings(releaseSettings: _*)
     .settings(sbtrelease.ReleasePlugin.releaseSettings: _*)
-    .settings(libraryDependencies ++= Dependencies.avro ++ Dependencies.test)
+    .settings(libraryDependencies ++= Dependencies.avro ++ Dependencies.test ++ Dependencies.rats)
     .settings(avroSettings: _*)
     .settings(instrumentSettings: _*)
     .settings(net.virtualvoid.sbt.graph.Plugin.graphSettings: _*)
@@ -54,38 +56,8 @@ object Build extends sbt.Build {
     sourceDirectory in sbtavro.SbtAvro.avroConfig <<= (resourceDirectory in Test)(_ / "avsc"),
     javaSource in sbtavro.SbtAvro.avroConfig <<= (sourceManaged in Test)(_ / "java" / "compiled_avro"),
     version in sbtavro.SbtAvro.avroConfig := "1.7.7",
-    sourceGenerators in Compile ~= { _ => Seq.empty },
-    managedSourceDirectories in Compile ~= { _ => Seq.empty },
     sourceGenerators in Test <+= (sbtavro.SbtAvro.generate in sbtavro.SbtAvro.avroConfig),
     managedSourceDirectories in Test <+= (javaSource in sbtavro.SbtAvro.avroConfig))
-
-  val generateRatsSources = taskKey[Seq[java.io.File]]("generate sources")
-  // Note you have to put rats file under scalaSource instead of resourceDirectory, since sbt-rats only check:
-  //   val inputFiles = (scalaSourceDir ** ("*.rats" | "*.syntax")).get.toSet 
-  // when call FileFunction.cached
-  lazy val ratsSettings = SBTRatsPluginPatched.sbtRatsSettings ++ Seq(
-    SBTRatsPluginPatched.ratsMainModule := Some((scalaSource in Compile).value / "chana" / "jpql" / "rats" / "JPQLGrammar.rats"),
-    //generateRatsSources <<= (sourceGenerators in Compile) {_.join.map(_.flatten.toList)}
-    generateRatsSources <<= runRatsGenerators)
-
-  def runRatsGenerators = {
-    import SBTRatsPluginPatched._
-
-    (ratsFlags, ratsMainModule, scalaSource in Compile, target, sourceManaged in Compile, streams) map {
-      (flags, main, srcDir, tgtDir, smDir, str) =>
-        {
-          val cache = str.cacheDirectory
-          val cachedFun =
-            FileFunction.cached(cache / "sbt-rats", FilesInfo.lastModified, FilesInfo.exists) { (inFiles: Set[File]) =>
-              runGeneratorsImpl(flags, main, inFiles, srcDir, tgtDir, smDir, str)
-            }
-
-          val inputFiles = (srcDir ** ("*.rats" | "*.syntax")).get.toSet
-          cachedFun(inputFiles).toSeq
-        }
-    }
-
-  }
 
   lazy val releaseSettings = Seq(
     publishTo := {
@@ -253,4 +225,23 @@ object Packaging {
       NativePackagerKeys.packageName := "chana",
       bashScriptConfigLocation := Some("${app_home}/../conf/jvmopts"),
       bashScriptExtraDefines += """addJava "-Dconfig.file=${app_home}/../conf/application.conf"""")
+}
+
+object RatsSettings {
+  import SBTRatsPluginPatched._
+
+  // Task defined for directly usage in sbt console
+  // We have to define multiple tasks for each project, otherwise the context may by combined (why) 
+  lazy val generateRatsSources_chana = taskKey[Seq[java.io.File]]("generate rats sources for chana")
+  lazy val generateRatsSources_avpath = taskKey[Seq[java.io.File]]("generate rats sources for avpath")
+
+  // Note you have to put rats file under scalaSource instead of resourceDirectory, since sbt-rats only checks:
+  //   val inputFiles = (scalaSourceDir ** ("*.rats" | "*.syntax")).get.toSet 
+  // when call FileFunction.cached
+  lazy val settings_chana = sbtRatsSettings ++ Seq(
+    ratsMainModule := Some((scalaSource in Compile).value / "chana" / "jpql" / "rats" / "JPQLGrammar.rats"), 
+    generateRatsSources_chana <<= runGenerators) 
+  lazy val settings_avpath = sbtRatsSettings ++ Seq(
+    ratsMainModule := Some((scalaSource in Compile).value / "chana" / "xpath" / "rats" / "XPathGrammar.rats"),
+    generateRatsSources_chana <<= runGenerators)
 }

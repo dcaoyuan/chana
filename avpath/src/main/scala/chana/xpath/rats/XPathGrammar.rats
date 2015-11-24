@@ -1,0 +1,878 @@
+/*
+ *
+ * Definition of JPQL grammar.
+ * 
+ * http://www.w3.org/TR/xpath-31/#nt-bnf
+ *
+ * @author Caoyuan Deng
+ */
+module chana.xpath.rats.XPathGrammar;
+
+public generic XPath = 
+  Expr
+;
+
+generic ParamList =
+  Param ( COMMA Param )*
+;
+
+generic Param =
+  DOLLAR EQName TypeDeclaration?
+;
+
+generic FunctionBody =
+  EnclosedExpr
+;
+
+generic EnclosedExpr =
+  LBrace Expr RBrace
+;
+
+generic Expr = 
+  ExprSingle ( COMMA ExprSingle )*
+;
+
+generic ExprSingle = 
+  ForExpr
+/ LetExpr
+/ QuantifiedExpr
+/ IfExpr
+/ OrExpr
+;
+
+generic ForExpr =
+  SimpleForClause RETURN ExprSingle
+;
+
+generic SimpleForClause =
+  FOR SimpleForBinding ( COMMA SimpleForBinding )*
+;
+
+generic SimpleForBinding =
+  DOLLAR VarName IN ExprSingle
+;
+
+generic LetExpr =
+  SimpleLetClause RETURN ExprSingle
+;
+
+generic SimpleLetClause =
+  LET SimpleLetBinding ( COMMA SimpleLetBinding )*
+;
+
+generic SimpleLetBinding =
+  DOLLAR VarName ":=" ExprSingle
+;
+
+generic QuantifiedExpr = 
+  ( SOME / EVERY ) VarInExprSingle ( COMMA VarInExprSingle )* SATISFIES ExprSingle
+;
+
+generic VarInExprSingle =
+  DOLLAR VarName IN ExprSingle
+;
+
+generic IfExpr = 
+  IF LParen Expr RParen THEN ExprSingle ELSE ExprSingle
+;
+
+generic OrExpr = 
+  AndExpr ( OR AndExpr )*
+;
+
+generic AndExpr =
+  ComparisonExpr ( AND ComparisonExpr )*
+;
+
+generic ComparisonExpr =
+  StringConcatExpr ComparisonExprPostfix?
+;
+
+generic ComparisonExprPostfix =
+  ( ValueComp
+  / GeneralComp
+  / NodeComp
+  ) StringConcatExpr
+;
+
+generic StringConcatExpr =
+  RangeExpr ( DPIPE RangeExpr )*
+;
+
+generic RangeExpr =
+  AdditiveExpr ( TO AdditiveExpr )?
+;
+
+generic AdditiveExpr = 
+  MultiplicativeExpr ( MultiplicativeExprPlus / MultiplicativeExprMinus )*
+;
+
+generic MultiplicativeExprPlus =
+  MULTIPLY MultiplicativeExpr
+;
+
+generic MultiplicativeExprMinus =
+  MINUS MultiplicativeExpr
+;
+
+
+generic MultiplicativeExpr =
+  UnionExpr ( UnionExprMultiply / UnionExprDiv / UnionExprIdiv / UnionExprMod )*
+;
+
+generic UnionExprMultiply =
+  ASTER UnionExpr
+;
+
+generic UnionExprDiv =
+  DIV UnionExpr
+;
+
+generic UnionExprIdiv=
+  IDIV UnionExpr
+;
+
+generic UnionExprMod =
+  MOD UnionExpr
+;
+
+
+generic UnionExpr =
+  IntersectExceptExpr ( IntersectExceptExprUnion / IntersectExceptExprList )*
+;
+
+generic IntersectExceptExprUnion =
+  UNION IntersectExceptExpr  
+;
+
+generic IntersectExceptExprList =
+  PIPE IntersectExceptExpr  
+;
+
+generic IntersectExceptExpr =
+  InstanceofExpr ( InstanceofExprIntersect / InstanceofExprExcept )*
+;
+
+generic InstanceofExprIntersect = 
+  INTERSECT InstanceofExpr
+;
+
+generic InstanceofExprExcept = 
+  EXCEPT InstanceofExpr
+;
+
+generic InstanceofExpr =
+  TreatExpr ( INSTANCE OF SequenceType )?
+;
+
+generic TreatExpr =
+  CastableExpr ( TREAT AS SequenceType )?
+;
+
+generic CastableExpr = 
+  CastExpr ( CASTABLE AS SingleType )?
+;
+
+generic CastExpr =
+  UnaryExpr ( CAST AS SingleType )?
+;
+
+generic UnaryExpr =
+  ( MINUS / PLUS )* ValueExpr
+;
+
+generic ValueExpr =
+  SimpleMapExpr 
+;
+
+generic GeneralComp =
+  SKIP "="  SKIP
+/ SKIP "!=" SKIP
+/ SKIP "<=" SKIP
+/ SKIP "<"  SKIP
+/ SKIP ">=" SKIP
+/ SKIP ">"  SKIP
+;
+
+generic ValueComp =
+  SKIP "eq" SKIP
+/ SKIP "ne" SKIP
+/ SKIP "lt" SKIP
+/ SKIP "le" SKIP
+/ SKIP "gt" SKIP
+/ SKIP "ge" SKIP
+;
+
+generic NodeComp =
+  SKIP "is" SKIP
+/ SKIP "<<" SKIP
+/ SKIP ">>" SKIP
+;
+
+generic SimpleMapExpr =
+  PathExpr ( void:"!" PathExpr )*
+;
+
+generic PathExpr =
+  ( "/"  RelativePathExpr? )
+/ ( "//" RelativePathExpr )
+/ RelativePathExpr	/* xgs: leading-lone-slash */
+;
+
+generic RelativePathExpr =
+  StepExpr ( StepExprAbsolute / StepExprRelative )*
+;
+
+generic StepExprAbsolute = 
+  "/" StepExpr
+;
+
+generic StepExprRelative = 
+  "//" StepExpr
+;
+
+generic StepExpr =
+  PostfixExpr 
+/ AxisStep
+;
+
+generic AxisStep =
+  ( ReverseStep / ForwardStep ) PredicateList
+;
+
+generic ForwardStep =
+  ForwardAxis NodeTest
+/ AbbrevForwardStep
+;
+
+generic ForwardAxis =
+  "child" "::"
+/ "descendant" "::"
+/ "attribute" "::"
+/ "self" "::"
+/ "descendant-or-self" "::"
+/ "following-sibling" "::"
+/ "following" "::"
+/ "namespace" "::"
+;
+
+generic AbbrevForwardStep =
+  "@"? NodeTest
+;
+
+generic ReverseStep =
+  ReverseAxis NodeTest
+/ AbbrevReverseStep
+;
+
+generic ReverseAxis =
+  "parent" "::"
+/ "ancestor" "::"
+/ "preceding-sibling" "::"
+/ "preceding" "::"
+/ "ancestor-or-self" "::"
+;
+ 
+generic AbbrevReverseStep =
+  ".."
+;
+
+generic NodeTest =
+  KindTest 
+/ NameTest
+;
+
+generic NameTest =
+  EQName 
+/ Wildcard
+;
+
+generic Wildcard =
+  ASTER
+/ NCName COLON ASTER
+/ ASTER COLON NCName
+/ BracedURILiteral ASTER
+;
+
+generic PostfixExpr =
+  PrimaryExpr ( Predicate / ArgumentList / Lookup / ArrowPostfix )*
+;
+
+generic ArgumentList =
+  LParen RParen
+/ LParen Argument ( COMMA Argument )* RParen
+;
+
+generic PredicateList =
+  Predicate*
+;
+
+generic Predicate =
+  LBrack Expr RBrack
+;
+
+generic Lookup =
+  QUEST KeySpecifier
+;
+
+generic KeySpecifier =
+  NCName 
+/ IntegerLiteral 
+/ ParenthesizedExpr 
+/ ASTER
+;
+
+generic ArrowPostfix =
+  "=>" ArrowFunctionSpecifier ArgumentList
+;
+
+generic ArrowFunctionSpecifier =
+  EQName 
+/ VarRef 
+/ ParenthesizedExpr
+;
+
+generic PrimaryExpr =
+  Literal 
+/ VarRef 
+/ ParenthesizedExpr 
+/ ContextItemExpr 
+/ FunctionCall
+/ FunctionItemExpr
+/ MapConstructor
+/ ArrayConstructor
+/ UnaryLookup
+;
+
+generic Literal =
+  NumericLiteral 
+/ StringLiteral
+;
+
+generic NumericLiteral =
+  IntegerLiteral 
+/ DecimalLiteral 
+/ DoubleLiteral
+;
+
+generic VarRef = 
+  DOLLAR VarName
+;
+
+generic VarName = 
+  EQName
+;
+
+generic ParenthesizedExpr =
+  LParen Expr? RParen
+;
+
+generic ContextItemExpr = 
+  DOT 
+;
+
+generic FunctionCall =
+  EQName ArgumentList
+;
+
+generic Argument =
+  ExprSingle 
+/ ArgumentPlaceholder
+;
+
+generic ArgumentPlaceholder =
+  QUEST
+;
+
+generic FunctionItemExpr =
+  NamedFunctionRef 
+/ InlineFunctionExpr
+;
+
+generic NamedFunctionRef =
+  EQName void:"#" IntegerLiteral
+;
+
+generic InlineFunctionExpr =
+  FUNCTION LParen ParamList? RParen ( AS SequenceType )? FunctionBody
+;
+
+generic MapConstructor =
+  MAP LBrace RBrace
+  MAP LBrace MapConstructorEntry ( COMMA MapConstructorEntry )* RBrace
+;
+
+generic MapConstructorEntry = 
+  MapKeyExpr COLON MapValueExpr
+;
+
+generic MapKeyExpr = 
+  ExprSingle
+;
+
+generic MapValueExpr =
+  ExprSingle
+;
+
+generic ArrayConstructor =
+  SquareArrayConstructor 
+/ BraceArrayConstructor
+;
+
+generic SquareArrayConstructor =
+  LBrack RBrack
+  LBrack ExprSingle ( COMMA ExprSingle )* RBrack
+;
+
+generic BraceArrayConstructor =
+  ARRAY LBrace Expr? RBrace
+;
+
+generic UnaryLookup =
+  QUEST KeySpecifier
+;
+
+generic SingleType =
+  SimpleTypeName QUEST?
+;
+
+generic TypeDeclaration =
+  AS SequenceType
+;
+
+
+generic SequenceType =
+  EMPTY_SEQUENCE LParen RParen 
+/ ItemType OccurrenceIndicator?
+;
+
+generic OccurrenceIndicator =
+  QUEST
+/ ASTER
+/ PLUS
+;
+
+generic ItemType = 
+  KindTest 
+/ ITEM LParen RParen 
+/ FunctionTest 
+/ MapTest 
+/ ArrayTest 
+/ AtomicOrUnionType 
+/ ParenthesizedItemType
+;
+
+generic AtomicOrUnionType =
+  EQName
+;
+
+generic AtomicType =
+  QName
+;
+
+generic KindTest = 
+  DocumentTest
+/ ElementTest
+/ AttributeTest
+/ SchemaElementTest
+/ SchemaAttributeTest
+/ PITest
+/ CommentTest
+/ TextTest
+/ NamespaceNodeTest
+/ AnyKindTest
+;
+
+generic AnyKindTest =
+  NODE LParen RParen
+;
+
+generic DocumentTest = 
+  DOCUMENT_NODE LParen ( ElementTest / SchemaElementTest )? RParen
+;
+
+generic TextTest = 
+  TEXT LParen RParen
+;
+
+generic CommentTest =
+  COMMENT LParen RParen
+;
+
+generic NamespaceNodeTest =
+  NAMESPACE_NODE LParen RParen
+;
+
+generic PITest =
+  PROCESSING_INSTRUCTION LParen ( NCName / StringLiteral )? RParen
+;
+
+generic AttributeTest =
+  ATTRIBUTE LParen RParen
+  ATTRIBUTE LParen AttribNameOrWildcard ( COMMA TypeName )? RParen
+;
+
+generic AttribNameOrWildcard =
+  AttributeName 
+/ ASTER
+;
+
+generic SchemaAttributeTest =
+  SCHEMA_ATTRIBUTE LParen AttributeDeclaration RParen
+;
+
+generic AttributeDeclaration =
+  AttributeName
+;
+
+generic ElementTest =
+  ELEMENT LParen RParen
+  ELEMENT LParen ElementNameOrWildcard ( COMMA TypeName QUEST? )? RParen
+;
+
+generic ElementNameOrWildcard =
+  ElementName 
+/ ASTER
+;
+
+generic SchemaElementTest =
+  SCHEMA_ELEMENT LParen ElementDeclaration RParen
+;
+
+generic ElementDeclaration =
+  ElementName
+;
+
+generic AttributeName =
+  EQName
+;
+
+generic ElementName =
+  EQName
+;
+
+generic SimpleTypeName =
+  TypeName 
+;
+
+generic TypeName =
+  EQName
+;
+
+generic FunctionTest =
+  AnyFunctionTest
+/ TypedFunctionTest
+;
+
+generic AnyFunctionTest =
+  FUNCTION LParen ASTER RParen
+;
+
+generic TypedFunctionTest =
+  FUNCTION LParen RParen AS SequenceType
+  FUNCTION LParen SequenceType ( COMMA SequenceType )* RParen AS SequenceType
+;
+
+generic MapTest =
+  AnyMapTest 
+/ TypedMapTest
+;
+
+generic AnyMapTest =
+  MAP LParen ASTER RParen
+;
+
+generic TypedMapTest =
+  MAP LParen AtomicOrUnionType COMMA SequenceType RParen
+;
+
+generic ArrayTest =
+  AnyArrayTest 
+/ TypedArrayTest
+;
+
+generic AnyArrayTest =
+  ARRAY LParen ASTER RParen
+;
+
+generic TypedArrayTest =
+  ARRAY LParen SequenceType RParen 
+;
+
+generic ParenthesizedItemType =
+  LParen ItemType RParen
+;
+
+generic EQName =
+  QName / URIQualifiedName
+;
+
+String IntegerLiteral = 
+  [0-9]+
+;
+
+String DecimalLiteral = 
+  "." [0-9]+ 
+/ [0-9]+ "." [0-9]*	
+;
+
+generic DoubleLiteral = doubleLiteral ;
+transient String doubleLiteral =
+  ( '.' [0-9]+ 
+  / [0-9]+ ( '.' [0-9]* )? 
+  ) [eE] [+\-]? [0-9]+	
+;
+
+String StringLiteral =
+  '"' ( EscapeQuot / !["] Char )* '"' 
+/ "'" ( EscapeApos / !['] Char )* "'"
+;
+
+generic URIQualifiedName =
+  BracedURILiteral NCName ;
+
+transient String  BracedURILiteral = 
+  "Q{" ![{}]* "}"
+;
+
+transient String EscapeQuot = "\"\"" ; 
+transient String EscapeApos = "''" ;
+
+transient void Comment = 
+  "(:" ( CommentContents / Comment )* ":)"
+;
+
+transient void CommentContents = 
+  !( Char* ( "(:" / ":)" ) Char* ) Char+
+;
+
+/* 
+ * Any Unicode character, excluding the surrogate blocks, FFFE, and FFFF. 
+ * Note that, while Rats! supports Unicode, it only supports 16 bit characters in 
+ * the basic multilingual plane (i.e., with code points between U+0000 and U+FFFF)
+ *
+ * \u0009: TAB
+ * \u000A: LF
+ * \u000D: CR
+ * \u0020: SPACE
+ */
+transient String Char = 
+  [\u0009\u000A\u000D\u0020-\uD7FF\uE000-\uFFFD] 
+; 
+
+generic QName =
+  PrefixedName
+/ UnprefixedName
+;
+
+generic PrefixedName =
+  Prefix COLON LocalPart
+;
+
+String UnprefixedName =
+  LocalPart
+;
+
+String Prefix =
+  NCName
+;
+
+String LocalPart =
+  NCName
+;
+
+/* An XML Name, minus the ":" */
+transient String NCName =
+  !( Char* ':' Char* ) Name	
+;
+
+transient String NameStartChar =
+  [:A-Z_a-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u02FF\u0370-\u037D\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD]
+;
+
+/*
+ * \u00B7: · (middle dot)
+ */
+transient String NameChar =
+  NameStartChar 
+/ [\-.0-9\u00B7\u0300-\u036F\u203F-\u2040]
+;
+
+transient String Name = 
+  NameStartChar NameChar*
+;
+
+
+// ----- Common character sets
+
+transient String upper = [A-Z] ;
+transient String lower = [a-z] ;
+transient String letter = upper / lower ;
+transient String digit = [0-9] ;
+transient String hexDigit = [0-9a-fA-F] ;
+transient String octalDigit = [0-7] ;
+transient String nonZeroDigit = [1-9] ;
+transient String printableChar = [\u0020-\uFFFF] ;
+
+transient String decimalNumeral = '0' / nonZeroDigit digit* ;
+transient String hexNumeral     = '0' [xX] hexDigit+ ;
+transient String octalNumeral   = '0' octalDigit+ ;
+
+transient String characterChar = escapeSequence / !['\\] printableChar ;
+transient String stringChar    = escapeSequence / !["\\] printableChar ;
+
+transient String escapeSequence =
+  '\\' [btnfr"'\\] 
+/ unicodeEscape 
+/ octalEscape 
+;
+
+transient String octalEscape =
+  '\\' [0-3] octalDigit octalDigit
+/ '\\' octalDigit octalDigit
+/ '\\' octalDigit
+;
+
+transient String unicodeEscape  =
+  '\\' 'u' hexDigit hexDigit hexDigit hexDigit
+;
+
+// ----- Spacing
+
+
+
+// ----- Meaningful newline
+transient void N = ( w / Comment )* n ;
+
+// ----- Skip including nl but will leave all ( w / Comment )* before latest n
+transient void SKIP_TILL_N = 
+  ( ( w / Comment )* n+ )* 
+;
+
+// ----- Globe Skip
+
+/*
+ * @Note: should put before Keyword, Symbol, Literal and Identifier only, 
+ * don't put after above tokens. 
+ */
+transient void SKIP = 
+  ( w / Comment / n )* 
+;
+
+
+// ------ Spacing tokens
+
+transient generic Nl = n ;
+transient generic Ws = w ;
+
+
+// ----- Spacing elements
+
+transient String n = "\r\n" / "\r" / "\n" ;
+transient String w = ( " " / "\f" / "\t" )+ ;
+
+transient generic Error = error ;
+transient String error = _+ ;
+
+transient void EOF = !_ ;
+
+// ----- Separators
+
+void DOT    = SKIP '.'  SKIP ;
+void COMMA  = SKIP ','  SKIP ;
+void COLON  = SKIP ':'  SKIP ;
+void DCOLON = SKIP "::" SKIP ;
+void LParen = SKIP '('  SKIP ;
+void RParen = SKIP ')'  SKIP ;
+void LBrack = SKIP '['  SKIP ;
+void RBrack = SKIP ']'  SKIP ;
+void LBrace = SKIP '{'  SKIP ;
+void RBrace = SKIP '}'  SKIP ;
+void ASTER  = SKIP '*'  SKIP ;
+void QUEST  = SKIP '?'  SKIP ;
+void SLASH  = SKIP '/'  SKIP ;
+void DSLASH = SKIP "//" SKIP ;
+void DOLLAR = SKIP '$'  SKIP ;
+void PIPE   = SKIP '|'  SKIP ;
+void DPIPE  = SKIP "||" SKIP ;
+
+// ------ Operators
+
+String PLUS     = SKIP "+"  SKIP ;
+String MINUS    = SKIP "-"  SKIP ;
+String MULTIPLY = SKIP "*"  SKIP ;
+
+// ------ Words
+
+String Word                = SKIP wordChars SKIP ;
+transient String wordChars = [a-zA-Z_\-]+ ;
+
+void   NAMESPACE_NODE         = "namespace-node"         :Word ;
+void   NODE                   = "node"                   :Word ;
+void   DOCUMENT_NODE          = "document-node"          :Word ;
+void   TEXT                   = "text"                   :Word ;
+void   COMMENT                = "comment"                :Word ;
+void   ELEMENT                = "element"                :Word ;
+void   ATTRIBUTE              = "attribute"              :Word ;
+void   PROCESSING_INSTRUCTION = "processing-instruction" :Word ;
+void   SCHEMA_ATTRIBUTE       = "schema-attribute"       :Word ;
+void   SCHEMA_ELEMENT         = "schema-element"         :Word ;
+void   EMPTY_SEQUENCE         = "empty-sequence"         :Word ;
+void   AS                     = "as"                     :Word ;
+void   ARRAY                  = "array"                  :Word ;
+void   EXCEPT                 = "except"                 :Word ;
+void   INTERSECT              = "intersect"              :Word ;
+void   INSTANCE               = "instance"               :Word ;
+void   OF                     = "of"                     :Word ;
+void   TREAT                  = "treat"                  :Word ;
+void   ITEM                   = "item"                   :Word ;
+void   CAST                   = "cast"                   :Word ;
+void   CASTABLE               = "castable"               :Word ;
+void   RETURN                 = "return"                 :Word ;
+void   FOR                    = "for"                    :Word ;
+void   FUNCTION               = "function"               :Word ;
+void   IN                     = "in"                     :Word ;
+void   LET                    = "let"                    :Word ;
+String SOME                   = "some"                   :Word ;
+String EVERY                  = "every"                  :Word ;
+void   SATISFIES              = "satisfies"              :Word ;
+void   IF                     = "if"                     :Word ;
+void   THEN                   = "then"                   :Word ;
+void   UNION                  = "union"                  :Word ;
+void   ELSE                   = "else"                   :Word ;
+void   OR                     = "or"                     :Word ;
+void   AND                    = "and"                    :Word ;
+void   DIV                    = "div"                    :Word ;
+void   IDIV                   = "idiv"                   :Word ;
+void   MAP                    = "map"                    :Word ;
+void   MOD                    = "mod"                    :Word ;
+void   TO                     = "to"                     :Word ;
+
+/*
+A.3 Reserved Function Names
+
+The following names are not allowed as function names in an unprefixed form because expression syntax takes precedence.
+
+array
+attribute
+comment
+document-node
+element
+empty-sequence
+function
+if
+item
+map
+namespace-node
+node
+processing-instruction
+schema-attribute
+schema-element
+switch
+text
+typeswitch
+Note:
+
+Although the keywords switch and typeswitch are not used in XPath, they are considered reserved function names for compatibility with XQuery.
+
+*/
