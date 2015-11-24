@@ -7,7 +7,6 @@ import scoverage.ScoverageSbtPlugin._
 
 object Build extends sbt.Build {
 
-
   lazy val chana = Project("chana", file("."))
     .aggregate(avpath)
     .dependsOn(avpath % "compile->compile;test->test")
@@ -239,8 +238,8 @@ object RatsSettings {
   //   val inputFiles = (scalaSourceDir ** ("*.rats" | "*.syntax")).get.toSet 
   // when call FileFunction.cached
   lazy val settings_chana = sbtRatsSettings ++ Seq(
-    ratsMainModule := Some((scalaSource in Compile).value / "chana" / "jpql" / "rats" / "JPQLGrammar.rats"), 
-    generateRatsSources_chana <<= runGenerators) 
+    ratsMainModule := Some((scalaSource in Compile).value / "chana" / "jpql" / "rats" / "JPQLGrammar.rats"),
+    generateRatsSources_chana <<= runGenerators)
   lazy val settings_avpath = sbtRatsSettings ++ Seq(
     ratsMainModule := Some((scalaSource in Compile).value / "chana" / "xpath" / "rats" / "XPathGrammar.rats"),
     generateRatsSources_chana <<= runGenerators)

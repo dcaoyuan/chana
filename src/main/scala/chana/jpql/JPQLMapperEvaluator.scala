@@ -189,11 +189,7 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
 
   def deleteEval(stmt: DeleteStatement, record: GenericRecord): Boolean = {
     val entityName = deleteClause(stmt.delete, record)
-    if (entityName.equalsIgnoreCase(record.getSchema.getName)) {
-      stmt.where.fold(true) { x => whereClause(x, record) }
-    } else {
-      false
-    }
+    entityName.equalsIgnoreCase(record.getSchema.getName) && stmt.where.fold(true) { x => whereClause(x, record) }
   }
 
   def insertEval(stmt: InsertStatement, record: GenericRecord): List[(String, Any)] = {
@@ -255,9 +251,9 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
       }
     }
 
-    (stmt.set.assign :: stmt.set.assigns) foreach {
-      case SetAssignClause(target, value) =>
-        toUpdates foreach { toUpdate =>
+    toUpdates foreach { toUpdate =>
+      stmt.set.assign :: stmt.set.assigns foreach {
+        case SetAssignClause(target, value) =>
           val v = newValue(value, toUpdate)
           target.path match {
             case Left(path) =>
@@ -268,32 +264,36 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
 
             case Right(attr) =>
               val fieldName = attribute(attr, toUpdate) // there should be no AS alias
-              toUpdate.put(fieldName, v) // TODO via updateField ?
+              updateValue(fieldName, v, toUpdate) // TODO via updateField ?
           }
-        }
+      }
     }
+  }
+
+  private def updateValue(attr: String, v: Any, record: GenericRecord): Any = {
+    record.put(attr, v)
   }
 
   private def updateValue(attrs: List[String], v: Any, record: GenericRecord): Any = {
     var paths = attrs
-    var currValue: Any = record
+    var currTarget: Any = record
 
     while (paths.nonEmpty) {
       val path = paths.head
       paths = paths.tail
 
-      currValue match {
+      currTarget match {
         case fieldRec: GenericRecord =>
           if (paths.isEmpty) { // reaches last path
             fieldRec.put(path, v)
           } else {
-            currValue = fieldRec.get(path)
+            currTarget = fieldRec.get(path)
           }
 
-        case arr: java.util.Collection[_]             => throw JPQLRuntimeException(currValue, "is an avro array when fetch its attribute: " + path) // TODO
-        case map: java.util.Map[String, _] @unchecked => throw JPQLRuntimeException(currValue, "is an avro map when fetch its attribute: " + path) // TODO
-        case null                                     => throw JPQLRuntimeException(currValue, "is null when fetch its attribute: " + paths)
-        case _                                        => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + paths)
+        case arr: java.util.Collection[_]             => throw JPQLRuntimeException(currTarget, "is an avro array when fetch its attribute: " + path) // TODO
+        case map: java.util.Map[String, _] @unchecked => throw JPQLRuntimeException(currTarget, "is an avro map when fetch its attribute: " + path) // TODO
+        case null                                     => throw JPQLRuntimeException(currTarget, "is null when fetch its attribute: " + paths)
+        case _                                        => throw JPQLRuntimeException(currTarget, "is not a record when fetch its attribute: " + paths)
       }
     }
 

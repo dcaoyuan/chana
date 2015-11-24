@@ -16,16 +16,13 @@ import akka.contrib.pattern.DistributedPubSubMediator.Publish
 import akka.pattern.ask
 import akka.cluster.Cluster
 import chana.jpql.nodes.JPQLParser
-import chana.jpql.rats.JPQLGrammar
 import chana.schema.DistributedSchemaBoard
-import java.io.StringReader
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import scala.collection.JavaConversions._
 import scala.concurrent.duration._
 import scala.util.Failure
 import scala.util.Success
-import xtc.tree.Node
 
 /**
  * Extension that starts a [[DistributedJPQLBoard]] actor
@@ -165,24 +162,16 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
       }
   }
 
-  private def parseJPQL(jpqlKey: String, jpql: String) =
+  private def parseJPQL(jpqlKey: String, jpql: String) = {
+    val parser = new JPQLParser()
     try {
-      val reader = new StringReader(jpql)
-      val grammar = new JPQLGrammar(reader, "<current>")
-      val r = grammar.pJPQL(0)
-      if (r.hasValue) {
-        val rootNode = r.semanticValue[Node]
-        val parser = new JPQLParser(rootNode)
-        val stmt = parser.visitRoot()
-        val meta = new JPQLMetaEvaluator(jpqlKey, DistributedSchemaBoard).collectMeta(stmt, null)
-        Success(meta)
-      } else {
-        Failure(new Exception(r.parseError.msg + " at " + r.parseError.index))
-      }
+      val stmt = parser.parse(jpql)
+      val meta = new JPQLMetaEvaluator(jpqlKey, DistributedSchemaBoard).collectMeta(stmt, null)
+      Success(meta)
     } catch {
       case ex: Throwable => Failure(ex)
     }
-
+  }
 }
 
 class DistributedJPQLBoardExtension(system: ExtendedActorSystem) extends Extension {

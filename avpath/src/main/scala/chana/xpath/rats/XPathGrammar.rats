@@ -9,7 +9,7 @@
 module chana.xpath.rats.XPathGrammar;
 
 public generic XPath = 
-  Expr
+  SKIP Expr SKIP EOF
 ;
 
 generic ParamList =
@@ -108,7 +108,7 @@ generic AdditiveExpr =
 ;
 
 generic MultiplicativeExprPlus =
-  MULTIPLY MultiplicativeExpr
+  PLUS MultiplicativeExpr
 ;
 
 generic MultiplicativeExprMinus =
@@ -214,9 +214,9 @@ generic SimpleMapExpr =
 ;
 
 generic PathExpr =
-  ( "/"  RelativePathExpr? )
-/ ( "//" RelativePathExpr )
-/ RelativePathExpr	/* xgs: leading-lone-slash */
+  "//" RelativePathExpr
+/ "/"  RelativePathExpr?
+/ RelativePathExpr	
 ;
 
 generic RelativePathExpr =
@@ -350,9 +350,9 @@ generic Literal =
 ;
 
 generic NumericLiteral =
-  IntegerLiteral 
+  DoubleLiteral
 / DecimalLiteral 
-/ DoubleLiteral
+/ IntegerLiteral 
 ;
 
 generic VarRef = 
@@ -604,7 +604,8 @@ generic ParenthesizedItemType =
 ;
 
 generic EQName =
-  QName / URIQualifiedName
+  QName 
+/ URIQualifiedName
 ;
 
 String IntegerLiteral = 

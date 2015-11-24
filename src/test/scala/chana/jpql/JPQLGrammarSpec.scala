@@ -20,9 +20,11 @@ class JPQLGrammarSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
       //   xtc.tree.GNode$Fixed1 cannot be cast to scala.runtime.Nothing$
       val rootNode = r.semanticValue[Node]
       info("\n\n## " + query + " ##\n\n" + rootNode)
-      val parser = new JPQLParser(rootNode)
-      val statement = parser.visitRoot()
-      info("\nParsed:\n" + statement)
+
+      // now let's do JPQLParsing
+      val parser = new JPQLParser()
+      val stmt = parser.parse(query)
+      info("\nParsed:\n" + stmt)
     }
 
     assert(r.hasValue, "\n\n## " + query + " ##\n\n" + r.parseError.msg + " at " + r.parseError.index)

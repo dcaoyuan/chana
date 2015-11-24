@@ -63,8 +63,10 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
     val r = grammar.pJPQL(0)
     val rootNode = r.semanticValue[Node]
     info("\n\n## " + query + " ##")
-    val parser = new JPQLParser(rootNode)
-    val stmt = parser.visitRoot()
+
+    // now let's do JPQLParsing
+    val parser = new JPQLParser()
+    val stmt = parser.parse(query)
     //info("\nParsed:\n" + stmt)
     val metaEval = new JPQLMetaEvaluator("2", schemaBoard)
     val meta = metaEval.collectMeta(stmt, null)

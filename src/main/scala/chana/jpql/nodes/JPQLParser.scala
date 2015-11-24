@@ -1,15 +1,32 @@
 package chana.jpql.nodes
 
+import chana.jpql.rats.JPQLGrammar
+import java.io.StringReader
 import xtc.tree.Node
 
-class JPQLParser(rootNode: Node) {
+class JPQLParser() {
 
   private var indentLevel = 0
   protected var nodePath = List[Node]()
   protected var _errors = List[Node]()
 
-  // root
-  def visitRoot() = {
+  /**
+   * main entrance
+   */
+  def parse(jpql: String) = {
+    val reader = new StringReader(jpql)
+    val grammar = new JPQLGrammar(reader, "<current>")
+    val r = grammar.pJPQL(0)
+    if (r.hasValue) {
+      val rootNode = r.semanticValue[Node]
+      val stmt = visitRoot(rootNode)
+      stmt
+    } else {
+      throw new Exception(r.parseError.msg + " at " + r.parseError.index)
+    }
+  }
+
+  def visitRoot(rootNode: Node) = {
     JPQL(rootNode)
   }
 
@@ -50,7 +67,7 @@ class JPQLParser(rootNode: Node) {
 
   // =========================================================================
 
-  def JPQL(node: Node) = {
+  def JPQL(node: Node): Statement = {
     val n = node.getNode(0)
     n.getName match {
       case "SelectStatement" => visit(n)(selectStatement)

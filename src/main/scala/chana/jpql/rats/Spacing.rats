@@ -61,7 +61,8 @@ transient void SKIP_N =
 
 // ----- Globe Skip
 
-/* @Note: should put before Keyword, Symbol, Literal and Identifier only, 
+/*
+ * @Note: should put before Keyword, Symbol, Literal and Identifier only, 
  * don't put after above tokens. 
  */
 transient void SKIP = 

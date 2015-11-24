@@ -5,7 +5,7 @@ package chana.jpql.nodes
  * 
  * @author Caoyuan Deng
  */
-sealed trait Statement
+sealed trait Statement extends Serializable
 final case class SelectStatement(
   select: SelectClause,
   from: FromClause,
