@@ -466,10 +466,6 @@ generic AtomicOrUnionType =
   EQName
 ;
 
-generic AtomicType =
-  QName
-;
-
 generic KindTest = 
   DocumentTest
 / ElementTest
