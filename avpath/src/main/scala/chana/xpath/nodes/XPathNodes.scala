@@ -10,7 +10,7 @@ object XPathNodes {
   sealed trait XPath extends Serializable
 
   final case class ParamList(param: Param, params: List[Param])
-  final case class Param(eqName: String, typeDecl: TypeDeclaration)
+  final case class Param(name: EQName, typeDecl: Option[TypeDeclaration])
 
   final case class FunctionBody(expr: EnclosedExpr)
   final case class EnclosedExpr(expr: Expr)
@@ -19,12 +19,12 @@ object XPathNodes {
 
   sealed trait ExprSingle
   final case class ForExpr(forClause: SimpleForClause, returnExpr: ExprSingle) extends ExprSingle
-  final case class SimpleForClause(forBinding: SimpleForBinding, forBindings: List[SimpleForBinding])
+  final case class SimpleForClause(binding: SimpleForBinding, bindings: List[SimpleForBinding])
   final case class SimpleForBinding(varName: VarName, inExpr: ExprSingle)
   final case class LetExpr(letClause: SimpleLetClause, returnExpr: ExprSingle) extends ExprSingle
-  final case class SimpleLetClause(letBingding: SimpleLetBinding, letBindings: List[SimpleLetBinding])
-  final case class SimpleLetBinding(varName: VarName, assignExpr: ExprSingle)
-  final case class QuantifiedExpr(someOrEvery: Boolean, varExpr: VarInExprSingle, varExprs: List[VarInExprSingle], statisExpr: ExprSingle) extends ExprSingle
+  final case class SimpleLetClause(bingding: SimpleLetBinding, bindings: List[SimpleLetBinding])
+  final case class SimpleLetBinding(varName: VarName, boundTo: ExprSingle)
+  final case class QuantifiedExpr(isEvery: Boolean, varExpr: VarInExprSingle, varExprs: List[VarInExprSingle], statisExpr: ExprSingle) extends ExprSingle
   final case class VarInExprSingle(varName: VarName, inExpr: ExprSingle)
   final case class IfExpr(ifExpr: Expr, thenExpr: ExprSingle, elseExpr: ExprSingle) extends ExprSingle
   final case class OrExpr(andExpr: AndExpr, andExprs: List[AndExpr]) extends ExprSingle
@@ -73,7 +73,7 @@ object XPathNodes {
   /**
    * prefix is "", or "-", "+"
    */
-  final case class UnaryExpr(prefix: Prefix, valueExpr: ValueExpr)
+  final case class UnaryExpr(prefixs: List[Prefix], valueExpr: ValueExpr)
   final case class ValueExpr(simpleMapExpr: SimpleMapExpr)
 
   /**
@@ -91,7 +91,7 @@ object XPathNodes {
    */
   final case class NodeComp(op: String) extends CompOperator
 
-  final case class SimpleMapExpr(pathExpr: PathExpr, exclamExpr: Option[PathExpr]) //  ( void:"!" PathExpr )*
+  final case class SimpleMapExpr(pathExpr: PathExpr, exclamExprs: List[PathExpr]) //  ( void:"!" PathExpr )*
 
   /**
    * prefix is "" or "//", "/"
@@ -116,7 +116,7 @@ object XPathNodes {
 
   sealed trait ForwardStep
   final case class ForwardStep_Axis(axis: ForwardAxis, nodeTest: NodeTest) extends ForwardStep
-  final case class AbbrevForwardStep(nodeTest: NodeTest) extends ForwardStep
+  final case class AbbrevForwardStep(nodeTest: NodeTest, withAtMark: Boolean) extends ForwardStep
 
   sealed abstract class ForwardAxis(val text: String) { val textWithMark = text + "::" }
   case object Child extends ForwardAxis("child")
@@ -129,7 +129,7 @@ object XPathNodes {
   case object Namespace extends ForwardAxis("namesapce")
 
   sealed trait ReverseStep
-  final case class ReverseStep_Axis(nodeTest: NodeTest) extends ReverseStep
+  final case class ReverseStep_Axis(axis: ReverseAxis, nodeTest: NodeTest) extends ReverseStep
   case object AbbrevReverseStep extends ReverseStep
 
   sealed abstract class ReverseAxis(val text: String) { val textWithMark = text + "::" }
@@ -164,12 +164,12 @@ object XPathNodes {
   final case class AsterName(name: String) extends Wildcard
   final case class UriAster(uri: String) extends Wildcard
 
-  final case class PostfixExpr(expr: PrimaryExpr, postFix: Option[PostFix])
+  final case class PostfixExpr(expr: PrimaryExpr, postFix: List[PostFix])
   sealed trait PostFix
-  final case class PostFix_Predicate(predicate: Predicate) extends PostFix
-  final case class PostFix_Arguments(args: ArgumentList) extends PostFix
-  final case class PostFix_Loopup(loolup: Lookup) extends PostFix
-  final case class PostFix_ArrowPostFix(arrowPostfix: ArrowPostfix) extends PostFix
+  final case class Postfix_Predicate(predicate: Predicate) extends PostFix
+  final case class Postfix_Arguments(args: ArgumentList) extends PostFix
+  final case class Postfix_Lookup(loolup: Lookup) extends PostFix
+  final case class Postfix_ArrowPostfix(arrowPostfix: ArrowPostfix) extends PostFix
 
   final case class ArgumentList(args: List[Argument])
   final case class PredicateList(predicates: List[Predicate])
@@ -235,7 +235,7 @@ object XPathNodes {
 
   sealed trait SequenceType
   case object SequenceType_Empty extends SequenceType
-  final case class SequnceType_ItemType(itemType: ItemType, occurrence: Option[OccurrenceIndicator]) extends SequenceType
+  final case class SequenceType_ItemType(itemType: ItemType, occurrence: Option[OccurrenceIndicator]) extends SequenceType
 
   sealed abstract class OccurrenceIndicator(val text: String)
   case object OccurrenceIndicator_QUEST extends OccurrenceIndicator("?")
@@ -274,7 +274,10 @@ object XPathNodes {
   sealed trait KindTest extends NodeTest with ItemType
 
   case object AnyKindTest extends KindTest
-  final case class DocumentTest(elemTest: Option[Either[ElementTest, SchemaElementTest]]) extends KindTest // document-node(...)
+  /**
+   * elemTest should be either ElementTest or SchemaElementTest
+   */
+  final case class DocumentTest(elemTest: Option[KindTest]) extends KindTest // document-node(...)
   case object TextTest extends KindTest // text()
   case object CommentTest extends KindTest // comment()
   case object NamespaceNodeTest extends KindTest // namespace-node()

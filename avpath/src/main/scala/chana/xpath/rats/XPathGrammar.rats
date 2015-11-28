@@ -128,7 +128,7 @@ generic UnionExprDiv =
   DIV UnionExpr
 ;
 
-generic UnionExprIdiv=
+generic UnionExprIdiv =
   IDIV UnionExpr
 ;
 
@@ -224,11 +224,11 @@ generic RelativePathExpr =
 ;
 
 generic StepExprAbsolute = 
-  "/" StepExpr
+  void:"/" StepExpr
 ;
 
 generic StepExprRelative = 
-  "//" StepExpr
+  void:"//" StepExpr
 ;
 
 generic StepExpr =
@@ -523,7 +523,12 @@ generic AttributeDeclaration =
 
 generic ElementTest =
   ELEMENT LParen RParen
-  ELEMENT LParen ElementNameOrWildcard ( COMMA TypeName QUEST? )? RParen
+  ELEMENT LParen ElementNameOrWildcard ( COMMA TypeNameWithQuest )? RParen
+  ELEMENT LParen ElementNameOrWildcard ( COMMA TypeName )? RParen
+;
+
+generic TypeNameWithQuest = 
+  TypeName QUEST
 ;
 
 generic ElementNameOrWildcard =
@@ -604,11 +609,13 @@ generic EQName =
 / URIQualifiedName
 ;
 
-String IntegerLiteral = 
+generic IntegerLiteral = integerLiteral ; 
+transient String integerLiteral = 
   [0-9]+
 ;
 
-String DecimalLiteral = 
+generic DecimalLiteral = decimalLiteral ;
+transient String decimalLiteral = 
   "." [0-9]+ 
 / [0-9]+ "." [0-9]*	
 ;
@@ -620,7 +627,8 @@ transient String doubleLiteral =
   ) [eE] [+\-]? [0-9]+	
 ;
 
-String StringLiteral =
+generic StringLiteral = stringLiteral ;
+transient String stringLiteral =
   '"' ( EscapeQuot / !["] Char )* '"' 
 / "'" ( EscapeApos / !['] Char )* "'"
 ;
@@ -628,7 +636,8 @@ String StringLiteral =
 generic URIQualifiedName =
   BracedURILiteral NCName ;
 
-transient String  BracedURILiteral = 
+generic BracedURILiteral = bracedURILiteral ;
+transient String bracedURILiteral = 
   "Q{" ![{}]* "}"
 ;
 
@@ -666,7 +675,7 @@ generic PrefixedName =
   Prefix COLON LocalPart
 ;
 
-String UnprefixedName =
+generic UnprefixedName =
   LocalPart
 ;
 
@@ -785,8 +794,6 @@ void LBrack = SKIP '['  SKIP ;
 void RBrack = SKIP ']'  SKIP ;
 void LBrace = SKIP '{'  SKIP ;
 void RBrace = SKIP '}'  SKIP ;
-void ASTER  = SKIP '*'  SKIP ;
-void QUEST  = SKIP '?'  SKIP ;
 void SLASH  = SKIP '/'  SKIP ;
 void DSLASH = SKIP "//" SKIP ;
 void DOLLAR = SKIP '$'  SKIP ;
@@ -795,6 +802,8 @@ void DPIPE  = SKIP "||" SKIP ;
 
 // ------ Operators
 
+String ASTER    = SKIP "*"  SKIP ;
+String QUEST    = SKIP "?"  SKIP ;
 String PLUS     = SKIP "+"  SKIP ;
 String MINUS    = SKIP "-"  SKIP ;
 String MULTIPLY = SKIP "*"  SKIP ;
