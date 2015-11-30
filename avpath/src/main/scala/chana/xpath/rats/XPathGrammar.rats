@@ -90,8 +90,8 @@ generic ComparisonExpr =
 
 generic ComparisonExprPostfix =
   ( ValueComp
-  / GeneralComp
   / NodeComp
+  / GeneralComp
   ) StringConcatExpr
 ;
 

@@ -669,19 +669,19 @@ final class JPQLParser() {
   /*-
      EQ ComparisonExprRightOperand
    / NE ComparisonExprRightOperand
-   / GT ComparisonExprRightOperand
-   / GE ComparisonExprRightOperand
-   / LT ComparisonExprRightOperand
    / LE ComparisonExprRightOperand
+   / LT ComparisonExprRightOperand
+   / GE ComparisonExprRightOperand
+   / GT ComparisonExprRightOperand
    */
   def comparisonExpr(node: Node) = {
     val op = node.getString(0) match {
       case "="  => EQ
       case "<>" => NE
-      case ">"  => GT
-      case ">=" => GE
-      case "<"  => LT
       case "<=" => LE
+      case "<"  => LT
+      case ">=" => GE
+      case ">"  => GT
     }
     val right = visit(node.getNode(1))(comparisonExprRightOperand)
     ComparisonExpr(op, right)

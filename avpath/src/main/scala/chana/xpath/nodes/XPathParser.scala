@@ -225,15 +225,16 @@ final class XPathParser {
 
   /**
    * ( ValueComp
+   * / NodeComp
    * / GeneralComp
-   * / NodeComp) StringConcatExpr
+   * ) StringConcatExpr
    */
   def comparisonExprPostfix(node: Node) = {
     val n = node.getNode(0)
     val op = n.getName match {
       case "ValueComp"   => visit(n)(valueComp)
-      case "GeneralComp" => visit(n)(generalComp)
       case "NodeComp"    => visit(n)(nodeComp)
+      case "GeneralComp" => visit(n)(generalComp)
 
     }
     val expr0 = visit(node.getNode(1))(stringConcatExpr)

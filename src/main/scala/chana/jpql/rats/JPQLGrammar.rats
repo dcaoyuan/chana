@@ -276,10 +276,10 @@ generic ExistsExpr =
 generic ComparisonExpr =
   EQ ComparisonExprRightOperand
 / NE ComparisonExprRightOperand
-/ GT ComparisonExprRightOperand
-/ GE ComparisonExprRightOperand
-/ LT ComparisonExprRightOperand
 / LE ComparisonExprRightOperand
+/ LT ComparisonExprRightOperand
+/ GE ComparisonExprRightOperand
+/ GT ComparisonExprRightOperand
 ;
 
 generic ComparisonExprRightOperand =
