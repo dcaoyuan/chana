@@ -5,7 +5,7 @@ import chana.xpath.rats.XPathGrammar
 import java.io.StringReader
 import xtc.tree.Node
 
-class XPathParser {
+final class XPathParser {
 
   /**
    * main entrance
@@ -782,7 +782,7 @@ class XPathParser {
       case "Literal"           => PrimaryExpr_Literal(visit(n)(literal))
       case "VarRef"            => PrimaryExpr_VarRef(visit(n)(varRef))
       case "ParenthesizedExpr" => PrimaryExpr_ParenthesizedExpr(visit(n)(parenthesizedExpr))
-      case "ContextItemExpr"   => visit(n)(contextItemExpr)
+      case "ContextItemExpr"   => PrimaryExpr_ContextItemExpr
       case "FunctionCall"      => PrimaryExpr_FunctionCall(visit(n)(functionCall))
       case "FunctionItemExpr"  => PrimaryExpr_FunctionItemExpr(visit(n)(functionItemExpr))
       case "MapConstructor"    => PrimaryExpr_MapConstructor(visit(n)(mapConstructor))
@@ -878,7 +878,7 @@ class XPathParser {
     val n = node.getNode(0)
     n.getName match {
       case "ExprSingle"          => Argument_ExprSingle(visit(n)(exprSingle))
-      case "ArgumentPlaceholder" => visit(n)(argumentPlaceholder)
+      case "ArgumentPlaceholder" => ArgumentPlaceholder
     }
   }
 

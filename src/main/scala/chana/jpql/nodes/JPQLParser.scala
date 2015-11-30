@@ -4,7 +4,7 @@ import chana.jpql.rats.JPQLGrammar
 import java.io.StringReader
 import xtc.tree.Node
 
-class JPQLParser() {
+final class JPQLParser() {
 
   private var indentLevel = 0
   protected var nodePath = List[Node]()
