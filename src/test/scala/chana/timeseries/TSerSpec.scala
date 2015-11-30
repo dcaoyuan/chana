@@ -25,6 +25,11 @@ class TSerSpec(_system: ActorSystem) extends TestKit(_system) with ImplicitSende
       provider = "akka.cluster.ClusterActorRefProvider"                                                                      
   }
   akka.remote.netty.tcp.hostname = "localhost"
+  # To avoid:
+  #   Logger specified in config can't be loaded [akka.event.slf4j.Slf4jLogger] 
+  #   due to [akka.event.Logging$LoggerInitializationException: Logger log1-Slf4jLogger 
+  #   did not respond with LoggerInitialized, sent instead [TIMEOUT]]                                                                    
+  akka.logger-startup-timeout = 30s 
   # set port to random to by pass the ports that will be occupied by ChanaClusterSpec test
   akka.remote.netty.tcp.port = 0
   """)))

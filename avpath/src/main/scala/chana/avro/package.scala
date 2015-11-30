@@ -46,6 +46,14 @@ import scala.util.Try
  * All other types are mapped as in the generic API.
  */
 package object avro {
+
+  object Diff {
+    val ADD: Byte = 0
+    val DELETE: Byte = 1
+    val CHANGE: Byte = 2
+  }
+  final case class UpdateAction(commit: () => Unit, rollback: () => Unit, tpe: Byte, xpath: String, value: Any)
+
   private[avro] val JSON_MAPPER = new ObjectMapper()
   private[avro] val JSON_FACTORY = new JsonFactory()
     .enable(Feature.ALLOW_COMMENTS)
