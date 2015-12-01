@@ -6,7 +6,7 @@ import akka.contrib.datareplication.{ DataReplication, LWWMap }
 import akka.contrib.pattern.ClusterSharding
 import akka.pattern.ask
 import akka.persistence._
-import chana.{ Entity, Event, PutSchema, RemoveSchema }
+import chana.{ Entity, Event, PutSchema, RemoveSchema, AEntity }
 import chana.avro.DefaultRecordBuilder
 import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
@@ -44,7 +44,8 @@ object DistributedSchemaBoard extends ExtensionId[DistributedSchemaBoardExtensio
     val entityname = entityName.toLowerCase
     entityToSchema.putIfAbsent(entityname, (schema, idleTimeout)) match {
       case null =>
-        Entity.startSharding(system, entityname, Some(Entity.props(entityname, schema, DefaultRecordBuilder(schema), idleTimeout)))
+        // TODO developer can use custom Entity
+        Entity.startSharding(system, entityname, Some(AEntity.props(entityname, schema, DefaultRecordBuilder(schema), idleTimeout)))
       case old => // If existed, do nothing, or upgrade to new schema ? TODO
     }
   }

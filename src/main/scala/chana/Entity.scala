@@ -1,14 +1,11 @@
 package chana
 
-import akka.actor.{ Actor, ActorLogging, ActorRef, ActorSystem, Cancellable, PoisonPill, Props, Stash }
+import akka.actor.{ Actor, ActorRef, ActorSystem, Cancellable, PoisonPill, Props, Stash }
 import akka.contrib.pattern.{ ClusterSharding, ShardRegion, DistributedPubSubExtension }
 import akka.event.LoggingAdapter
 import akka.persistence._
-import chana.avpath.AVPathBehavior
 import chana.avpath.Evaluator.Ctx
 import chana.avro.DefaultRecordBuilder
-import chana.jpql.JPQLBehavior
-import chana.script.ScriptBehavior
 import chana.serializer.AvroMarshaler
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData
@@ -17,9 +14,6 @@ import scala.concurrent.duration._
 import scala.util.{ Failure, Success }
 
 object Entity {
-  def props(entityName: String, schema: Schema, builder: DefaultRecordBuilder, idleTimeout: Duration) =
-    Props(classOf[AEntity], entityName, schema, builder, idleTimeout)
-
   lazy val idExtractor: ShardRegion.IdExtractor = {
     case cmd: Command => (cmd.id, cmd)
   }
@@ -46,29 +40,6 @@ object Entity {
   final case class Bootstrap(record: Record)
 }
 
-class AEntity(val entityName: String, val schema: Schema, val builder: DefaultRecordBuilder, idleTimeout: Duration)
-    extends Entity
-    with AVPathBehavior
-    with ScriptBehavior
-    with JPQLBehavior
-    with Actor
-    with ActorLogging {
-
-  idleTimeout match {
-    case f: FiniteDuration =>
-      setIdleTimeout(f)
-      resetIdleTimeout()
-    case _ =>
-  }
-
-  override def receiveCommand = accessBehavior orElse persistBehavior orElse avpathBehavior orElse jpqlBehavior
-
-  override def onUpdated(fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record) {
-    super[ScriptBehavior].onUpdated(fieldsBefore, recordAfter)
-    super[JPQLBehavior].onUpdated(fieldsBefore, recordAfter)
-  }
-}
-
 trait Entity extends Actor with Stash with PersistentActor {
   import context.dispatcher
 
@@ -86,7 +57,6 @@ trait Entity extends Actor with Stash with PersistentActor {
 
   protected val id = self.path.name
   protected val encoderDecoder = new avro.EncoderDecoder()
-  protected def parser = new avpath.Parser()
 
   private var _isDeleted: Boolean = _
   protected def isDeleted = _isDeleted

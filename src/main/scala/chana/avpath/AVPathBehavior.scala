@@ -22,6 +22,7 @@ final case class Delete(id: String, path: String) extends Command
 final case class Clear(id: String, path: String) extends Command
 
 trait AVPathBehavior extends Entity {
+  protected def parser = new avpath.Parser()
 
   def avpathBehavior: Receive = {
     case Select(_, path) =>
