@@ -4,6 +4,7 @@ import akka.actor.{ Actor, ActorLogging, ActorRef, ActorSystem, Cancellable, Poi
 import akka.contrib.pattern.{ ClusterSharding, ShardRegion, DistributedPubSubExtension }
 import akka.event.LoggingAdapter
 import akka.persistence._
+import chana.avpath.AVPathBehavior
 import chana.avpath.Evaluator.Ctx
 import chana.avro.DefaultRecordBuilder
 import chana.jpql.JPQLBehavior
@@ -13,7 +14,7 @@ import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData
 import org.apache.avro.generic.GenericData.Record
 import scala.concurrent.duration._
-import scala.util.{ Failure, Success, Try }
+import scala.util.{ Failure, Success }
 
 object Entity {
   def props(entityName: String, schema: Schema, builder: DefaultRecordBuilder, idleTimeout: Duration) =
@@ -47,6 +48,7 @@ object Entity {
 
 class AEntity(val entityName: String, val schema: Schema, val builder: DefaultRecordBuilder, idleTimeout: Duration)
     extends Entity
+    with AVPathBehavior
     with ScriptBehavior
     with JPQLBehavior
     with Actor
@@ -59,7 +61,7 @@ class AEntity(val entityName: String, val schema: Schema, val builder: DefaultRe
     case _ =>
   }
 
-  override def receiveCommand = accessBehavior orElse persistBehavior orElse jpqlBehavior
+  override def receiveCommand = accessBehavior orElse persistBehavior orElse avpathBehavior orElse jpqlBehavior
 
   override def onUpdated(fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record) {
     super[ScriptBehavior].onUpdated(fieldsBefore, recordAfter)
@@ -147,7 +149,6 @@ trait Entity extends Actor with Stash with PersistentActor {
   def persistBehavior: Receive = {
     case f: PersistenceFailure  => log.error("persist failed: {}", f.cause)
     case f: SaveSnapshotFailure => log.error("saving snapshot failed: {}", f.cause)
-
   }
 
   def accessBehavior: Receive = {
@@ -225,149 +226,6 @@ trait Entity extends Actor with Stash with PersistentActor {
     case PutFieldJson(_, fieldName, json) =>
       resetIdleTimeout()
       putFieldJson(sender(), fieldName, json)
-
-    case Select(_, path) =>
-      resetIdleTimeout()
-      val commander = sender()
-      avpath.select(parser)(record, path) match {
-        case Success(ctxList: List[Ctx]) =>
-          commander ! Success(ctxList.map { ctx =>
-            Ctx(GenericData.get().deepCopy(ctx.schema, ctx.value), ctx.schema, ctx.topLevelField, ctx.target)
-          })
-        case x @ Failure(ex) =>
-          log.error(ex, ex.getMessage)
-          commander ! x
-      }
-
-    case SelectAvro(_, path) =>
-      resetIdleTimeout()
-      val commander = sender()
-      avpath.select(parser)(record, path) match {
-        case x @ Success(ctxs) =>
-          Try(ctxs.map { ctx => encoderDecoder.avroEncode(ctx.value, ctx.schema).get }) match {
-            case xs: Success[_] =>
-              commander ! xs // List[Array[Byte]] 
-            case x @ Failure(ex) =>
-              log.error(ex, ex.getMessage)
-              commander ! x
-          }
-        case x @ Failure(ex) =>
-          log.error(ex, ex.getMessage)
-          commander ! x
-      }
-
-    case SelectJson(_, path) =>
-      resetIdleTimeout()
-      val commander = sender()
-      avpath.select(parser)(record, path) match {
-        case Success(ctxs) =>
-          Try(ctxs.map { ctx => encoderDecoder.jsonEncode(ctx.value, ctx.schema).get }) match {
-            case xs: Success[_] =>
-              commander ! xs // List[Array[Byte]]
-            case x @ Failure(ex) =>
-              log.error(ex, ex.getMessage)
-              commander ! x
-          }
-        case x @ Failure(ex) =>
-          log.error(ex, ex.getMessage)
-          commander ! x
-      }
-
-    case Update(_, path, value) =>
-      resetIdleTimeout()
-      val commander = sender()
-      val toBe = new GenericData.Record(record, true)
-      avpath.update(parser)(toBe, path, value) match {
-        case Success(ctxs) =>
-          commit(id, toBe, ctxs, commander)
-        case x @ Failure(ex) =>
-          log.error(ex, ex.getMessage)
-          commander ! x
-      }
-
-    case UpdateJson(_, path, value) =>
-      resetIdleTimeout()
-      val commander = sender()
-      val toBe = new GenericData.Record(record, true)
-      avpath.updateJson(parser)(toBe, path, value) match {
-        case Success(ctxs) =>
-          commit(id, toBe, ctxs, commander)
-        case x @ Failure(ex) =>
-          log.error(ex, ex.getMessage)
-          commander ! x
-      }
-
-    case Insert(_, path, value) =>
-      resetIdleTimeout()
-      val commander = sender()
-      val toBe = new GenericData.Record(record, true)
-      avpath.insert(parser)(toBe, path, value) match {
-        case Success(ctxs) =>
-          commit(id, toBe, ctxs, commander)
-        case x @ Failure(ex) =>
-          log.error(ex, ex.getMessage)
-          commander ! x
-      }
-
-    case InsertJson(_, path, value) =>
-      resetIdleTimeout()
-      val commander = sender()
-      val toBe = new GenericData.Record(record, true)
-      avpath.insertJson(parser)(toBe, path, value) match {
-        case Success(ctxs) =>
-          commit(id, toBe, ctxs, commander)
-        case x @ Failure(ex) =>
-          log.error(ex, ex.getMessage)
-          commander ! x
-      }
-
-    case InsertAll(_, path, values) =>
-      resetIdleTimeout()
-      val commander = sender()
-      val toBe = new GenericData.Record(record, true)
-      avpath.insertAll(parser)(toBe, path, values) match {
-        case Success(ctxs) =>
-          commit(id, toBe, ctxs, commander)
-        case x @ Failure(ex) =>
-          log.error(ex, ex.getMessage)
-          commander ! x
-      }
-
-    case InsertAllJson(_, path, values) =>
-      resetIdleTimeout()
-      val commander = sender()
-      val toBe = new GenericData.Record(record, true)
-      avpath.insertAllJson(parser)(toBe, path, values) match {
-        case Success(ctxs) =>
-          commit(id, toBe, ctxs, commander)
-        case x @ Failure(ex) =>
-          log.error(ex, ex.getMessage)
-          commander ! x
-      }
-
-    case Delete(_, path) =>
-      resetIdleTimeout()
-      val commander = sender()
-      val toBe = new GenericData.Record(record, true)
-      avpath.delete(parser)(toBe, path) match {
-        case Success(ctxs) =>
-          commit(id, toBe, ctxs, commander, false)
-        case x @ Failure(ex) =>
-          log.error(ex, ex.getMessage)
-          commander ! x
-      }
-
-    case Clear(_, path) =>
-      resetIdleTimeout()
-      val commander = sender()
-      val toBe = new GenericData.Record(record, true)
-      avpath.clear(parser)(toBe, path) match {
-        case Success(ctxs) =>
-          commit(id, toBe, ctxs, commander, false)
-        case x @ Failure(ex) =>
-          log.error(ex, ex.getMessage)
-          commander ! x
-      }
 
     case Entity.SetIdleTimeout(milliseconds) =>
       setIdleTimeout(milliseconds.milliseconds)
@@ -457,7 +315,7 @@ trait Entity extends Actor with Stash with PersistentActor {
     commitUpdatedFields(id, updatedFields, commander)
   }
 
-  private def commit(id: String, toBe: Record, ctxs: List[Ctx], commander: ActorRef, doLimitSize: Boolean = true) {
+  protected def commit(id: String, toBe: Record, ctxs: List[Ctx], commander: ActorRef, doLimitSize: Boolean = true) {
     val time = System.currentTimeMillis
     // TODO when avpath is ".", topLevelField will be null, it's better to return all topLevelFields
     val updatedFields =

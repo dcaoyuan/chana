@@ -21,18 +21,6 @@ package object chana {
   final case class PutField(id: String, field: String, value: Any) extends Command
   final case class PutFieldJson(id: String, field: String, value: String) extends Command
 
-  final case class Select(id: String, path: String) extends Command
-  final case class SelectAvro(id: String, path: String) extends Command
-  final case class SelectJson(id: String, path: String) extends Command
-  final case class Update(id: String, path: String, value: Any) extends Command
-  final case class UpdateJson(id: String, path: String, value: String) extends Command
-  final case class Insert(id: String, path: String, value: Any) extends Command
-  final case class InsertJson(id: String, path: String, value: String) extends Command
-  final case class InsertAll(id: String, path: String, values: java.util.Collection[_]) extends Command
-  final case class InsertAllJson(id: String, path: String, values: String) extends Command
-  final case class Delete(id: String, path: String) extends Command
-  final case class Clear(id: String, path: String) extends Command
-
   /**
    * @param   entity name
    * @param   schema of entity
