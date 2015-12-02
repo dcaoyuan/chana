@@ -29,16 +29,6 @@ object Evaluator {
   final case class TargetArray(array: java.util.Collection[_], idx: Int, arraySchema: Schema) extends Target
   final case class TargetMap(map: java.util.Map[String, _], key: String, mapSchema: Schema) extends Target
 
-  private object Op {
-    case object Select extends Op
-    case object Update extends Op
-    case object Delete extends Op
-    case object Clear extends Op
-    case object Insert extends Op
-    case object InsertAll extends Op
-  }
-  private sealed trait Op
-
   final case class Ctx(value: Any, schema: Schema, topLevelField: Schema.Field, target: Option[Target] = None)
 
   def select(root: IndexedRecord, ast: PathSyntax): List[Ctx] = {
@@ -46,53 +36,54 @@ object Evaluator {
   }
 
   def update(root: IndexedRecord, ast: PathSyntax, value: Any): List[Ctx] = {
-    operate(root, ast, Op.Update, value, isJsonValue = false)
+    val ctxs = select(root, ast)
+    opUpdate(ctxs, value, false)
+    ctxs
   }
 
   def updateJson(root: IndexedRecord, ast: PathSyntax, value: String): List[Ctx] = {
-    operate(root, ast, Op.Update, value, isJsonValue = true)
+    val ctxs = select(root, ast)
+    opUpdate(ctxs, value, true)
+    ctxs
   }
 
   def insert(root: IndexedRecord, ast: PathSyntax, value: Any): List[Ctx] = {
-    operate(root, ast, Op.Insert, value, isJsonValue = false)
+    val ctxs = select(root, ast)
+    opInsert(ctxs, value, false)
+    ctxs
   }
 
   def insertJson(root: IndexedRecord, ast: PathSyntax, value: String): List[Ctx] = {
-    operate(root, ast, Op.Insert, value, isJsonValue = true)
+    val ctxs = select(root, ast)
+    opInsert(ctxs, value, true)
+    ctxs
   }
 
   def insertAll(root: IndexedRecord, ast: PathSyntax, values: java.util.Collection[_]): List[Ctx] = {
-    operate(root, ast, Op.InsertAll, values, isJsonValue = false)
+    val ctxs = select(root, ast)
+    opInsertAll(ctxs, values, false)
+    ctxs
   }
 
   def insertAllJson(root: IndexedRecord, ast: PathSyntax, values: String): List[Ctx] = {
-    operate(root, ast, Op.InsertAll, values, isJsonValue = true)
+    val ctxs = select(root, ast)
+    opInsertAll(ctxs, values, true)
+    ctxs
   }
 
   def delete(root: IndexedRecord, ast: PathSyntax): List[Ctx] = {
-    operate(root, ast, Op.Delete, null, false)
+    val ctxs = select(root, ast)
+    opDelete(ctxs)
+    ctxs
   }
 
   def clear(root: IndexedRecord, ast: PathSyntax): List[Ctx] = {
-    operate(root, ast, Op.Clear, null, false)
+    val ctxs = select(root, ast)
+    opClear(ctxs)
+    ctxs
   }
 
   private def targets(ctxs: List[Ctx]) = ctxs.flatMap(_.target)
-
-  private def operate(root: IndexedRecord, ast: PathSyntax, op: Op, value: Any, isJsonValue: Boolean): List[Ctx] = {
-    val ctxs = select(root, ast)
-
-    op match {
-      case Op.Select    =>
-      case Op.Delete    => opDelete(ctxs)
-      case Op.Clear     => opClear(ctxs)
-      case Op.Update    => opUpdate(ctxs, value, isJsonValue)
-      case Op.Insert    => opInsert(ctxs, value, isJsonValue)
-      case Op.InsertAll => opInsertAll(ctxs, value, isJsonValue)
-    }
-
-    ctxs
-  }
 
   private def opDelete(ctxs: List[Ctx]) = {
     val processingArrs = new mutable.HashMap[java.util.Collection[_], (Schema, List[Int])]()
@@ -144,21 +135,7 @@ object Evaluator {
       case TargetArray(arr, idx, arrSchema) =>
         getElementType(arrSchema) foreach { elemSchema =>
           val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
-          (elemSchema.getType, value1) match {
-            case (Type.BOOLEAN, v: Boolean)               => arrayUpdate(arr, idx, v)
-            case (Type.INT, v: Int)                       => arrayUpdate(arr, idx, v)
-            case (Type.LONG, v: Long)                     => arrayUpdate(arr, idx, v)
-            case (Type.FLOAT, v: Float)                   => arrayUpdate(arr, idx, v)
-            case (Type.DOUBLE, v: Double)                 => arrayUpdate(arr, idx, v)
-            case (Type.BYTES, v: ByteBuffer)              => arrayUpdate(arr, idx, v)
-            case (Type.STRING, v: CharSequence)           => arrayUpdate(arr, idx, v)
-            case (Type.RECORD, v: IndexedRecord)          => arrayUpdate(arr, idx, v)
-            case (Type.ENUM, v: GenericEnumSymbol)        => arrayUpdate(arr, idx, v)
-            case (Type.FIXED, v: GenericFixed)            => arrayUpdate(arr, idx, v)
-            case (Type.ARRAY, v: java.util.Collection[_]) => arrayUpdate(arr, idx, v)
-            case (Type.MAP, v: java.util.Map[_, _])       => arrayUpdate(arr, idx, v)
-            case _                                        => // todo
-          }
+          arrayUpdate(arr, idx, value1, elemSchema.getType)
         }
 
       case TargetMap(map, key, mapSchema) =>
@@ -176,21 +153,7 @@ object Evaluator {
           case arr: java.util.Collection[_] =>
             getElementType(field.schema) foreach { elemSchema =>
               val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
-              (elemSchema.getType, value1) match {
-                case (Type.BOOLEAN, v: Boolean)               => arrayInsert(arr, v)
-                case (Type.INT, v: Int)                       => arrayInsert(arr, v)
-                case (Type.LONG, v: Long)                     => arrayInsert(arr, v)
-                case (Type.FLOAT, v: Float)                   => arrayInsert(arr, v)
-                case (Type.DOUBLE, v: Double)                 => arrayInsert(arr, v)
-                case (Type.BYTES, v: ByteBuffer)              => arrayInsert(arr, v)
-                case (Type.STRING, v: CharSequence)           => arrayInsert(arr, v)
-                case (Type.RECORD, v: IndexedRecord)          => arrayInsert(arr, v)
-                case (Type.ENUM, v: GenericEnumSymbol)        => arrayInsert(arr, v)
-                case (Type.FIXED, v: GenericFixed)            => arrayInsert(arr, v)
-                case (Type.ARRAY, v: java.util.Collection[_]) => arrayInsert(arr, v)
-                case (Type.MAP, v: java.util.Map[_, _])       => arrayInsert(arr, v)
-                case _                                        => // todo
-              }
+              arrayInsert(arr, value1, elemSchema.getType)
             }
 
           case map: java.util.Map[_, _] =>
@@ -229,21 +192,7 @@ object Evaluator {
                 case xs: java.util.Collection[_] =>
                   val itr = xs.iterator
                   while (itr.hasNext) {
-                    (elemSchema.getType, itr.next) match {
-                      case (Type.BOOLEAN, v: Boolean)               => arrayInsert(arr, v)
-                      case (Type.INT, v: Int)                       => arrayInsert(arr, v)
-                      case (Type.LONG, v: Long)                     => arrayInsert(arr, v)
-                      case (Type.FLOAT, v: Float)                   => arrayInsert(arr, v)
-                      case (Type.DOUBLE, v: Double)                 => arrayInsert(arr, v)
-                      case (Type.BYTES, v: ByteBuffer)              => arrayInsert(arr, v)
-                      case (Type.STRING, v: CharSequence)           => arrayInsert(arr, v)
-                      case (Type.RECORD, v: IndexedRecord)          => arrayInsert(arr, v)
-                      case (Type.ENUM, v: GenericEnumSymbol)        => arrayInsert(arr, v)
-                      case (Type.FIXED, v: GenericFixed)            => arrayInsert(arr, v)
-                      case (Type.ARRAY, v: java.util.Collection[_]) => arrayInsert(arr, v)
-                      case (Type.MAP, v: java.util.Map[_, _])       => arrayInsert(arr, v)
-                      case _                                        => // todo
-                    }
+                    arrayInsert(arr, itr.next, elemSchema.getType)
                   }
                 case _ => // ?
               }
@@ -283,6 +232,24 @@ object Evaluator {
     }
   }
 
+  private def arrayUpdate[T](arr: java.util.Collection[_], idx: Int, value: T, tpe: Schema.Type) {
+    (tpe, value) match {
+      case (Type.BOOLEAN, v: Boolean)               => arrayUpdate(arr, idx, v)
+      case (Type.INT, v: Int)                       => arrayUpdate(arr, idx, v)
+      case (Type.LONG, v: Long)                     => arrayUpdate(arr, idx, v)
+      case (Type.FLOAT, v: Float)                   => arrayUpdate(arr, idx, v)
+      case (Type.DOUBLE, v: Double)                 => arrayUpdate(arr, idx, v)
+      case (Type.BYTES, v: ByteBuffer)              => arrayUpdate(arr, idx, v)
+      case (Type.STRING, v: CharSequence)           => arrayUpdate(arr, idx, v)
+      case (Type.RECORD, v: IndexedRecord)          => arrayUpdate(arr, idx, v)
+      case (Type.ENUM, v: GenericEnumSymbol)        => arrayUpdate(arr, idx, v)
+      case (Type.FIXED, v: GenericFixed)            => arrayUpdate(arr, idx, v)
+      case (Type.ARRAY, v: java.util.Collection[_]) => arrayUpdate(arr, idx, v)
+      case (Type.MAP, v: java.util.Map[_, _])       => arrayUpdate(arr, idx, v)
+      case _                                        => // todo
+    }
+  }
+
   private def arrayUpdate[T](arr: java.util.Collection[_], idx: Int, value: T) {
     if (idx >= 0) {
       arr match {
@@ -307,6 +274,24 @@ object Evaluator {
           }
           arr.asInstanceOf[java.util.Collection[T]].addAll(newTail)
       }
+    }
+  }
+
+  private def arrayInsert[T](arr: java.util.Collection[_], value: T, tpe: Schema.Type) {
+    (tpe, value) match {
+      case (Type.BOOLEAN, v: Boolean)               => arrayInsert(arr, v)
+      case (Type.INT, v: Int)                       => arrayInsert(arr, v)
+      case (Type.LONG, v: Long)                     => arrayInsert(arr, v)
+      case (Type.FLOAT, v: Float)                   => arrayInsert(arr, v)
+      case (Type.DOUBLE, v: Double)                 => arrayInsert(arr, v)
+      case (Type.BYTES, v: ByteBuffer)              => arrayInsert(arr, v)
+      case (Type.STRING, v: CharSequence)           => arrayInsert(arr, v)
+      case (Type.RECORD, v: IndexedRecord)          => arrayInsert(arr, v)
+      case (Type.ENUM, v: GenericEnumSymbol)        => arrayInsert(arr, v)
+      case (Type.FIXED, v: GenericFixed)            => arrayInsert(arr, v)
+      case (Type.ARRAY, v: java.util.Collection[_]) => arrayInsert(arr, v)
+      case (Type.MAP, v: java.util.Map[_, _])       => arrayInsert(arr, v)
+      case _                                        => // todo
     }
   }
 
@@ -337,12 +322,12 @@ object Evaluator {
   }
 
   private def evaluatePath(path: PathSyntax, _ctxs: List[Ctx], isTopLevel: Boolean): List[Ctx] = {
+    var ctxs = _ctxs
 
     val parts = path.parts
     val len = parts.length
     var i = 0
     var isResArray = true
-    var ctxs = _ctxs
     while (i < len) {
       parts(i) match {
         case x: SelectorSyntax =>
