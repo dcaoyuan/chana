@@ -83,195 +83,204 @@ object Evaluator {
     val ctxs = select(root, ast)
 
     op match {
-      case Op.Select =>
+      case Op.Select    =>
+      case Op.Delete    => opDelete(ctxs)
+      case Op.Clear     => opClear(ctxs)
+      case Op.Update    => opUpdate(ctxs, value, isJsonValue)
+      case Op.Insert    => opInsert(ctxs, value, isJsonValue)
+      case Op.InsertAll => opInsertAll(ctxs, value, isJsonValue)
+    }
 
-      case Op.Delete =>
-        val processingArrs = new mutable.HashMap[java.util.Collection[_], (Schema, List[Int])]()
-        targets(ctxs) foreach {
-          case _: TargetRecord => // cannot apply delete on record
+    ctxs
+  }
 
-          case TargetArray(arr, idx, schema) =>
-            processingArrs += arr -> (schema, idx :: processingArrs.getOrElse(arr, (schema, List[Int]()))._2)
+  private def opDelete(ctxs: List[Ctx]) = {
+    val processingArrs = new mutable.HashMap[java.util.Collection[_], (Schema, List[Int])]()
+    targets(ctxs) foreach {
+      case _: TargetRecord => // cannot apply delete on record
 
-          case TargetMap(map, key, _) =>
-            map.remove(key)
+      case TargetArray(arr, idx, schema) =>
+        processingArrs += arr -> (schema, idx :: processingArrs.getOrElse(arr, (schema, List[Int]()))._2)
+
+      case TargetMap(map, key, _) =>
+        map.remove(key)
+    }
+
+    for ((arr, (schema, toRemoved)) <- processingArrs) {
+      arrayRemove(arr, toRemoved)
+    }
+  }
+
+  private def opClear(ctxs: List[Ctx]) = {
+    targets(ctxs) foreach {
+      case TargetRecord(rec, field) =>
+        rec.get(field.pos) match {
+          case arr: java.util.Collection[_] => arr.clear
+          case map: java.util.Map[_, _]     => map.clear
+          case _                            => // ?
         }
 
-        for ((arr, (schema, toRemoved)) <- processingArrs) {
-          arrayRemove(arr, toRemoved)
+      case _: TargetArray =>
+      // why you be here, for Insert, you should op on record's arr field directly
+
+      case _: TargetMap   =>
+      // why you be here, for Insert, you should op on record's map field directly
+    }
+  }
+
+  private def opUpdate(ctxs: List[Ctx], value: Any, isJsonValue: Boolean) = {
+    targets(ctxs) foreach {
+      case TargetRecord(rec, null) =>
+        val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], rec.getSchema, false) else value
+        value1 match {
+          case v: IndexedRecord => replace(rec, v)
+          case _                => // log.error 
         }
 
-      case Op.Clear =>
-        targets(ctxs) foreach {
-          case TargetRecord(rec, field) =>
-            rec.get(field.pos) match {
-              case arr: java.util.Collection[_] => arr.clear
-              case map: java.util.Map[_, _]     => map.clear
-              case _                            => // ?
-            }
+      case TargetRecord(rec, field) =>
+        val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
+        rec.put(field.pos, value1)
 
-          case _: TargetArray =>
-          // why you be here, for Insert, you should op on record's arr field directly
-
-          case _: TargetMap   =>
-          // why you be here, for Insert, you should op on record's map field directly
+      case TargetArray(arr, idx, arrSchema) =>
+        getElementType(arrSchema) foreach { elemSchema =>
+          val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
+          (elemSchema.getType, value1) match {
+            case (Type.BOOLEAN, v: Boolean)               => arrayUpdate(arr, idx, v)
+            case (Type.INT, v: Int)                       => arrayUpdate(arr, idx, v)
+            case (Type.LONG, v: Long)                     => arrayUpdate(arr, idx, v)
+            case (Type.FLOAT, v: Float)                   => arrayUpdate(arr, idx, v)
+            case (Type.DOUBLE, v: Double)                 => arrayUpdate(arr, idx, v)
+            case (Type.BYTES, v: ByteBuffer)              => arrayUpdate(arr, idx, v)
+            case (Type.STRING, v: CharSequence)           => arrayUpdate(arr, idx, v)
+            case (Type.RECORD, v: IndexedRecord)          => arrayUpdate(arr, idx, v)
+            case (Type.ENUM, v: GenericEnumSymbol)        => arrayUpdate(arr, idx, v)
+            case (Type.FIXED, v: GenericFixed)            => arrayUpdate(arr, idx, v)
+            case (Type.ARRAY, v: java.util.Collection[_]) => arrayUpdate(arr, idx, v)
+            case (Type.MAP, v: java.util.Map[_, _])       => arrayUpdate(arr, idx, v)
+            case _                                        => // todo
+          }
         }
 
-      case Op.Update =>
-        targets(ctxs) foreach {
-          case TargetRecord(rec, null) =>
-            val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], rec.getSchema, false) else value
-            value1 match {
-              case v: IndexedRecord => replace(rec, v)
-              case _                => // log.error 
-            }
+      case TargetMap(map, key, mapSchema) =>
+        getValueType(mapSchema) foreach { valueSchema =>
+          val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], valueSchema, false) else value
+          map.asInstanceOf[java.util.Map[String, Any]].put(key, value1)
+        }
+    }
+  }
 
-          case TargetRecord(rec, field) =>
-            val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
-            rec.put(field.pos, value1)
-
-          case TargetArray(arr, idx, arrSchema) =>
-            getElementType(arrSchema) foreach { elemSchema =>
+  private def opInsert(ctxs: List[Ctx], value: Any, isJsonValue: Boolean) = {
+    targets(ctxs) foreach {
+      case TargetRecord(rec, field) =>
+        rec.get(field.pos) match {
+          case arr: java.util.Collection[_] =>
+            getElementType(field.schema) foreach { elemSchema =>
               val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
               (elemSchema.getType, value1) match {
-                case (Type.BOOLEAN, v: Boolean)               => arrayUpdate(arr, idx, v)
-                case (Type.INT, v: Int)                       => arrayUpdate(arr, idx, v)
-                case (Type.LONG, v: Long)                     => arrayUpdate(arr, idx, v)
-                case (Type.FLOAT, v: Float)                   => arrayUpdate(arr, idx, v)
-                case (Type.DOUBLE, v: Double)                 => arrayUpdate(arr, idx, v)
-                case (Type.BYTES, v: ByteBuffer)              => arrayUpdate(arr, idx, v)
-                case (Type.STRING, v: CharSequence)           => arrayUpdate(arr, idx, v)
-                case (Type.RECORD, v: IndexedRecord)          => arrayUpdate(arr, idx, v)
-                case (Type.ENUM, v: GenericEnumSymbol)        => arrayUpdate(arr, idx, v)
-                case (Type.FIXED, v: GenericFixed)            => arrayUpdate(arr, idx, v)
-                case (Type.ARRAY, v: java.util.Collection[_]) => arrayUpdate(arr, idx, v)
-                case (Type.MAP, v: java.util.Map[_, _])       => arrayUpdate(arr, idx, v)
+                case (Type.BOOLEAN, v: Boolean)               => arrayInsert(arr, v)
+                case (Type.INT, v: Int)                       => arrayInsert(arr, v)
+                case (Type.LONG, v: Long)                     => arrayInsert(arr, v)
+                case (Type.FLOAT, v: Float)                   => arrayInsert(arr, v)
+                case (Type.DOUBLE, v: Double)                 => arrayInsert(arr, v)
+                case (Type.BYTES, v: ByteBuffer)              => arrayInsert(arr, v)
+                case (Type.STRING, v: CharSequence)           => arrayInsert(arr, v)
+                case (Type.RECORD, v: IndexedRecord)          => arrayInsert(arr, v)
+                case (Type.ENUM, v: GenericEnumSymbol)        => arrayInsert(arr, v)
+                case (Type.FIXED, v: GenericFixed)            => arrayInsert(arr, v)
+                case (Type.ARRAY, v: java.util.Collection[_]) => arrayInsert(arr, v)
+                case (Type.MAP, v: java.util.Map[_, _])       => arrayInsert(arr, v)
                 case _                                        => // todo
               }
             }
 
-          case TargetMap(map, key, mapSchema) =>
-            getValueType(mapSchema) foreach { valueSchema =>
-              val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], valueSchema, false) else value
-              map.asInstanceOf[java.util.Map[String, Any]].put(key, value1)
-            }
-        }
-
-      case Op.Insert =>
-        targets(ctxs) foreach {
-          case TargetRecord(rec, field) =>
-            rec.get(field.pos) match {
-              case arr: java.util.Collection[_] =>
-                getElementType(field.schema) foreach { elemSchema =>
-                  val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
-                  (elemSchema.getType, value1) match {
-                    case (Type.BOOLEAN, v: Boolean)               => arrayInsert(arr, v)
-                    case (Type.INT, v: Int)                       => arrayInsert(arr, v)
-                    case (Type.LONG, v: Long)                     => arrayInsert(arr, v)
-                    case (Type.FLOAT, v: Float)                   => arrayInsert(arr, v)
-                    case (Type.DOUBLE, v: Double)                 => arrayInsert(arr, v)
-                    case (Type.BYTES, v: ByteBuffer)              => arrayInsert(arr, v)
-                    case (Type.STRING, v: CharSequence)           => arrayInsert(arr, v)
-                    case (Type.RECORD, v: IndexedRecord)          => arrayInsert(arr, v)
-                    case (Type.ENUM, v: GenericEnumSymbol)        => arrayInsert(arr, v)
-                    case (Type.FIXED, v: GenericFixed)            => arrayInsert(arr, v)
-                    case (Type.ARRAY, v: java.util.Collection[_]) => arrayInsert(arr, v)
-                    case (Type.MAP, v: java.util.Map[_, _])       => arrayInsert(arr, v)
-                    case _                                        => // todo
-                  }
+          case map: java.util.Map[_, _] =>
+            val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
+            value1 match {
+              case (k: String, v) =>
+                map.asInstanceOf[java.util.Map[String, Any]].put(k, v)
+              case kvs: java.util.Map[_, _] =>
+                val entries = kvs.entrySet.iterator
+                if (entries.hasNext) {
+                  val entry = entries.next // should contains only one entry
+                  map.asInstanceOf[java.util.Map[String, Any]].put(entry.getKey.asInstanceOf[String], entry.getValue)
                 }
-
-              case map: java.util.Map[_, _] =>
-                val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
-                value1 match {
-                  case (k: String, v) =>
-                    map.asInstanceOf[java.util.Map[String, Any]].put(k, v)
-                  case kvs: java.util.Map[_, _] =>
-                    val entries = kvs.entrySet.iterator
-                    if (entries.hasNext) {
-                      val entry = entries.next // should contains only one entry
-                      map.asInstanceOf[java.util.Map[String, Any]].put(entry.getKey.asInstanceOf[String], entry.getValue)
-                    }
-                  case _ =>
-                }
-
-              case _ => // can only insert to array/map field
+              case _ =>
             }
 
-          case _: TargetArray =>
-          // why you be here, for Insert, you should op on record's arr field directly
-
-          case _: TargetMap   =>
-          // why you be here, for Insert, you should op on record's map field directly
+          case _ => // can only insert to array/map field
         }
 
-      case Op.InsertAll =>
-        targets(ctxs) foreach {
-          case TargetRecord(rec, field) =>
-            rec.get(field.pos) match {
-              case arr: java.util.Collection[_] =>
-                getElementType(field.schema) foreach { elemSchema =>
-                  val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
-                  value1 match {
-                    case xs: java.util.Collection[_] =>
-                      val itr = xs.iterator
-                      while (itr.hasNext) {
-                        (elemSchema.getType, itr.next) match {
-                          case (Type.BOOLEAN, v: Boolean)               => arrayInsert(arr, v)
-                          case (Type.INT, v: Int)                       => arrayInsert(arr, v)
-                          case (Type.LONG, v: Long)                     => arrayInsert(arr, v)
-                          case (Type.FLOAT, v: Float)                   => arrayInsert(arr, v)
-                          case (Type.DOUBLE, v: Double)                 => arrayInsert(arr, v)
-                          case (Type.BYTES, v: ByteBuffer)              => arrayInsert(arr, v)
-                          case (Type.STRING, v: CharSequence)           => arrayInsert(arr, v)
-                          case (Type.RECORD, v: IndexedRecord)          => arrayInsert(arr, v)
-                          case (Type.ENUM, v: GenericEnumSymbol)        => arrayInsert(arr, v)
-                          case (Type.FIXED, v: GenericFixed)            => arrayInsert(arr, v)
-                          case (Type.ARRAY, v: java.util.Collection[_]) => arrayInsert(arr, v)
-                          case (Type.MAP, v: java.util.Map[_, _])       => arrayInsert(arr, v)
-                          case _                                        => // todo
+      case _: TargetArray =>
+      // why you be here, for Insert, you should op on record's arr field directly
 
-                        }
-                      }
-                    case _ => // ?
-                  }
-                }
-
-              case map: java.util.Map[_, _] =>
-                val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
-                value1 match {
-                  case xs: java.util.Collection[_] =>
-                    val itr = xs.iterator
-                    while (itr.hasNext) {
-                      itr.next match {
-                        case (k: String, v) => map.asInstanceOf[java.util.Map[String, Any]].put(k, v)
-                        case _              => // ? 
-                      }
-                    }
-
-                  case xs: java.util.Map[_, _] =>
-                    val itr = xs.entrySet.iterator
-                    while (itr.hasNext) {
-                      val entry = itr.next
-                      entry.getKey match {
-                        case k: String => map.asInstanceOf[java.util.Map[String, Any]].put(k, entry.getValue)
-                        case _         => // ?
-                      }
-                    }
-
-                  case _ => // ?
-                }
-            }
-
-          case _: TargetArray =>
-          // why you be here, for Insert, you should op on record's arr field directly
-
-          case _: TargetMap   =>
-          // why you be here, for Insert, you should op on record's map field directly
-        }
+      case _: TargetMap   =>
+      // why you be here, for Insert, you should op on record's map field directly
     }
+  }
 
-    ctxs
+  private def opInsertAll(ctxs: List[Ctx], value: Any, isJsonValue: Boolean) {
+    targets(ctxs) foreach {
+      case TargetRecord(rec, field) =>
+        rec.get(field.pos) match {
+          case arr: java.util.Collection[_] =>
+            getElementType(field.schema) foreach { elemSchema =>
+              val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
+              value1 match {
+                case xs: java.util.Collection[_] =>
+                  val itr = xs.iterator
+                  while (itr.hasNext) {
+                    (elemSchema.getType, itr.next) match {
+                      case (Type.BOOLEAN, v: Boolean)               => arrayInsert(arr, v)
+                      case (Type.INT, v: Int)                       => arrayInsert(arr, v)
+                      case (Type.LONG, v: Long)                     => arrayInsert(arr, v)
+                      case (Type.FLOAT, v: Float)                   => arrayInsert(arr, v)
+                      case (Type.DOUBLE, v: Double)                 => arrayInsert(arr, v)
+                      case (Type.BYTES, v: ByteBuffer)              => arrayInsert(arr, v)
+                      case (Type.STRING, v: CharSequence)           => arrayInsert(arr, v)
+                      case (Type.RECORD, v: IndexedRecord)          => arrayInsert(arr, v)
+                      case (Type.ENUM, v: GenericEnumSymbol)        => arrayInsert(arr, v)
+                      case (Type.FIXED, v: GenericFixed)            => arrayInsert(arr, v)
+                      case (Type.ARRAY, v: java.util.Collection[_]) => arrayInsert(arr, v)
+                      case (Type.MAP, v: java.util.Map[_, _])       => arrayInsert(arr, v)
+                      case _                                        => // todo
+                    }
+                  }
+                case _ => // ?
+              }
+            }
+
+          case map: java.util.Map[_, _] =>
+            val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
+            value1 match {
+              case xs: java.util.Collection[_] =>
+                val itr = xs.iterator
+                while (itr.hasNext) {
+                  itr.next match {
+                    case (k: String, v) => map.asInstanceOf[java.util.Map[String, Any]].put(k, v)
+                    case _              => // ? 
+                  }
+                }
+
+              case xs: java.util.Map[_, _] =>
+                val itr = xs.entrySet.iterator
+                while (itr.hasNext) {
+                  val entry = itr.next
+                  entry.getKey match {
+                    case k: String => map.asInstanceOf[java.util.Map[String, Any]].put(k, entry.getValue)
+                    case _         => // ?
+                  }
+                }
+
+              case _ => // ?
+            }
+        }
+
+      case _: TargetArray =>
+      // why you be here, for Insert, you should op on record's arr field directly
+
+      case _: TargetMap   =>
+      // why you be here, for Insert, you should op on record's map field directly
+    }
   }
 
   private def arrayUpdate[T](arr: java.util.Collection[_], idx: Int, value: T) {
