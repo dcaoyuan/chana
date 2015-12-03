@@ -17,6 +17,7 @@ import chana.avpath.Parser.UnaryExprSyntax
 import chana.avpath.Parser.PosSyntax
 import org.apache.avro.Schema
 import org.apache.avro.Schema.Type
+import org.apache.avro.generic.GenericData
 import org.apache.avro.generic.IndexedRecord
 import scala.collection.mutable
 
@@ -92,8 +93,8 @@ object Evaluator {
 
       case TargetMap(map, key, _) =>
         val prev = map.get(key)
-        val commit = { () => map.remove(key) }
         val rollbk = { () => map.put(key, prev) }
+        val commit = { () => map.remove(key) }
         commit()
     }
 
@@ -135,8 +136,8 @@ object Evaluator {
             commit()
           case map: java.util.Map[String, Any] @unchecked =>
             val prev = new java.util.HashMap[String, Any](map)
-            val commit = { () => map.clear }
             val rollbk = { () => map.putAll(prev) }
+            val commit = { () => map.clear }
             commit()
           case _ => // ?
         }
@@ -154,24 +155,40 @@ object Evaluator {
       case TargetRecord(rec, null) =>
         val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], rec.getSchema, false) else value
         value1 match {
-          case v: IndexedRecord => replace(rec, v)
-          case _                => // log.error 
+          case v: IndexedRecord =>
+            val prev = new GenericData.Record(rec.asInstanceOf[GenericData.Record], true)
+            val rollbk = { () => replace(rec, prev) }
+            val commit = { () => replace(rec, v) }
+            commit()
+          case _ => // log.error 
         }
 
       case TargetRecord(rec, field) =>
         val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
-        rec.put(field.pos, value1)
+
+        val prev = rec.get(field.pos)
+        val rollbk = { () => rec.put(field.pos, prev) }
+        val commit = { () => rec.put(field.pos, value1) }
+        commit()
 
       case TargetArray(arr, idx, arrSchema) =>
         getElementType(arrSchema) foreach { elemSchema =>
           val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
-          arrayUpdate(arr, idx, value1)
+
+          val prev = arraySelect(arr, idx)
+          val rollbk = { () => arrayUpdate(arr, idx, prev) }
+          val commit = { () => arrayUpdate(arr, idx, value1) }
+          commit()
         }
 
       case TargetMap(map, key, mapSchema) =>
         getValueType(mapSchema) foreach { valueSchema =>
           val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], valueSchema, false) else value
-          map.put(key, value1)
+
+          val prev = map.get(key)
+          val rollbk = { () => map.put(key, prev) }
+          val commit = { () => map.put(key, value1) }
+          commit()
         }
     }
   }
@@ -183,19 +200,29 @@ object Evaluator {
           case arr: java.util.Collection[Any] @unchecked =>
             getElementType(field.schema) foreach { elemSchema =>
               val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
-              arrayAppend(arr, value1)
+
+              val rollbk = { () => arrayRemoveLast(arr) }
+              val commit = { () => arrayAppend(arr, value1) }
+              commit()
             }
 
           case map: java.util.Map[String, Any] @unchecked =>
             val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
             value1 match {
               case (k: String, v) =>
-                map.put(k, v)
+                val prev = map.get(k)
+                val rollbk = { () => map.put(k, prev) }
+                val commit = { () => map.put(k, v) }
+                commit()
               case kvs: java.util.Map[String, _] @unchecked =>
                 val entries = kvs.entrySet.iterator
                 if (entries.hasNext) {
                   val entry = entries.next // should contains only one entry
-                  map.put(entry.getKey, entry.getValue)
+
+                  val prev = map.get(entry.getKey)
+                  val rollbk = { () => map.put(entry.getKey, prev) }
+                  val commit = { () => map.put(entry.getKey, entry.getValue) }
+                  commit()
                 }
               case _ =>
             }
@@ -222,7 +249,9 @@ object Evaluator {
                 case xs: java.util.Collection[_] =>
                   val itr = xs.iterator
                   while (itr.hasNext) {
-                    arrayAppend(arr, itr.next)
+                    val rollbk = { () => arrayRemoveLast(arr) }
+                    val commit = { () => arrayAppend(arr, itr.next) }
+                    commit()
                   }
                 case _ => // ?
               }
@@ -235,8 +264,12 @@ object Evaluator {
                 val itr = xs.iterator
                 while (itr.hasNext) {
                   itr.next match {
-                    case (k: String, v) => map.put(k, v)
-                    case _              => // ? 
+                    case (k: String, v) =>
+                      val prev = map.get(k)
+                      val rollbk = { () => map.put(k, prev) }
+                      val commit = { () => map.put(k, v) }
+                      commit()
+                    case _ => // ? 
                   }
                 }
 
@@ -245,8 +278,12 @@ object Evaluator {
                 while (itr.hasNext) {
                   val entry = itr.next
                   entry.getKey match {
-                    case k: String => map.put(k, entry.getValue)
-                    case _         => // ?
+                    case k: String =>
+                      val prev = map.get(k)
+                      val rollbk = { () => map.put(k, prev) }
+                      val commit = { () => map.put(k, entry.getValue) }
+                      commit()
+                    case _ => // ?
                   }
                 }
 
@@ -289,6 +326,34 @@ object Evaluator {
     }
   }
 
+  private def arraySelect(arr: java.util.Collection[Any], idx: Int): Any = {
+    if (idx >= 0) {
+      arr match {
+        case xs: java.util.List[Any] @unchecked =>
+          if (idx < xs.size) {
+            xs.get(idx)
+          } else {
+            ()
+          }
+        case _ =>
+          var res: Any = ()
+          val values = arr.iterator
+          var i = 0
+          var break = false
+          while (values.hasNext && !break) {
+            if (i == idx) {
+              res = values.next
+              break = true
+            } else if (i > idx) {
+              values.next
+            }
+            i += 1
+          }
+          res
+      }
+    } else ()
+  }
+
   private def arrayAppend(arr: java.util.Collection[Any], value: Any) {
     arr.add(value)
   }
@@ -318,7 +383,7 @@ object Evaluator {
     }
   }
 
-  private def arrayRemove[T](arr: java.util.Collection[T], idxsRemove: List[Int]) {
+  private def arrayRemove(arr: java.util.Collection[Any], idxsRemove: List[Int]) {
     arr match {
       case xs: java.util.List[Any] @unchecked =>
         var toRemove = idxsRemove
@@ -342,6 +407,22 @@ object Evaluator {
               arrItr.next
             }
             i += 1
+          }
+        }
+    }
+  }
+
+  private def arrayRemoveLast(arr: java.util.Collection[Any]) {
+    arr match {
+      case xs: java.util.List[Any] @unchecked =>
+        xs.remove(arr.size - 1)
+
+      case _ =>
+        val arrItr = arr.iterator
+        while (arrItr.hasNext) {
+          arrItr.next
+          if (!arrItr.hasNext) {
+            arrItr.remove
           }
         }
     }
