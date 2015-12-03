@@ -15,19 +15,16 @@ import chana.avpath.Parser.SubstSyntax
 import chana.avpath.Parser.Syntax
 import chana.avpath.Parser.UnaryExprSyntax
 import chana.avpath.Parser.PosSyntax
-import java.nio.ByteBuffer
 import org.apache.avro.Schema
 import org.apache.avro.Schema.Type
-import org.apache.avro.generic.GenericEnumSymbol
-import org.apache.avro.generic.GenericFixed
 import org.apache.avro.generic.IndexedRecord
 import scala.collection.mutable
 
 object Evaluator {
   sealed trait Target
   final case class TargetRecord(record: IndexedRecord, field: Schema.Field) extends Target
-  final case class TargetArray(array: java.util.Collection[_], idx: Int, arraySchema: Schema) extends Target
-  final case class TargetMap(map: java.util.Map[String, _], key: String, mapSchema: Schema) extends Target
+  final case class TargetArray(array: java.util.Collection[Any], idx: Int, arraySchema: Schema) extends Target
+  final case class TargetMap(map: java.util.Map[String, Any], key: String, mapSchema: Schema) extends Target
 
   final case class Ctx(value: Any, schema: Schema, topLevelField: Schema.Field, target: Option[Target] = None)
 
@@ -86,7 +83,7 @@ object Evaluator {
   private def targets(ctxs: List[Ctx]) = ctxs.flatMap(_.target)
 
   private def opDelete(ctxs: List[Ctx]) = {
-    val processingArrs = new mutable.HashMap[java.util.Collection[_], (Schema, List[Int])]()
+    val processingArrs = new mutable.HashMap[java.util.Collection[Any], (Schema, List[Int])]()
     targets(ctxs) foreach {
       case _: TargetRecord => // cannot apply delete on record
 
@@ -94,11 +91,36 @@ object Evaluator {
         processingArrs += arr -> (schema, idx :: processingArrs.getOrElse(arr, (schema, List[Int]()))._2)
 
       case TargetMap(map, key, _) =>
-        map.remove(key)
+        val prev = map.get(key)
+        val commit = { () => map.remove(key) }
+        val rollbk = { () => map.put(key, prev) }
+        commit()
     }
 
-    for ((arr, (schema, toRemoved)) <- processingArrs) {
-      arrayRemove(arr, toRemoved)
+    for ((arr, (schema, _toRemove)) <- processingArrs) {
+      val toRemove = _toRemove.sortBy(-_)
+
+      // toRollbk will be asc sorted
+      var prev = toRemove
+      var toRollbk = List[(Int, Any)]()
+      var i = 0
+      var arrItr = arr.iterator
+      while (prev.nonEmpty) {
+        val idx = prev.head
+        prev = prev.tail
+        while (arrItr.hasNext && i <= idx) {
+          if (i == idx) {
+            toRollbk ::= (i, arrItr.next)
+          } else {
+            arrItr.next
+          }
+          i += 1
+        }
+      }
+
+      val rollbk = { () => arrayInsert(arr, toRollbk) }
+      val commit = { () => arrayRemove(arr, toRemove) }
+      commit()
     }
   }
 
@@ -106,16 +128,24 @@ object Evaluator {
     targets(ctxs) foreach {
       case TargetRecord(rec, field) =>
         rec.get(field.pos) match {
-          case arr: java.util.Collection[_] => arr.clear
-          case map: java.util.Map[_, _]     => map.clear
-          case _                            => // ?
+          case arr: java.util.Collection[_] =>
+            val prev = new java.util.ArrayList(arr)
+            val commit = { () => arr.clear }
+            val rollbk = { () => arr.addAll(prev) }
+            commit()
+          case map: java.util.Map[String, Any] @unchecked =>
+            val prev = new java.util.HashMap[String, Any](map)
+            val commit = { () => map.clear }
+            val rollbk = { () => map.putAll(prev) }
+            commit()
+          case _ => // ?
         }
 
       case _: TargetArray =>
-      // why you be here, for Insert, you should op on record's arr field directly
+      // why are you here, for Insert, you should op on record's arr field directly
 
       case _: TargetMap   =>
-      // why you be here, for Insert, you should op on record's map field directly
+      // why are you here, for Insert, you should op on record's map field directly
     }
   }
 
@@ -135,13 +165,13 @@ object Evaluator {
       case TargetArray(arr, idx, arrSchema) =>
         getElementType(arrSchema) foreach { elemSchema =>
           val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
-          arrayUpdate(arr, idx, value1, elemSchema.getType)
+          arrayUpdate(arr, idx, value1)
         }
 
       case TargetMap(map, key, mapSchema) =>
         getValueType(mapSchema) foreach { valueSchema =>
           val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], valueSchema, false) else value
-          map.asInstanceOf[java.util.Map[String, Any]].put(key, value1)
+          map.put(key, value1)
         }
     }
   }
@@ -150,22 +180,22 @@ object Evaluator {
     targets(ctxs) foreach {
       case TargetRecord(rec, field) =>
         rec.get(field.pos) match {
-          case arr: java.util.Collection[_] =>
+          case arr: java.util.Collection[Any] @unchecked =>
             getElementType(field.schema) foreach { elemSchema =>
               val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
-              arrayInsert(arr, value1, elemSchema.getType)
+              arrayAppend(arr, value1)
             }
 
-          case map: java.util.Map[_, _] =>
+          case map: java.util.Map[String, Any] @unchecked =>
             val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
             value1 match {
               case (k: String, v) =>
-                map.asInstanceOf[java.util.Map[String, Any]].put(k, v)
-              case kvs: java.util.Map[_, _] =>
+                map.put(k, v)
+              case kvs: java.util.Map[String, _] @unchecked =>
                 val entries = kvs.entrySet.iterator
                 if (entries.hasNext) {
                   val entry = entries.next // should contains only one entry
-                  map.asInstanceOf[java.util.Map[String, Any]].put(entry.getKey.asInstanceOf[String], entry.getValue)
+                  map.put(entry.getKey, entry.getValue)
                 }
               case _ =>
             }
@@ -174,10 +204,10 @@ object Evaluator {
         }
 
       case _: TargetArray =>
-      // why you be here, for Insert, you should op on record's arr field directly
+      // why are you here, for Insert, you should op on record's arr field directly
 
       case _: TargetMap   =>
-      // why you be here, for Insert, you should op on record's map field directly
+      // why are you here, for Insert, you should op on record's map field directly
     }
   }
 
@@ -185,37 +215,37 @@ object Evaluator {
     targets(ctxs) foreach {
       case TargetRecord(rec, field) =>
         rec.get(field.pos) match {
-          case arr: java.util.Collection[_] =>
+          case arr: java.util.Collection[Any] @unchecked =>
             getElementType(field.schema) foreach { elemSchema =>
               val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
               value1 match {
                 case xs: java.util.Collection[_] =>
                   val itr = xs.iterator
                   while (itr.hasNext) {
-                    arrayInsert(arr, itr.next, elemSchema.getType)
+                    arrayAppend(arr, itr.next)
                   }
                 case _ => // ?
               }
             }
 
-          case map: java.util.Map[_, _] =>
+          case map: java.util.Map[String, Any] @unchecked =>
             val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
             value1 match {
               case xs: java.util.Collection[_] =>
                 val itr = xs.iterator
                 while (itr.hasNext) {
                   itr.next match {
-                    case (k: String, v) => map.asInstanceOf[java.util.Map[String, Any]].put(k, v)
+                    case (k: String, v) => map.put(k, v)
                     case _              => // ? 
                   }
                 }
 
-              case xs: java.util.Map[_, _] =>
+              case xs: java.util.Map[String, Any] @unchecked =>
                 val itr = xs.entrySet.iterator
                 while (itr.hasNext) {
                   val entry = itr.next
                   entry.getKey match {
-                    case k: String => map.asInstanceOf[java.util.Map[String, Any]].put(k, entry.getValue)
+                    case k: String => map.put(k, entry.getValue)
                     case _         => // ?
                   }
                 }
@@ -225,85 +255,95 @@ object Evaluator {
         }
 
       case _: TargetArray =>
-      // why you be here, for Insert, you should op on record's arr field directly
+      // why are you here, for Insert, you should op on record's arr field directly
 
       case _: TargetMap   =>
-      // why you be here, for Insert, you should op on record's map field directly
+      // why are you here, for Insert, you should op on record's map field directly
     }
   }
 
-  private def arrayUpdate[T](arr: java.util.Collection[_], idx: Int, value: T, tpe: Schema.Type) {
-    (tpe, value) match {
-      case (Type.BOOLEAN, v: Boolean)               => arrayUpdate(arr, idx, v)
-      case (Type.INT, v: Int)                       => arrayUpdate(arr, idx, v)
-      case (Type.LONG, v: Long)                     => arrayUpdate(arr, idx, v)
-      case (Type.FLOAT, v: Float)                   => arrayUpdate(arr, idx, v)
-      case (Type.DOUBLE, v: Double)                 => arrayUpdate(arr, idx, v)
-      case (Type.BYTES, v: ByteBuffer)              => arrayUpdate(arr, idx, v)
-      case (Type.STRING, v: CharSequence)           => arrayUpdate(arr, idx, v)
-      case (Type.RECORD, v: IndexedRecord)          => arrayUpdate(arr, idx, v)
-      case (Type.ENUM, v: GenericEnumSymbol)        => arrayUpdate(arr, idx, v)
-      case (Type.FIXED, v: GenericFixed)            => arrayUpdate(arr, idx, v)
-      case (Type.ARRAY, v: java.util.Collection[_]) => arrayUpdate(arr, idx, v)
-      case (Type.MAP, v: java.util.Map[_, _])       => arrayUpdate(arr, idx, v)
-      case _                                        => // todo
-    }
-  }
-
-  private def arrayUpdate[T](arr: java.util.Collection[_], idx: Int, value: T) {
+  private def arrayUpdate(arr: java.util.Collection[Any], idx: Int, value: Any) {
     if (idx >= 0) {
       arr match {
-        case xs: java.util.List[T] @unchecked =>
+        case xs: java.util.List[Any] @unchecked =>
           if (idx < xs.size) {
             xs.set(idx, value)
           }
         case _ =>
           val values = arr.iterator
           var i = 0
-          val newTail = new java.util.ArrayList[T]()
-          newTail.add(value)
+          val xs = new java.util.ArrayList[Any]()
+          xs.add(value)
           while (values.hasNext) {
-            val value = values.next.asInstanceOf[T]
+            val value = values.next
             if (i == idx) {
               arr.remove(value)
             } else if (i > idx) {
               arr.remove(value)
-              newTail.add(value)
+              xs.add(value)
             }
             i += 1
           }
-          arr.asInstanceOf[java.util.Collection[T]].addAll(newTail)
+          arr.addAll(xs)
       }
     }
   }
 
-  private def arrayInsert[T](arr: java.util.Collection[_], value: T, tpe: Schema.Type) {
-    (tpe, value) match {
-      case (Type.BOOLEAN, v: Boolean)               => arrayInsert(arr, v)
-      case (Type.INT, v: Int)                       => arrayInsert(arr, v)
-      case (Type.LONG, v: Long)                     => arrayInsert(arr, v)
-      case (Type.FLOAT, v: Float)                   => arrayInsert(arr, v)
-      case (Type.DOUBLE, v: Double)                 => arrayInsert(arr, v)
-      case (Type.BYTES, v: ByteBuffer)              => arrayInsert(arr, v)
-      case (Type.STRING, v: CharSequence)           => arrayInsert(arr, v)
-      case (Type.RECORD, v: IndexedRecord)          => arrayInsert(arr, v)
-      case (Type.ENUM, v: GenericEnumSymbol)        => arrayInsert(arr, v)
-      case (Type.FIXED, v: GenericFixed)            => arrayInsert(arr, v)
-      case (Type.ARRAY, v: java.util.Collection[_]) => arrayInsert(arr, v)
-      case (Type.MAP, v: java.util.Map[_, _])       => arrayInsert(arr, v)
-      case _                                        => // todo
+  private def arrayAppend(arr: java.util.Collection[Any], value: Any) {
+    arr.add(value)
+  }
+
+  private def arrayInsert[T](arr: java.util.Collection[Any], idxToValue: List[(Int, Any)]) {
+    arr match {
+      case xs: java.util.List[Any] @unchecked =>
+        var toInsert = idxToValue
+        while (toInsert.nonEmpty) {
+          val (idx, value) = toInsert.head
+          toInsert = toInsert.tail
+          xs.add(idx, value)
+        }
+
+      case _ =>
+        val xs = new java.util.ArrayList[Any](arr)
+        arr.clear
+
+        var toInsert = idxToValue
+        while (toInsert.nonEmpty) {
+          val (idx, value) = toInsert.head
+          toInsert = toInsert.tail
+          xs.add(idx, value)
+        }
+
+        arr.addAll(xs)
     }
   }
 
-  private def arrayInsert[T](arr: java.util.Collection[_], value: T) {
-    arr.asInstanceOf[java.util.Collection[T]].add(value)
-  }
+  private def arrayRemove[T](arr: java.util.Collection[T], idxsRemove: List[Int]) {
+    arr match {
+      case xs: java.util.List[Any] @unchecked =>
+        var toRemove = idxsRemove
+        while (toRemove.nonEmpty) {
+          val idx = toRemove.head
+          toRemove = toRemove.tail
+          xs.remove(idx)
+        }
 
-  private def arrayRemove[T](arr: java.util.Collection[T], _toRemoved: List[Int]) {
-    var toRemoved = _toRemoved.sortBy(-_)
-    while (toRemoved != Nil) {
-      arr.remove(toRemoved.head)
-      toRemoved = toRemoved.tail
+      case _ =>
+        val arrItr = arr.iterator
+        var toRemove = idxsRemove
+        var i = 0
+        while (toRemove.nonEmpty) {
+          val idx = toRemove.head
+          toRemove = toRemove.tail
+          while (arrItr.hasNext && i <= idx) {
+            if (i == idx) {
+              arrItr.remove
+            } else {
+              arrItr.next
+            }
+            i += 1
+          }
+        }
     }
   }
 
@@ -383,7 +423,7 @@ object Evaluator {
               val value = rec.get(field.pos)
               res ::= Ctx(value, field.schema, if (topLevelField == null) field else topLevelField, Some(TargetRecord(rec, field)))
             }
-          case Ctx(arr: java.util.Collection[_], schema, topLevelField, _) =>
+          case Ctx(arr: java.util.Collection[Any] @unchecked, schema, topLevelField, _) =>
             getElementType(schema) foreach { elemType =>
               val values = arr.iterator
               var j = 0
@@ -424,7 +464,7 @@ object Evaluator {
           case _    =>
         }
 
-      case Ctx(arr: java.util.Collection[_], schema, topLevelField, _) =>
+      case Ctx(arr: java.util.Collection[Any] @unchecked, schema, topLevelField, _) =>
         getElementType(schema) foreach { elemType =>
           val values = arr.iterator
           var i = 0
@@ -439,7 +479,7 @@ object Evaluator {
           }
         }
 
-      case Ctx(map: java.util.Map[String, _] @unchecked, schema, topLevelField, _) =>
+      case Ctx(map: java.util.Map[String, Any] @unchecked, schema, topLevelField, _) =>
         getValueType(schema) foreach { elemType =>
           val entries = map.entrySet.iterator
           while (entries.hasNext) {
@@ -463,7 +503,7 @@ object Evaluator {
 
     var res = List[Either[Ctx, Array[Ctx]]]()
     ctxs foreach {
-      case currCtx @ Ctx(arr: java.util.Collection[_], schema, topLevelField, _) =>
+      case currCtx @ Ctx(arr: java.util.Collection[Any] @unchecked, schema, topLevelField, _) =>
         getElementType(schema) foreach { elemType =>
           posExpr match {
             case PosSyntax(LiteralSyntax("*"), _, _) =>
@@ -616,7 +656,7 @@ object Evaluator {
     val expectKeys = syntax.keys
     var res = List[Ctx]()
     ctxs foreach {
-      case Ctx(map: java.util.Map[String, _] @unchecked, schema, topLevelField, _) =>
+      case Ctx(map: java.util.Map[String, Any] @unchecked, schema, topLevelField, _) =>
         getValueType(schema) foreach { valueSchema =>
           // the order of selected map items is not guaranteed due to the implemetation of java.util.Map
           val entries = map.entrySet.iterator
