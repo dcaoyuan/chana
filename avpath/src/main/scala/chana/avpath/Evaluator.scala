@@ -200,9 +200,9 @@ object Evaluator {
           case arr: java.util.Collection[Any] @unchecked =>
             getElementType(field.schema) foreach { elemSchema =>
               val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
-
-              val rollbk = { () => arrayRemoveLast(arr) }
-              val commit = { () => arrayAppend(arr, value1) }
+              
+              val rollbk = { () => arr.remove(value1) }
+              val commit = { () => arr.add(value1) }
               commit()
             }
 
@@ -246,13 +246,10 @@ object Evaluator {
             getElementType(field.schema) foreach { elemSchema =>
               val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
               value1 match {
-                case xs: java.util.Collection[_] =>
-                  val itr = xs.iterator
-                  while (itr.hasNext) {
-                    val rollbk = { () => arrayRemoveLast(arr) }
-                    val commit = { () => arrayAppend(arr, itr.next) }
-                    commit()
-                  }
+                case xs: java.util.Collection[Any] @unchecked =>
+                  val rollbk = { () => arr.removeAll(xs) }
+                  val commit = { () => arr.addAll(xs) }
+                  commit()
                 case _ => // ?
               }
             }
@@ -354,10 +351,6 @@ object Evaluator {
     } else ()
   }
 
-  private def arrayAppend(arr: java.util.Collection[Any], value: Any) {
-    arr.add(value)
-  }
-
   private def arrayInsert[T](arr: java.util.Collection[Any], idxToValue: List[(Int, Any)]) {
     arr match {
       case xs: java.util.List[Any] @unchecked =>
@@ -407,22 +400,6 @@ object Evaluator {
               arrItr.next
             }
             i += 1
-          }
-        }
-    }
-  }
-
-  private def arrayRemoveLast(arr: java.util.Collection[Any]) {
-    arr match {
-      case xs: java.util.List[Any] @unchecked =>
-        xs.remove(arr.size - 1)
-
-      case _ =>
-        val arrItr = arr.iterator
-        while (arrItr.hasNext) {
-          arrItr.next
-          if (!arrItr.hasNext) {
-            arrItr.remove
           }
         }
     }
