@@ -84,17 +84,17 @@ object Evaluator {
 
       case TargetMap(map, key, _) =>
         val prev = map.get(key)
-        val rollbk = { () => map.put(key, prev) }
+        val rlback = { () => map.put(key, prev) }
         val commit = { () => map.remove(key) }
-        updateActions ::= UpdateAction(commit, rollbk, Diff.DELETE, "", (key, prev))
+        updateActions ::= UpdateAction(commit, rlback, Diff.DELETE, "", (key, prev))
     }
 
     for ((arr, (schema, _toRemove)) <- processingArrs) {
       val toRemove = _toRemove.sortBy(-_)
 
-      // toRollbk will be asc sorted
+      // toRlback will be asc sorted
       var prev = toRemove
-      var toRollbk = List[(Int, Any)]()
+      var toRlback = List[(Int, Any)]()
       var i = 0
       var arrItr = arr.iterator
       while (prev.nonEmpty) {
@@ -102,7 +102,7 @@ object Evaluator {
         prev = prev.tail
         while (arrItr.hasNext && i <= idx) {
           if (i == idx) {
-            toRollbk ::= (i, arrItr.next)
+            toRlback ::= (i, arrItr.next)
           } else {
             arrItr.next
           }
@@ -110,9 +110,9 @@ object Evaluator {
         }
       }
 
-      val rollbk = { () => arrayInsert(arr, toRollbk) }
+      val rlback = { () => arrayInsert(arr, toRlback) }
       val commit = { () => arrayRemove(arr, toRemove) }
-      updateActions ::= UpdateAction(commit, rollbk, Diff.DELETE, "", toRemove)
+      updateActions ::= UpdateAction(commit, rlback, Diff.DELETE, "", toRemove)
     }
 
     updateActions.reverse
@@ -127,14 +127,14 @@ object Evaluator {
           case arr: java.util.Collection[_] =>
             val prev = new java.util.ArrayList(arr)
             val commit = { () => arr.clear }
-            val rollbk = { () => arr.addAll(prev) }
-            updateActions ::= UpdateAction(commit, rollbk, Diff.DELETE, "", prev)
+            val rlback = { () => arr.addAll(prev) }
+            updateActions ::= UpdateAction(commit, rlback, Diff.DELETE, "", prev)
 
           case map: java.util.Map[String, Any] @unchecked =>
             val prev = new java.util.HashMap[String, Any](map)
-            val rollbk = { () => map.putAll(prev) }
+            val rlback = { () => map.putAll(prev) }
             val commit = { () => map.clear }
-            updateActions ::= UpdateAction(commit, rollbk, Diff.DELETE, "", prev)
+            updateActions ::= UpdateAction(commit, rlback, Diff.DELETE, "", prev)
 
           case _ => // ?
         }
@@ -158,9 +158,9 @@ object Evaluator {
         value1 match {
           case v: IndexedRecord =>
             val prev = new GenericData.Record(rec.asInstanceOf[GenericData.Record], true)
-            val rollbk = { () => replace(rec, prev) }
+            val rlback = { () => replace(rec, prev) }
             val commit = { () => replace(rec, v) }
-            updateActions ::= UpdateAction(commit, rollbk, Diff.CHANGE, "", v)
+            updateActions ::= UpdateAction(commit, rlback, Diff.CHANGE, "", v)
           case _ => // log.error 
         }
 
@@ -168,18 +168,18 @@ object Evaluator {
         val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
 
         val prev = rec.get(field.pos)
-        val rollbk = { () => rec.put(field.pos, prev) }
+        val rlback = { () => rec.put(field.pos, prev) }
         val commit = { () => rec.put(field.pos, value1) }
-        updateActions ::= UpdateAction(commit, rollbk, Diff.CHANGE, "", value1)
+        updateActions ::= UpdateAction(commit, rlback, Diff.CHANGE, "", value1)
 
       case TargetArray(arr, idx, arrSchema) =>
         getElementType(arrSchema) foreach { elemSchema =>
           val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
 
           val prev = arraySelect(arr, idx)
-          val rollbk = { () => arrayUpdate(arr, idx, prev) }
+          val rlback = { () => arrayUpdate(arr, idx, prev) }
           val commit = { () => arrayUpdate(arr, idx, value1) }
-          updateActions ::= UpdateAction(commit, rollbk, Diff.CHANGE, "", (idx, value1))
+          updateActions ::= UpdateAction(commit, rlback, Diff.CHANGE, "", (idx, value1))
         }
 
       case TargetMap(map, key, mapSchema) =>
@@ -187,9 +187,9 @@ object Evaluator {
           val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], valueSchema, false) else value
 
           val prev = map.get(key)
-          val rollbk = { () => map.put(key, prev) }
+          val rlback = { () => map.put(key, prev) }
           val commit = { () => map.put(key, value1) }
-          updateActions ::= UpdateAction(commit, rollbk, Diff.CHANGE, "", (key, value1))
+          updateActions ::= UpdateAction(commit, rlback, Diff.CHANGE, "", (key, value1))
         }
     }
 
@@ -206,9 +206,9 @@ object Evaluator {
             getElementType(field.schema) foreach { elemSchema =>
               val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
 
-              val rollbk = { () => arr.remove(value1) }
+              val rlback = { () => arr.remove(value1) }
               val commit = { () => arr.add(value1) }
-              updateActions ::= UpdateAction(commit, rollbk, Diff.ADD, "", value1)
+              updateActions ::= UpdateAction(commit, rlback, Diff.ADD, "", value1)
             }
 
           case map: java.util.Map[String, Any] @unchecked =>
@@ -216,9 +216,9 @@ object Evaluator {
             value1 match {
               case (k: String, v) =>
                 val prev = map.get(k)
-                val rollbk = { () => map.put(k, prev) }
+                val rlback = { () => map.put(k, prev) }
                 val commit = { () => map.put(k, v) }
-                updateActions ::= UpdateAction(commit, rollbk, Diff.ADD, "", (k, v))
+                updateActions ::= UpdateAction(commit, rlback, Diff.ADD, "", (k, v))
 
               case kvs: java.util.Map[String, _] @unchecked =>
                 val entries = kvs.entrySet.iterator
@@ -227,9 +227,9 @@ object Evaluator {
                   val entry = entries.next
 
                   val prev = map.get(entry.getKey)
-                  val rollbk = { () => map.put(entry.getKey, prev) }
+                  val rlback = { () => map.put(entry.getKey, prev) }
                   val commit = { () => map.put(entry.getKey, entry.getValue) }
-                  updateActions ::= UpdateAction(commit, rollbk, Diff.ADD, "", (entry.getKey, entry.getValue))
+                  updateActions ::= UpdateAction(commit, rlback, Diff.ADD, "", (entry.getKey, entry.getValue))
                 }
               case _ =>
             }
@@ -258,9 +258,9 @@ object Evaluator {
               val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
               value1 match {
                 case xs: java.util.Collection[Any] @unchecked =>
-                  val rollbk = { () => arr.removeAll(xs) }
+                  val rlback = { () => arr.removeAll(xs) }
                   val commit = { () => arr.addAll(xs) }
-                  updateActions ::= UpdateAction(commit, rollbk, Diff.ADD, "", xs)
+                  updateActions ::= UpdateAction(commit, rlback, Diff.ADD, "", xs)
 
                 case _ => // ?
               }
@@ -279,9 +279,9 @@ object Evaluator {
                   prev.put(k, map.get(k))
                   toPut.put(k, v)
                 }
-                val rollbk = { () => map.putAll(prev) }
+                val rlback = { () => map.putAll(prev) }
                 val commit = { () => map.putAll(toPut) }
-                updateActions ::= UpdateAction(commit, rollbk, Diff.ADD, "", toPut)
+                updateActions ::= UpdateAction(commit, rlback, Diff.ADD, "", toPut)
 
               case xs: java.util.Map[String, Any] @unchecked =>
                 val prev = new java.util.HashMap[String, Any]()
@@ -291,9 +291,9 @@ object Evaluator {
                   val k = entry.getKey
                   prev.put(k, map.get(k))
                 }
-                val rollbk = { () => map.putAll(prev) }
+                val rlback = { () => map.putAll(prev) }
                 val commit = { () => map.putAll(xs) }
-                updateActions ::= UpdateAction(commit, rollbk, Diff.ADD, "", xs)
+                updateActions ::= UpdateAction(commit, rlback, Diff.ADD, "", xs)
 
               case _ => // ?
             }

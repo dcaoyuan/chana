@@ -50,13 +50,19 @@ trait JPQLBehavior extends Entity {
     case jpqlMeta @ JPQLInsert(stmt, projectionSchema, asToEntity, asToJoin) =>
       val commander = sender()
       val eval = new JPQLMapperEvaluator(jpqlMeta)
-      val fieldToValue = eval.insertEval(stmt, record)
-      putFields(commander, fieldToValue)
+      val updateAction = eval.insertEval(stmt, record)
+      updateAction.commit()
 
     case jpqlMeta @ JPQLUpdate(stmt, projectionSchema, asToEntity, asToJoin) =>
       val commander = sender()
       val eval = new JPQLMapperEvaluator(jpqlMeta)
-      eval.updateEval(stmt, record)
+      val updateActions = eval.updateEval(stmt, record)
+      for {
+        updateActions1 <- updateActions
+        updateAction <- updateActions1
+      } {
+        updateAction.commit()
+      }
   }
 
   def reportAll(force: Boolean) {

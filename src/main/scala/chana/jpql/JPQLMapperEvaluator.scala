@@ -1,6 +1,8 @@
 package chana.jpql
 
+import chana.avro.Diff
 import chana.avro.RecordFlatView
+import chana.avro.UpdateAction
 import chana.jpql.nodes._
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData.Record
@@ -8,7 +10,7 @@ import org.apache.avro.generic.GenericRecord
 
 /**
  * AvroProjection should extends Serializable to got BinaryProjection/RemoveProjection
- * use custom serializer
+ * using custom serializer
  */
 sealed trait AvroProjection extends Serializable { def id: String }
 final case class BinaryProjection(id: String, projection: Array[Byte]) extends AvroProjection
@@ -192,7 +194,7 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
     entityName.equalsIgnoreCase(record.getSchema.getName) && stmt.where.fold(true) { x => whereClause(x, record) }
   }
 
-  def insertEval(stmt: InsertStatement, record: GenericRecord): List[(String, Any)] = {
+  def insertEval(stmt: InsertStatement, record: GenericRecord) = {
     var fieldToValues = List[(String, Any)]()
 
     val entityName = insertClause(stmt.insert, record)
@@ -227,10 +229,19 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
       // do nothing 
     }
 
-    fieldToValues
+    val commit = { () =>
+      for ((field, value) <- fieldToValues) {
+        record.put(field, value)
+      }
+    }
+    val rollback = { () =>
+      // todo
+    }
+
+    UpdateAction(commit, rollback, Diff.ADD, "/", fieldToValues)
   }
 
-  def updateEval(stmt: UpdateStatement, record: GenericRecord) = {
+  def updateEval(stmt: UpdateStatement, record: GenericRecord): List[List[UpdateAction]] = {
     var toUpdates = List[GenericRecord]()
     if (asToJoin.nonEmpty) {
       val joinField = asToJoin.head._2.tail.head
@@ -251,32 +262,36 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
       }
     }
 
-    toUpdates foreach { toUpdate =>
-      stmt.set.assign :: stmt.set.assigns foreach {
+    toUpdates map { toUpdate =>
+      stmt.set.assign :: stmt.set.assigns map {
         case SetAssignClause(target, value) =>
           val v = newValue(value, toUpdate)
           target.path match {
             case Left(path) =>
               val qual = qualIdentVar(path.qual, toUpdate)
-              val attrs = path.attributes map (x => attribute(x, toUpdate))
-              val attrs1 = normalizeEntityAttrs(qual, attrs, toUpdate.getSchema)
-              updateValue(attrs1, v, toUpdate) // TODO via updateField ?
+              val attrPaths = path.attributes map (x => attribute(x, toUpdate))
+              val attrPaths1 = normalizeEntityAttrs(qual, attrPaths, toUpdate.getSchema)
+              updateValue(attrPaths1, v, toUpdate)
 
             case Right(attr) =>
               val fieldName = attribute(attr, toUpdate) // there should be no AS alias
-              updateValue(fieldName, v, toUpdate) // TODO via updateField ?
+              updateValue(fieldName, v, toUpdate)
           }
       }
     }
   }
 
-  private def updateValue(attr: String, v: Any, record: GenericRecord): Any = {
-    record.put(attr, v)
+  private def updateValue(attr: String, v: Any, record: GenericRecord): UpdateAction = {
+    val prev = record.get(attr)
+    val rlback = { () => record.put(attr, prev) }
+    val commit = { () => record.put(attr, v) }
+    UpdateAction(commit, rlback, Diff.CHANGE, "/" + attr, v)
   }
 
-  private def updateValue(attrs: List[String], v: Any, record: GenericRecord): Any = {
-    var paths = attrs
+  private def updateValue(attrPaths: List[String], v: Any, record: GenericRecord): UpdateAction = {
+    var paths = attrPaths
     var currTarget: Any = record
+    var action: UpdateAction = null
 
     while (paths.nonEmpty) {
       val path = paths.head
@@ -285,7 +300,11 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
       currTarget match {
         case fieldRec: GenericRecord =>
           if (paths.isEmpty) { // reaches last path
-            fieldRec.put(path, v)
+            val prev = fieldRec.get(path)
+            val rlback = { () => fieldRec.put(path, prev) }
+            val commit = { () => fieldRec.put(path, v) }
+            val xpath = paths.mkString("/", "/", "") // TODO
+            action = UpdateAction(commit, rlback, Diff.CHANGE, xpath, v)
           } else {
             currTarget = fieldRec.get(path)
           }
@@ -297,5 +316,6 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
       }
     }
 
+    action
   }
 }
