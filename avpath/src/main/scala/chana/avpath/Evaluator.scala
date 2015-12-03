@@ -1,20 +1,9 @@
 package chana.avpath
 
+import chana.avpath.Parser._
+import chana.avro.Diff
 import chana.avro.FromJson
-import chana.avpath.Parser.ComparionExprSyntax
-import chana.avpath.Parser.ConcatExprSyntax
-import chana.avpath.Parser.LiteralSyntax
-import chana.avpath.Parser.LogicalExprSyntax
-import chana.avpath.Parser.MapKeysSyntax
-import chana.avpath.Parser.MathExprSyntax
-import chana.avpath.Parser.ObjPredSyntax
-import chana.avpath.Parser.PathSyntax
-import chana.avpath.Parser.PosPredSyntax
-import chana.avpath.Parser.SelectorSyntax
-import chana.avpath.Parser.SubstSyntax
-import chana.avpath.Parser.Syntax
-import chana.avpath.Parser.UnaryExprSyntax
-import chana.avpath.Parser.PosSyntax
+import chana.avro.UpdateAction
 import org.apache.avro.Schema
 import org.apache.avro.Schema.Type
 import org.apache.avro.generic.GenericData
@@ -35,55 +24,57 @@ object Evaluator {
 
   def update(root: IndexedRecord, ast: PathSyntax, value: Any): List[Ctx] = {
     val ctxs = select(root, ast)
-    opUpdate(ctxs, value, false)
+    opUpdate(ctxs, value, false) foreach { _.commit() }
     ctxs
   }
 
   def updateJson(root: IndexedRecord, ast: PathSyntax, value: String): List[Ctx] = {
     val ctxs = select(root, ast)
-    opUpdate(ctxs, value, true)
+    opUpdate(ctxs, value, true) foreach { _.commit() }
     ctxs
   }
 
   def insert(root: IndexedRecord, ast: PathSyntax, value: Any): List[Ctx] = {
     val ctxs = select(root, ast)
-    opInsert(ctxs, value, false)
+    opInsert(ctxs, value, false) foreach { _.commit() }
     ctxs
   }
 
   def insertJson(root: IndexedRecord, ast: PathSyntax, value: String): List[Ctx] = {
     val ctxs = select(root, ast)
-    opInsert(ctxs, value, true)
+    opInsert(ctxs, value, true) foreach { _.commit() }
     ctxs
   }
 
   def insertAll(root: IndexedRecord, ast: PathSyntax, values: java.util.Collection[_]): List[Ctx] = {
     val ctxs = select(root, ast)
-    opInsertAll(ctxs, values, false)
+    opInsertAll(ctxs, values, false) foreach { _.commit() }
     ctxs
   }
 
   def insertAllJson(root: IndexedRecord, ast: PathSyntax, values: String): List[Ctx] = {
     val ctxs = select(root, ast)
-    opInsertAll(ctxs, values, true)
+    opInsertAll(ctxs, values, true) foreach { _.commit() }
     ctxs
   }
 
   def delete(root: IndexedRecord, ast: PathSyntax): List[Ctx] = {
     val ctxs = select(root, ast)
-    opDelete(ctxs)
+    opDelete(ctxs) foreach { _.commit() }
     ctxs
   }
 
   def clear(root: IndexedRecord, ast: PathSyntax): List[Ctx] = {
     val ctxs = select(root, ast)
-    opClear(ctxs)
+    opClear(ctxs) foreach { _.commit() }
     ctxs
   }
 
   private def targets(ctxs: List[Ctx]) = ctxs.flatMap(_.target)
 
-  private def opDelete(ctxs: List[Ctx]) = {
+  private def opDelete(ctxs: List[Ctx]): List[UpdateAction] = {
+    var updateActions = List[UpdateAction]()
+
     val processingArrs = new mutable.HashMap[java.util.Collection[Any], (Schema, List[Int])]()
     targets(ctxs) foreach {
       case _: TargetRecord => // cannot apply delete on record
@@ -95,7 +86,7 @@ object Evaluator {
         val prev = map.get(key)
         val rollbk = { () => map.put(key, prev) }
         val commit = { () => map.remove(key) }
-        commit()
+        updateActions ::= UpdateAction(commit, rollbk, Diff.DELETE, "", (key, prev))
     }
 
     for ((arr, (schema, _toRemove)) <- processingArrs) {
@@ -121,11 +112,15 @@ object Evaluator {
 
       val rollbk = { () => arrayInsert(arr, toRollbk) }
       val commit = { () => arrayRemove(arr, toRemove) }
-      commit()
+      updateActions ::= UpdateAction(commit, rollbk, Diff.DELETE, "", toRemove)
     }
+
+    updateActions.reverse
   }
 
-  private def opClear(ctxs: List[Ctx]) = {
+  private def opClear(ctxs: List[Ctx]): List[UpdateAction] = {
+    var updateActions = List[UpdateAction]()
+
     targets(ctxs) foreach {
       case TargetRecord(rec, field) =>
         rec.get(field.pos) match {
@@ -133,12 +128,14 @@ object Evaluator {
             val prev = new java.util.ArrayList(arr)
             val commit = { () => arr.clear }
             val rollbk = { () => arr.addAll(prev) }
-            commit()
+            updateActions ::= UpdateAction(commit, rollbk, Diff.DELETE, "", prev)
+
           case map: java.util.Map[String, Any] @unchecked =>
             val prev = new java.util.HashMap[String, Any](map)
             val rollbk = { () => map.putAll(prev) }
             val commit = { () => map.clear }
-            commit()
+            updateActions ::= UpdateAction(commit, rollbk, Diff.DELETE, "", prev)
+
           case _ => // ?
         }
 
@@ -148,9 +145,13 @@ object Evaluator {
       case _: TargetMap   =>
       // why are you here, for Insert, you should op on record's map field directly
     }
+
+    updateActions.reverse
   }
 
-  private def opUpdate(ctxs: List[Ctx], value: Any, isJsonValue: Boolean) = {
+  private def opUpdate(ctxs: List[Ctx], value: Any, isJsonValue: Boolean): List[UpdateAction] = {
+    var updateActions = List[UpdateAction]()
+
     targets(ctxs) foreach {
       case TargetRecord(rec, null) =>
         val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], rec.getSchema, false) else value
@@ -159,7 +160,7 @@ object Evaluator {
             val prev = new GenericData.Record(rec.asInstanceOf[GenericData.Record], true)
             val rollbk = { () => replace(rec, prev) }
             val commit = { () => replace(rec, v) }
-            commit()
+            updateActions ::= UpdateAction(commit, rollbk, Diff.CHANGE, "", v)
           case _ => // log.error 
         }
 
@@ -169,7 +170,7 @@ object Evaluator {
         val prev = rec.get(field.pos)
         val rollbk = { () => rec.put(field.pos, prev) }
         val commit = { () => rec.put(field.pos, value1) }
-        commit()
+        updateActions ::= UpdateAction(commit, rollbk, Diff.CHANGE, "", value1)
 
       case TargetArray(arr, idx, arrSchema) =>
         getElementType(arrSchema) foreach { elemSchema =>
@@ -178,7 +179,7 @@ object Evaluator {
           val prev = arraySelect(arr, idx)
           val rollbk = { () => arrayUpdate(arr, idx, prev) }
           val commit = { () => arrayUpdate(arr, idx, value1) }
-          commit()
+          updateActions ::= UpdateAction(commit, rollbk, Diff.CHANGE, "", (idx, value1))
         }
 
       case TargetMap(map, key, mapSchema) =>
@@ -188,22 +189,26 @@ object Evaluator {
           val prev = map.get(key)
           val rollbk = { () => map.put(key, prev) }
           val commit = { () => map.put(key, value1) }
-          commit()
+          updateActions ::= UpdateAction(commit, rollbk, Diff.CHANGE, "", (key, value1))
         }
     }
+
+    updateActions.reverse
   }
 
-  private def opInsert(ctxs: List[Ctx], value: Any, isJsonValue: Boolean) = {
+  private def opInsert(ctxs: List[Ctx], value: Any, isJsonValue: Boolean): List[UpdateAction] = {
+    var updateActions = List[UpdateAction]()
+
     targets(ctxs) foreach {
       case TargetRecord(rec, field) =>
         rec.get(field.pos) match {
           case arr: java.util.Collection[Any] @unchecked =>
             getElementType(field.schema) foreach { elemSchema =>
               val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
-              
+
               val rollbk = { () => arr.remove(value1) }
               val commit = { () => arr.add(value1) }
-              commit()
+              updateActions ::= UpdateAction(commit, rollbk, Diff.ADD, "", value1)
             }
 
           case map: java.util.Map[String, Any] @unchecked =>
@@ -213,16 +218,18 @@ object Evaluator {
                 val prev = map.get(k)
                 val rollbk = { () => map.put(k, prev) }
                 val commit = { () => map.put(k, v) }
-                commit()
+                updateActions ::= UpdateAction(commit, rollbk, Diff.ADD, "", (k, v))
+
               case kvs: java.util.Map[String, _] @unchecked =>
                 val entries = kvs.entrySet.iterator
+                // should contains only one entry
                 if (entries.hasNext) {
-                  val entry = entries.next // should contains only one entry
+                  val entry = entries.next
 
                   val prev = map.get(entry.getKey)
                   val rollbk = { () => map.put(entry.getKey, prev) }
                   val commit = { () => map.put(entry.getKey, entry.getValue) }
-                  commit()
+                  updateActions ::= UpdateAction(commit, rollbk, Diff.ADD, "", (entry.getKey, entry.getValue))
                 }
               case _ =>
             }
@@ -236,9 +243,13 @@ object Evaluator {
       case _: TargetMap   =>
       // why are you here, for Insert, you should op on record's map field directly
     }
+
+    updateActions.reverse
   }
 
-  private def opInsertAll(ctxs: List[Ctx], value: Any, isJsonValue: Boolean) {
+  private def opInsertAll(ctxs: List[Ctx], value: Any, isJsonValue: Boolean): List[UpdateAction] = {
+    var updateActions = List[UpdateAction]()
+
     targets(ctxs) foreach {
       case TargetRecord(rec, field) =>
         rec.get(field.pos) match {
@@ -249,7 +260,8 @@ object Evaluator {
                 case xs: java.util.Collection[Any] @unchecked =>
                   val rollbk = { () => arr.removeAll(xs) }
                   val commit = { () => arr.addAll(xs) }
-                  commit()
+                  updateActions ::= UpdateAction(commit, rollbk, Diff.ADD, "", xs)
+
                 case _ => // ?
               }
             }
@@ -257,32 +269,31 @@ object Evaluator {
           case map: java.util.Map[String, Any] @unchecked =>
             val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
             value1 match {
-              case xs: java.util.Collection[_] =>
+              case xs: java.util.Collection[(String, Any)] @unchecked =>
+                val prev = new java.util.HashMap[String, Any]()
+                val toPut = new java.util.HashMap[String, Any]()
                 val itr = xs.iterator
                 while (itr.hasNext) {
-                  itr.next match {
-                    case (k: String, v) =>
-                      val prev = map.get(k)
-                      val rollbk = { () => map.put(k, prev) }
-                      val commit = { () => map.put(k, v) }
-                      commit()
-                    case _ => // ? 
-                  }
+                  val entry = itr.next
+                  val (k, v) = entry
+                  prev.put(k, map.get(k))
+                  toPut.put(k, v)
                 }
+                val rollbk = { () => map.putAll(prev) }
+                val commit = { () => map.putAll(toPut) }
+                updateActions ::= UpdateAction(commit, rollbk, Diff.ADD, "", toPut)
 
               case xs: java.util.Map[String, Any] @unchecked =>
+                val prev = new java.util.HashMap[String, Any]()
                 val itr = xs.entrySet.iterator
                 while (itr.hasNext) {
                   val entry = itr.next
-                  entry.getKey match {
-                    case k: String =>
-                      val prev = map.get(k)
-                      val rollbk = { () => map.put(k, prev) }
-                      val commit = { () => map.put(k, entry.getValue) }
-                      commit()
-                    case _ => // ?
-                  }
+                  val k = entry.getKey
+                  prev.put(k, map.get(k))
                 }
+                val rollbk = { () => map.putAll(prev) }
+                val commit = { () => map.putAll(xs) }
+                updateActions ::= UpdateAction(commit, rollbk, Diff.ADD, "", xs)
 
               case _ => // ?
             }
@@ -294,6 +305,8 @@ object Evaluator {
       case _: TargetMap   =>
       // why are you here, for Insert, you should op on record's map field directly
     }
+
+    updateActions.reverse
   }
 
   private def arrayUpdate(arr: java.util.Collection[Any], idx: Int, value: Any) {
