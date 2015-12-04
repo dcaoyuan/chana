@@ -6,6 +6,9 @@ import akka.event.LoggingAdapter
 import akka.persistence._
 import chana.avpath.Evaluator.Ctx
 import chana.avro.DefaultRecordBuilder
+import chana.avro.Diff
+import chana.avro.UpdateAction
+import chana.avro.UpdateEvent
 import chana.serializer.AvroMarshaler
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData
@@ -49,7 +52,7 @@ trait Entity extends Actor with Stash with PersistentActor {
   def schema: Schema
   def builder: DefaultRecordBuilder
 
-  def onUpdated(fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record) {}
+  def onUpdated(event: UpdateEvent) {}
   def onDeleted() {}
 
   def mediator = DistributedPubSubExtension(context.system).mediator
@@ -234,7 +237,7 @@ trait Entity extends Actor with Stash with PersistentActor {
     }
   }
 
-  protected def putFields(commander: ActorRef, _fieldToValue: List[(String, Any)]) = {
+  private def putFields(commander: ActorRef, _fieldToValue: List[(String, Any)]) = {
     var fieldToValue = _fieldToValue
     var updatedFields = List[(Schema.Field, Any)]()
     var error: Option[Exception] = None
@@ -252,66 +255,58 @@ trait Entity extends Actor with Stash with PersistentActor {
     }
 
     error match {
-      case None     => commitUpdatedFields(id, updatedFields, commander)
+      case None     => commitFields(id, updatedFields, commander)
       case Some(ex) => commander ! Failure(ex)
     }
   }
 
   private def commitRecord(id: String, toBe: Record, commander: ActorRef) {
+    var actions = List[UpdateAction]()
+
     val fields = schema.getFields.iterator
-    var updatedFields = List[(Schema.Field, Any)]()
     while (fields.hasNext) {
       val field = fields.next
-      updatedFields ::= (field, toBe.get(field.pos))
+      val value = toBe.get(field.pos)
+
+      val prev = record.get(field.pos)
+      val rlback = { () => record.put(field.pos, prev) }
+      val commit = { () => record.put(field.pos, value) }
+      actions ::= UpdateAction(commit, rlback, Diff.CHANGE, "/" + field.name, value)
     }
-    commitUpdatedFields(id, updatedFields, commander)
+
+    commit(id, actions.reverse, commander)
   }
 
   private def commitField(id: String, value: Any, field: Schema.Field, commander: ActorRef) {
-    val fields = schema.getFields.iterator
-    var updatedFields = List((field, value))
-    commitUpdatedFields(id, updatedFields, commander)
+    commitFields(id, List((field, value)), commander)
   }
 
-  protected def commit(id: String, toBe: Record, ctxs: List[Ctx], commander: ActorRef) {
-    val time = System.currentTimeMillis
-    // TODO when avpath is ".", topLevelField will be null, it's better to return all topLevelFields
-    val updatedFields =
-      for (Ctx(value, schema, topLevelField, _) <- ctxs if topLevelField != null) yield {
-        (topLevelField, toBe.get(topLevelField.pos))
-      }
+  private def commitFields(id: String, updateFields: List[(Schema.Field, Any)], commander: ActorRef) {
+    var actions = List[UpdateAction]()
 
-    if (updatedFields.isEmpty) {
-      commitRecord(id, toBe, commander)
-    } else {
-      commitUpdatedFields(id, updatedFields, commander)
+    for { (field, value) <- updateFields } {
+      val prev = record.get(field.pos)
+      val rlback = { () => record.put(field.pos, prev) }
+      val commit = { () => record.put(field.pos, value) }
+      actions ::= UpdateAction(commit, rlback, Diff.CHANGE, "/" + field.name, value)
     }
+
+    commit(id, actions.reverse, commander)
   }
 
-  private def commitUpdatedFields(id: String, updatedFields: List[(Schema.Field, Any)], commander: ActorRef) {
-    val data = GenericData.get
-    val size = updatedFields.size
-    val fieldsBefore = Array.ofDim[(Schema.Field, Any)](size)
-    var i = 0
-    var fields = updatedFields
-    while (i < size) {
-      val (field, value) = fields.head
-      fieldsBefore(i) = (field, data.deepCopy(field.schema, record.get(field.pos)))
-      fields = fields.tail
-      i += 1
-    }
-    val event = UpdatedFields(updatedFields map { case (field, value) => (field.pos, value) })
+  protected def commit(id: String, actions: List[UpdateAction], commander: ActorRef) {
+    val event = UpdateEvent(actions.map(_.toBinLog).toArray)
 
-    // TODO options to persistAsync etc.
+    // TODO configuration options to persistAsync etc.
     if (isPersistent) {
-      persist(event)(commitUpdatedEvent(fieldsBefore, commander))
+      persist(event)(internal_commit(actions, commander))
     } else {
-      commitUpdatedEvent(fieldsBefore, commander)(event)
+      internal_commit(actions, commander)(event)
     }
   }
 
-  private def commitUpdatedEvent(fieldsBefore: Array[(Schema.Field, Any)], commander: ActorRef)(event: UpdatedFields): Unit = {
-    doUpdateRecord(event)
+  private def internal_commit(actions: List[UpdateAction], commander: ActorRef)(event: UpdateEvent) {
+    actions foreach { _.commit() }
 
     if (persistCount >= persistParams) {
       if (isPersistent) {
@@ -325,7 +320,7 @@ trait Entity extends Actor with Stash with PersistentActor {
     }
 
     commander ! Success(id)
-    onUpdated(fieldsBefore, record)
+    onUpdated(event)
   }
 
   private def doUpdateRecord(event: UpdatedFields): Unit = {

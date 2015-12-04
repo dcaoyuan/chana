@@ -22,52 +22,44 @@ object Evaluator {
     evaluatePath(ast, List(Ctx(root, root.getSchema, null)), true)
   }
 
-  def update(root: IndexedRecord, ast: PathSyntax, value: Any): List[Ctx] = {
+  def update(root: IndexedRecord, ast: PathSyntax, value: Any): List[UpdateAction] = {
     val ctxs = select(root, ast)
-    opUpdate(ctxs, value, false) foreach { _.commit() }
-    ctxs
+    opUpdate(ctxs, value, false)
   }
 
-  def updateJson(root: IndexedRecord, ast: PathSyntax, value: String): List[Ctx] = {
+  def updateJson(root: IndexedRecord, ast: PathSyntax, value: String): List[UpdateAction] = {
     val ctxs = select(root, ast)
-    opUpdate(ctxs, value, true) foreach { _.commit() }
-    ctxs
+    opUpdate(ctxs, value, true)
   }
 
-  def insert(root: IndexedRecord, ast: PathSyntax, value: Any): List[Ctx] = {
+  def insert(root: IndexedRecord, ast: PathSyntax, value: Any): List[UpdateAction] = {
     val ctxs = select(root, ast)
-    opInsert(ctxs, value, false) foreach { _.commit() }
-    ctxs
+    opInsert(ctxs, value, false)
   }
 
-  def insertJson(root: IndexedRecord, ast: PathSyntax, value: String): List[Ctx] = {
+  def insertJson(root: IndexedRecord, ast: PathSyntax, value: String): List[UpdateAction] = {
     val ctxs = select(root, ast)
-    opInsert(ctxs, value, true) foreach { _.commit() }
-    ctxs
+    opInsert(ctxs, value, true)
   }
 
-  def insertAll(root: IndexedRecord, ast: PathSyntax, values: java.util.Collection[_]): List[Ctx] = {
+  def insertAll(root: IndexedRecord, ast: PathSyntax, values: java.util.Collection[_]): List[UpdateAction] = {
     val ctxs = select(root, ast)
-    opInsertAll(ctxs, values, false) foreach { _.commit() }
-    ctxs
+    opInsertAll(ctxs, values, false)
   }
 
-  def insertAllJson(root: IndexedRecord, ast: PathSyntax, values: String): List[Ctx] = {
+  def insertAllJson(root: IndexedRecord, ast: PathSyntax, values: String): List[UpdateAction] = {
     val ctxs = select(root, ast)
-    opInsertAll(ctxs, values, true) foreach { _.commit() }
-    ctxs
+    opInsertAll(ctxs, values, true)
   }
 
-  def delete(root: IndexedRecord, ast: PathSyntax): List[Ctx] = {
+  def delete(root: IndexedRecord, ast: PathSyntax): List[UpdateAction] = {
     val ctxs = select(root, ast)
-    opDelete(ctxs) foreach { _.commit() }
-    ctxs
+    opDelete(ctxs)
   }
 
-  def clear(root: IndexedRecord, ast: PathSyntax): List[Ctx] = {
+  def clear(root: IndexedRecord, ast: PathSyntax): List[UpdateAction] = {
     val ctxs = select(root, ast)
-    opClear(ctxs) foreach { _.commit() }
-    ctxs
+    opClear(ctxs)
   }
 
   private def targets(ctxs: List[Ctx]) = ctxs.flatMap(_.target)
@@ -160,7 +152,7 @@ object Evaluator {
             val prev = new GenericData.Record(rec.asInstanceOf[GenericData.Record], true)
             val rlback = { () => replace(rec, prev) }
             val commit = { () => replace(rec, v) }
-            updateActions ::= UpdateAction(commit, rlback, Diff.CHANGE, "", v)
+            updateActions ::= UpdateAction(commit, rlback, Diff.CHANGE, "/", v)
           case _ => // log.error 
         }
 
@@ -170,7 +162,7 @@ object Evaluator {
         val prev = rec.get(field.pos)
         val rlback = { () => rec.put(field.pos, prev) }
         val commit = { () => rec.put(field.pos, value1) }
-        updateActions ::= UpdateAction(commit, rlback, Diff.CHANGE, "", value1)
+        updateActions ::= UpdateAction(commit, rlback, Diff.CHANGE, "/" + field.name, value1)
 
       case TargetArray(arr, idx, arrSchema) =>
         getElementType(arrSchema) foreach { elemSchema =>

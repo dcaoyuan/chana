@@ -75,10 +75,9 @@ trait AVPathBehavior extends Entity {
     case Update(_, path, value) =>
       resetIdleTimeout()
       val commander = sender()
-      val toBe = new GenericData.Record(record, true)
-      avpath.update(parser)(toBe, path, value) match {
-        case Success(ctxs) =>
-          commit(id, toBe, ctxs, commander)
+      avpath.update(parser)(record, path, value) match {
+        case Success(actions) =>
+          commit(id, actions, commander)
         case x @ Failure(ex) =>
           log.error(ex, ex.getMessage)
           commander ! x
@@ -87,10 +86,9 @@ trait AVPathBehavior extends Entity {
     case UpdateJson(_, path, value) =>
       resetIdleTimeout()
       val commander = sender()
-      val toBe = new GenericData.Record(record, true)
-      avpath.updateJson(parser)(toBe, path, value) match {
-        case Success(ctxs) =>
-          commit(id, toBe, ctxs, commander)
+      avpath.updateJson(parser)(record, path, value) match {
+        case Success(actions) =>
+          commit(id, actions, commander)
         case x @ Failure(ex) =>
           log.error(ex, ex.getMessage)
           commander ! x
@@ -99,10 +97,9 @@ trait AVPathBehavior extends Entity {
     case Insert(_, path, value) =>
       resetIdleTimeout()
       val commander = sender()
-      val toBe = new GenericData.Record(record, true)
-      avpath.insert(parser)(toBe, path, value) match {
-        case Success(ctxs) =>
-          commit(id, toBe, ctxs, commander)
+      avpath.insert(parser)(record, path, value) match {
+        case Success(actions) =>
+          commit(id, actions, commander)
         case x @ Failure(ex) =>
           log.error(ex, ex.getMessage)
           commander ! x
@@ -111,10 +108,9 @@ trait AVPathBehavior extends Entity {
     case InsertJson(_, path, value) =>
       resetIdleTimeout()
       val commander = sender()
-      val toBe = new GenericData.Record(record, true)
-      avpath.insertJson(parser)(toBe, path, value) match {
-        case Success(ctxs) =>
-          commit(id, toBe, ctxs, commander)
+      avpath.insertJson(parser)(record, path, value) match {
+        case Success(actions) =>
+          commit(id, actions, commander)
         case x @ Failure(ex) =>
           log.error(ex, ex.getMessage)
           commander ! x
@@ -123,10 +119,9 @@ trait AVPathBehavior extends Entity {
     case InsertAll(_, path, values) =>
       resetIdleTimeout()
       val commander = sender()
-      val toBe = new GenericData.Record(record, true)
-      avpath.insertAll(parser)(toBe, path, values) match {
-        case Success(ctxs) =>
-          commit(id, toBe, ctxs, commander)
+      avpath.insertAll(parser)(record, path, values) match {
+        case Success(actions) =>
+          commit(id, actions, commander)
         case x @ Failure(ex) =>
           log.error(ex, ex.getMessage)
           commander ! x
@@ -135,10 +130,9 @@ trait AVPathBehavior extends Entity {
     case InsertAllJson(_, path, values) =>
       resetIdleTimeout()
       val commander = sender()
-      val toBe = new GenericData.Record(record, true)
-      avpath.insertAllJson(parser)(toBe, path, values) match {
-        case Success(ctxs) =>
-          commit(id, toBe, ctxs, commander)
+      avpath.insertAllJson(parser)(record, path, values) match {
+        case Success(actions) =>
+          commit(id, actions, commander)
         case x @ Failure(ex) =>
           log.error(ex, ex.getMessage)
           commander ! x
@@ -147,10 +141,9 @@ trait AVPathBehavior extends Entity {
     case Delete(_, path) =>
       resetIdleTimeout()
       val commander = sender()
-      val toBe = new GenericData.Record(record, true)
-      avpath.delete(parser)(toBe, path) match {
-        case Success(ctxs) =>
-          commit(id, toBe, ctxs, commander)
+      avpath.delete(parser)(record, path) match {
+        case Success(actions) =>
+          commit(id, actions, commander)
         case x @ Failure(ex) =>
           log.error(ex, ex.getMessage)
           commander ! x
@@ -159,10 +152,9 @@ trait AVPathBehavior extends Entity {
     case Clear(_, path) =>
       resetIdleTimeout()
       val commander = sender()
-      val toBe = new GenericData.Record(record, true)
-      avpath.clear(parser)(toBe, path) match {
-        case Success(ctxs) =>
-          commit(id, toBe, ctxs, commander)
+      avpath.clear(parser)(record, path) match {
+        case Success(actions) =>
+          commit(id, actions, commander)
         case x @ Failure(ex) =>
           log.error(ex, ex.getMessage)
           commander ! x

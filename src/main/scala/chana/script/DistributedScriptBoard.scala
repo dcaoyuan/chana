@@ -47,21 +47,23 @@ object DistributedScriptBoard extends ExtensionId[DistributedScriptBoardExtensio
   lazy val engine = engineManager.getEngineByName("nashorn").asInstanceOf[Compilable]
 
   private val keyToScript = new mutable.HashMap[String, CompiledScript]()
-  private val entityFieldToScripts = new mutable.HashMap[String, Map[String, CompiledScript]].withDefaultValue(Map.empty)
+  private val entityToScripts = new mutable.HashMap[String, Map[String, CompiledScript]].withDefaultValue(Map.empty)
+  private val entityXpathToScripts = new mutable.HashMap[String, Map[String, CompiledScript]].withDefaultValue(Map.empty)
   private val scriptsLock = new ReentrantReadWriteLock()
-  private def keyOf(entity: String, field: String, id: String) = entity + "/" + field + "/" + id
+  private def keyOf(entity: String, xpath: String, scriptId: String) = entity + "/" + xpath + "/" + scriptId
 
   private def putScript(key: String, compiledScript: CompiledScript): Unit = key.split('/') match {
     case Array(entity, field, id) => putScript(entity, field, id, compiledScript)
     case _                        =>
   }
-  private def putScript(entity: String, field: String, id: String, compiledScript: CompiledScript): Unit = {
-    val entityField = entity + "/" + field
-    val key = entityField + "/" + id
+  private def putScript(entity: String, xpath: String, scriptId: String, compiledScript: CompiledScript): Unit = {
+    val entityXpath = entity + "/" + xpath
+    val key = entityXpath + "/" + scriptId
     try {
       scriptsLock.writeLock.lock
       keyToScript(key) = compiledScript
-      entityFieldToScripts(entityField) = entityFieldToScripts(entityField) + (id -> compiledScript)
+      entityToScripts(entity) = entityToScripts(entity) + (scriptId -> compiledScript)
+      entityXpathToScripts(entityXpath) = entityXpathToScripts(entityXpath) + (scriptId -> compiledScript)
     } finally {
       scriptsLock.writeLock.unlock
     }
@@ -77,22 +79,33 @@ object DistributedScriptBoard extends ExtensionId[DistributedScriptBoardExtensio
     try {
       scriptsLock.writeLock.lock
       keyToScript -= key
-      entityFieldToScripts(entityField) = entityFieldToScripts(entityField) - id
+      entityToScripts(entity) = entityToScripts(entity) - id
+      entityXpathToScripts(entityField) = entityXpathToScripts(entityField) - id
     } finally {
       scriptsLock.writeLock.unlock
     }
   }
 
-  def scriptsOf(entity: String, field: String): Map[String, CompiledScript] =
+  def scriptsOf(entity: String, xpath: String): Map[String, CompiledScript] = {
     try {
       scriptsLock.readLock.lock
-      entityFieldToScripts(entity + "/" + field)
+      entityXpathToScripts(entity + xpath) // TODO
+      //entityXpathToScripts(entity + "/" + xpath)
     } finally {
       scriptsLock.readLock.unlock
     }
+  }
+
+  def scriptsOf(entity: String): Map[String, CompiledScript] = {
+    try {
+      scriptsLock.readLock.lock
+      entityToScripts(entity)
+    } finally {
+      scriptsLock.readLock.unlock
+    }
+  }
 
   val DataKey = "chana-scripts"
-
 }
 
 class DistributedScriptBoard extends Actor with ActorLogging {

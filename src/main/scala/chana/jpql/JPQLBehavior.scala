@@ -2,7 +2,7 @@ package chana.jpql
 
 import akka.contrib.pattern.DistributedPubSubMediator.{ Subscribe, SubscribeAck }
 import chana.Entity
-import org.apache.avro.Schema
+import chana.avro.UpdateEvent
 import org.apache.avro.generic.GenericData.Record
 import scala.concurrent.duration._
 import scala.concurrent.forkjoin.ThreadLocalRandom
@@ -99,7 +99,7 @@ trait JPQLBehavior extends Entity {
     }
   }
 
-  override def onUpdated(fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record) {
+  override def onUpdated(event: UpdateEvent) {
     reportAll(true)
   }
 

@@ -5,6 +5,7 @@ import akka.actor.ActorLogging
 import akka.actor.Props
 import chana.avpath.AVPathBehavior
 import chana.avro.DefaultRecordBuilder
+import chana.avro.UpdateEvent
 import chana.jpql.JPQLBehavior
 import chana.script.ScriptBehavior
 import org.apache.avro.Schema
@@ -38,8 +39,8 @@ class AEntity(val entityName: String, val schema: Schema, val builder: DefaultRe
 
   override def receiveCommand = accessBehavior orElse persistBehavior orElse avpathBehavior orElse jpqlBehavior
 
-  override def onUpdated(fieldsBefore: Array[(Schema.Field, Any)], recordAfter: Record) {
-    super[ScriptBehavior].onUpdated(fieldsBefore, recordAfter)
-    super[JPQLBehavior].onUpdated(fieldsBefore, recordAfter)
+  override def onUpdated(event: UpdateEvent) {
+    super[ScriptBehavior].onUpdated(event)
+    super[JPQLBehavior].onUpdated(event)
   }
 }

@@ -50,6 +50,7 @@ object ChanaClusterSpecConfig extends MultiNodeConfig {
 
   val client1 = role("client1")
 
+  // TODO enable persistence
   commonConfig(ConfigFactory.parseString(
     """
       akka.loglevel = INFO
@@ -78,7 +79,7 @@ object ChanaClusterSpecConfig extends MultiNodeConfig {
       akka.persistence.journal.leveldb-shared.store.native = off
       akka.persistence.journal.leveldb-shared.store.dir = "target/test-shared-journal"
       akka.persistence.snapshot-store.local.dir = "target/test-snapshots"
-      chana.persistence.persistent = on
+      chana.persistence.persistent = off
     """))
 
   nodeConfig(entity1) {
@@ -309,20 +310,21 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
         var a = record.get("age");
         print_me(a);
         print_me(http_get);
-        var http_get_result = http_get.apply("http://localhost:8081/ping");
+        var http_get_result = http_get.apply("http://localhost:8081/ping", 5);
         print_me(http_get_result);
         java.lang.Thread.sleep(1000);
         print_me(http_get_result.value());
 
-        var http_post_result = http_post.apply("http://localhost:8081/personinfo/put/2/age", "888");
+        var http_post_result = http_post.apply("http://localhost:8081/personinfo/put/2/age", "888", 5);
         print_me(http_post_result);
         java.lang.Thread.sleep(1000);
         print_me(http_post_result.value());
 
-        for (i = 0; i < fields.length; i++) {
-            var field = fields[i];
-            print_me(field._1);
-            print_me(field._2);
+        for (i = 0; i < binlogs.length; i++) {
+            var binlog = binlogs[i];
+            print_me(binlog.diff());
+            print_me(binlog.xpath());
+            print_me(binlog.value());
         }
     }
 

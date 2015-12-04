@@ -52,7 +52,11 @@ package object avro {
     val DELETE: Byte = 1
     val CHANGE: Byte = 2
   }
-  final case class UpdateAction(commit: () => Any, rollback: () => Any, tpe: Byte, xpath: String, value: Any)
+  final case class UpdateAction(commit: () => Any, rollback: () => Any, tpe: Byte, xpath: String, value: Any) {
+    def toBinLog = Binlog(tpe, xpath, value)
+  }
+  final case class Binlog(diff: Byte, xpath: String, value: Any)
+  final case class UpdateEvent(binlogs: Array[Binlog])
 
   private[avro] val JSON_MAPPER = new ObjectMapper()
   private[avro] val JSON_FACTORY = new JsonFactory()

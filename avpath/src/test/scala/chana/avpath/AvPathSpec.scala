@@ -88,7 +88,7 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
 
       val record2 = initAccount()
       record2.put("registerTime", 10000L)
-      Evaluator.update(record, ast, record2)
+      Evaluator.update(record, ast, record2) foreach { _.commit() }
       val res1 = Evaluator.select(record, ast)
       s"update |${path}|" in {
         info("AST:\n" + ast)
@@ -97,7 +97,7 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         assertResult(List(record2))(res1.map(_.value))
       }
 
-      Evaluator.updateJson(record, ast, ToJson.toJsonString(record2))
+      Evaluator.updateJson(record, ast, ToJson.toJsonString(record2)) foreach { _.commit() }
       val res2 = Evaluator.select(record, ast)
       s"updateJson |${path}|" in {
         info("AST:\n" + ast)
@@ -112,7 +112,7 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
       val path = ".registerTime"
       val ast = new Parser().parse(path)
 
-      Evaluator.update(record, ast, 1234L)
+      Evaluator.update(record, ast, 1234L) foreach { _.commit() }
       val res0 = Evaluator.select(record, ast)
       s"select |${path}|" in {
         info("AST:\n" + ast)
@@ -128,7 +128,7 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
       val path = "(.registerTime| .lastLoginTime)"
       val ast = new Parser().parse(path)
 
-      Evaluator.update(record, ast, 1234L)
+      Evaluator.update(record, ast, 1234L) foreach { _.commit() }
       val res0 = Evaluator.select(record, ast)
       s"select |${path}|" in {
         info("AST:\n" + ast)
@@ -144,7 +144,7 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
       val path = "(.registerTime|.nonExist)"
       val ast = new Parser().parse(path)
 
-      Evaluator.update(record, ast, 1234L)
+      Evaluator.update(record, ast, 1234L) foreach { _.commit() }
       val res0 = Evaluator.select(record, ast)
       s"select |${path}|" in {
         info("AST:\n" + ast)
@@ -169,7 +169,7 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         assertResult(List(1))(res0.map(_.value))
       }
 
-      Evaluator.update(record, ast, 1000L)
+      Evaluator.update(record, ast, 1000L) foreach { _.commit() }
       val res1 = Evaluator.select(record, ast)
       s"update |${path}|" in {
         info("AST:\n" + ast)
@@ -179,7 +179,7 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         assertResult(List(1000))(res1.map(_.value))
       }
 
-      Evaluator.updateJson(record, ast, "1234")
+      Evaluator.updateJson(record, ast, "1234") foreach { _.commit() }
       val res2 = Evaluator.select(record, ast)
       s"updateJson |${path}|" in {
         info("AST:\n" + ast)
@@ -204,7 +204,7 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         assertResult(List(2))(res0.map(_.value))
       }
 
-      Evaluator.update(record, ast, 100L)
+      Evaluator.update(record, ast, 100L) foreach { _.commit() }
       val res1 = Evaluator.select(record, ast)
       s"update |${path}|" in {
         info("AST:\n" + ast)
@@ -214,7 +214,7 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         assertResult(List(100))(res1.map(_.value))
       }
 
-      Evaluator.updateJson(record, ast, "1234")
+      Evaluator.updateJson(record, ast, "1234") foreach { _.commit() }
       val res2 = Evaluator.select(record, ast)
       s"updateJson |${path}|" in {
         info("AST:\n" + ast)
@@ -308,8 +308,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
       chargeRecord3.put(Schemas.AMOUNT, -3.0)
       val jsonChargeRecord4 = """{"time": 4, "amount": -4.0}"""
 
-      Evaluator.insert(record, ast, chargeRecord3)
-      Evaluator.insertJson(record, ast, jsonChargeRecord4)
+      Evaluator.insert(record, ast, chargeRecord3) foreach { _.commit() }
+      Evaluator.insertJson(record, ast, jsonChargeRecord4) foreach { _.commit() }
       val res0 = Evaluator.select(record, ast)
       s"insert |${path}|" in {
         info("AST:\n" + ast)
@@ -334,8 +334,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
 
       val jsonChargeRecords = """[{"time": -1, "amount": -5.0}, {"time": -2, "amount": -6.0}]"""
 
-      Evaluator.insertAll(record, ast, java.util.Arrays.asList(chargeRecord3, chargeRecord4))
-      Evaluator.insertAllJson(record, ast, jsonChargeRecords)
+      Evaluator.insertAll(record, ast, java.util.Arrays.asList(chargeRecord3, chargeRecord4)) foreach { _.commit() }
+      Evaluator.insertAllJson(record, ast, jsonChargeRecords) foreach { _.commit() }
       val res0 = Evaluator.select(record, ast)
       s"insertAll |${path}|" in {
         info("AST:\n" + ast)
@@ -373,7 +373,7 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
       val path = ".chargeRecords"
       val ast = new Parser().parse(path)
 
-      Evaluator.clear(record, ast)
+      Evaluator.clear(record, ast) foreach { _.commit() }
       val res0 = Evaluator.select(record, ast)
       s"clear |${path}|" in {
         info("AST:\n" + ast)
@@ -399,7 +399,7 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         assertResult(List(1, 2))(res0.map(_.value.asInstanceOf[Int]).sorted)
       }
 
-      Evaluator.update(record, ast, 100)
+      Evaluator.update(record, ast, 100) foreach { _.commit() }
       val res1 = Evaluator.select(record, ast)
       s"update |${path}|" in {
         info("AST:\n" + ast)
@@ -409,7 +409,7 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         assertResult(List(100, 100))(res1.map(_.value))
       }
 
-      Evaluator.updateJson(record, ast, "123")
+      Evaluator.updateJson(record, ast, "123") foreach { _.commit() }
       val res2 = Evaluator.select(record, ast)
       s"updateJson |${path}|" in {
         info("AST:\n" + ast)
@@ -435,7 +435,7 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         assertResult(List(1, 2))(res0.map(_.value.asInstanceOf[Int]).sorted)
       }
 
-      Evaluator.update(record, ast, 100)
+      Evaluator.update(record, ast, 100) foreach { _.commit() }
       val res1 = Evaluator.select(record, ast)
       s"update |${path}|" in {
         info("AST:\n" + ast)
@@ -445,7 +445,7 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         assertResult(List(100, 100))(res1.map(_.value))
       }
 
-      Evaluator.updateJson(record, ast, "123")
+      Evaluator.updateJson(record, ast, "123") foreach { _.commit() }
       val res2 = Evaluator.select(record, ast)
       s"updateJson |${path}|" in {
         info("AST:\n" + ast)
@@ -471,7 +471,7 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         assertResult(List(3))(res0.map(_.value.asInstanceOf[Int]).sorted)
       }
 
-      Evaluator.update(record, ast, 100)
+      Evaluator.update(record, ast, 100) foreach { _.commit() }
       val res1 = Evaluator.select(record, ast)
       s"update |${path}|" in {
         info("AST:\n" + ast)
@@ -481,7 +481,7 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         assertResult(List(100))(res1.map(_.value))
       }
 
-      Evaluator.updateJson(record, ast, "123")
+      Evaluator.updateJson(record, ast, "123") foreach { _.commit() }
       val res2 = Evaluator.select(record, ast)
       s"updateJson |${path}|" in {
         info("AST:\n" + ast)
@@ -501,8 +501,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
       val appInfo5 = ToJson.toJsonString(appInfo4)
       val jsonAppInfoKv = """{"e" : {}}"""
 
-      Evaluator.insert(record, ast, ("d", appInfo4))
-      Evaluator.insertJson(record, ast, jsonAppInfoKv)
+      Evaluator.insert(record, ast, ("d", appInfo4)) foreach { _.commit() }
+      Evaluator.insertJson(record, ast, jsonAppInfoKv) foreach { _.commit() }
       val res0 = Evaluator.select(record, ast)
       s"insert |${path}|" in {
         info("AST:\n" + ast)
@@ -524,8 +524,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
 
       val jsonAppInfos = """{"g" : {}, "h" : {"numBlackApps": 10}}"""
 
-      Evaluator.insertAll(record, ast, java.util.Arrays.asList(("d", appInfo4), ("e", appInfo5), ("f", appInfo6)))
-      Evaluator.insertAllJson(record, ast, jsonAppInfos)
+      Evaluator.insertAll(record, ast, java.util.Arrays.asList(("d", appInfo4), ("e", appInfo5), ("f", appInfo6))) foreach { _.commit() }
+      Evaluator.insertAllJson(record, ast, jsonAppInfos) foreach { _.commit() }
       val res0 = Evaluator.select(record, ast)
       s"insertAll |${path}|" in {
         info("AST:\n" + ast)
@@ -541,7 +541,7 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
       val path = ".devApps(\"b\")"
       val ast = new Parser().parse(path)
 
-      Evaluator.delete(record, ast)
+      Evaluator.delete(record, ast) foreach { _.commit() }
       val res0 = Evaluator.select(record, ast)
       s"delete |${path}|" in {
         info("AST:\n" + ast)
@@ -557,7 +557,7 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
       val path = ".devApps"
       val ast = new Parser().parse(path)
 
-      Evaluator.clear(record, ast)
+      Evaluator.clear(record, ast) foreach { _.commit() }
       val res0 = Evaluator.select(record, ast)
       s"clear |${path}|" in {
         info("AST:\n" + ast)
