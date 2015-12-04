@@ -150,7 +150,7 @@ trait AVPathBehavior extends Entity {
       val toBe = new GenericData.Record(record, true)
       avpath.delete(parser)(toBe, path) match {
         case Success(ctxs) =>
-          commit(id, toBe, ctxs, commander, false)
+          commit(id, toBe, ctxs, commander)
         case x @ Failure(ex) =>
           log.error(ex, ex.getMessage)
           commander ! x
@@ -162,7 +162,7 @@ trait AVPathBehavior extends Entity {
       val toBe = new GenericData.Record(record, true)
       avpath.clear(parser)(toBe, path) match {
         case Success(ctxs) =>
-          commit(id, toBe, ctxs, commander, false)
+          commit(id, toBe, ctxs, commander)
         case x @ Failure(ex) =>
           log.error(ex, ex.getMessage)
           commander ! x

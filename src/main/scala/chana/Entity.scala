@@ -72,7 +72,6 @@ trait Entity extends Actor with Stash with PersistentActor {
     builder.build()
   }
 
-  protected var limitedSize = Int.MaxValue // TODO
   protected val isPersistent = context.system.settings.config.getBoolean("chana.persistence.persistent")
   protected var persistParams = context.system.settings.config.getInt("chana.persistence.nrOfEventsBetweenSnapshots")
   protected var persistCount = 0
@@ -172,14 +171,14 @@ trait Entity extends Actor with Stash with PersistentActor {
 
     case PutRecord(_, rec) =>
       resetIdleTimeout()
-      commitRecord(id, rec, sender(), doLimitSize = true)
+      commitRecord(id, rec, sender())
 
     case PutRecordJson(_, json) =>
       resetIdleTimeout()
       val commander = sender()
       avro.jsonDecode(json, schema) match {
         case Success(rec: Record) =>
-          commitRecord(id, rec, commander, doLimitSize = true)
+          commitRecord(id, rec, commander)
         case Success(_) =>
           val ex = new RuntimeException("Json could not to be parsed to a record: " + json)
           log.error(ex, ex.getMessage)
@@ -209,7 +208,7 @@ trait Entity extends Actor with Stash with PersistentActor {
   private def putField(commander: ActorRef, fieldName: String, value: Any) = {
     val field = schema.getField(fieldName)
     if (field != null) {
-      commitField(id, value, field, commander, doLimitSize = true)
+      commitField(id, value, field, commander)
     } else {
       val ex = new RuntimeException("Field does not exist: " + fieldName)
       log.error(ex, ex.getMessage)
@@ -223,7 +222,7 @@ trait Entity extends Actor with Stash with PersistentActor {
     if (field != null) {
       avro.jsonDecode(json, field.schema) match {
         case Success(value) =>
-          commitField(id, value, field, commander, doLimitSize = true)
+          commitField(id, value, field, commander)
         case x @ Failure(ex) =>
           log.error(ex, ex.getMessage)
           commander ! x
@@ -253,55 +252,37 @@ trait Entity extends Actor with Stash with PersistentActor {
     }
 
     error match {
-      case None =>
-        //TODO if (doLimitSize) avro.limitToSize(rec, field, limitedSize)
-        commitUpdatedFields(id, updatedFields, commander)
-      case Some(ex) =>
-        commander ! Failure(ex)
+      case None     => commitUpdatedFields(id, updatedFields, commander)
+      case Some(ex) => commander ! Failure(ex)
     }
   }
 
-  private def commitRecord(id: String, toBe: Record, commander: ActorRef, doLimitSize: Boolean) {
+  private def commitRecord(id: String, toBe: Record, commander: ActorRef) {
     val fields = schema.getFields.iterator
     var updatedFields = List[(Schema.Field, Any)]()
     while (fields.hasNext) {
       val field = fields.next
-      if (doLimitSize) {
-        avro.toLimitedSize(toBe, field, limitedSize) match {
-          case Some(newValue) => updatedFields ::= (field, newValue)
-          case None           => updatedFields ::= (field, toBe.get(field.pos))
-        }
-      } else {
-        updatedFields ::= (field, toBe.get(field.pos))
-      }
+      updatedFields ::= (field, toBe.get(field.pos))
     }
     commitUpdatedFields(id, updatedFields, commander)
   }
 
-  private def commitField(id: String, value: Any, field: Schema.Field, commander: ActorRef, doLimitSize: Boolean) {
+  private def commitField(id: String, value: Any, field: Schema.Field, commander: ActorRef) {
     val fields = schema.getFields.iterator
-    //TODO if (doLimitSize) avro.limitToSize(rec, field, limitedSize)
     var updatedFields = List((field, value))
     commitUpdatedFields(id, updatedFields, commander)
   }
 
-  protected def commit(id: String, toBe: Record, ctxs: List[Ctx], commander: ActorRef, doLimitSize: Boolean = true) {
+  protected def commit(id: String, toBe: Record, ctxs: List[Ctx], commander: ActorRef) {
     val time = System.currentTimeMillis
     // TODO when avpath is ".", topLevelField will be null, it's better to return all topLevelFields
     val updatedFields =
       for (Ctx(value, schema, topLevelField, _) <- ctxs if topLevelField != null) yield {
-        if (doLimitSize) {
-          avro.toLimitedSize(toBe, topLevelField, limitedSize) match {
-            case Some(newValue) => (topLevelField, newValue)
-            case None           => (topLevelField, toBe.get(topLevelField.pos))
-          }
-        } else {
-          (topLevelField, toBe.get(topLevelField.pos))
-        }
+        (topLevelField, toBe.get(topLevelField.pos))
       }
 
     if (updatedFields.isEmpty) {
-      commitRecord(id, toBe, commander, doLimitSize = false)
+      commitRecord(id, toBe, commander)
     } else {
       commitUpdatedFields(id, updatedFields, commander)
     }
