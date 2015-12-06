@@ -1,8 +1,10 @@
 package chana.avpath
 
 import chana.avpath.Parser._
-import chana.avro.Diff
 import chana.avro.FromJson
+import chana.avro.Changelog
+import chana.avro.Deletelog
+import chana.avro.Insertlog
 import chana.avro.UpdateAction
 import org.apache.avro.Schema
 import org.apache.avro.Schema.Type
@@ -65,7 +67,7 @@ object Evaluator {
   private def targets(ctxs: List[Ctx]) = ctxs.flatMap(_.target)
 
   private def opDelete(ctxs: List[Ctx]): List[UpdateAction] = {
-    var updateActions = List[UpdateAction]()
+    var actions = List[UpdateAction]()
 
     val processingArrs = new mutable.HashMap[java.util.Collection[Any], (Schema, List[Int])]()
     targets(ctxs) foreach {
@@ -78,7 +80,7 @@ object Evaluator {
         val prev = map.get(key)
         val rlback = { () => map.put(key, prev) }
         val commit = { () => map.remove(key) }
-        updateActions ::= UpdateAction(commit, rlback, Diff.DELETE, "", (key, prev))
+        actions ::= UpdateAction(commit, rlback, Deletelog("", (key, prev)))
     }
 
     for ((arr, (schema, _toRemove)) <- processingArrs) {
@@ -104,14 +106,14 @@ object Evaluator {
 
       val rlback = { () => arrayInsert(arr, toRlback) }
       val commit = { () => arrayRemove(arr, toRemove) }
-      updateActions ::= UpdateAction(commit, rlback, Diff.DELETE, "", toRemove)
+      actions ::= UpdateAction(commit, rlback, Deletelog("", toRemove))
     }
 
-    updateActions.reverse
+    actions.reverse
   }
 
   private def opClear(ctxs: List[Ctx]): List[UpdateAction] = {
-    var updateActions = List[UpdateAction]()
+    var actions = List[UpdateAction]()
 
     targets(ctxs) foreach {
       case TargetRecord(rec, field) =>
@@ -120,13 +122,13 @@ object Evaluator {
             val prev = new java.util.ArrayList(arr)
             val commit = { () => arr.clear }
             val rlback = { () => arr.addAll(prev) }
-            updateActions ::= UpdateAction(commit, rlback, Diff.DELETE, "", prev)
+            actions ::= UpdateAction(commit, rlback, Deletelog("", prev))
 
           case map: java.util.Map[String, Any] @unchecked =>
             val prev = new java.util.HashMap[String, Any](map)
             val rlback = { () => map.putAll(prev) }
             val commit = { () => map.clear }
-            updateActions ::= UpdateAction(commit, rlback, Diff.DELETE, "", prev)
+            actions ::= UpdateAction(commit, rlback, Deletelog("", prev))
 
           case _ => // ?
         }
@@ -138,11 +140,11 @@ object Evaluator {
       // why are you here, for Insert, you should op on record's map field directly
     }
 
-    updateActions.reverse
+    actions.reverse
   }
 
   private def opUpdate(ctxs: List[Ctx], value: Any, isJsonValue: Boolean): List[UpdateAction] = {
-    var updateActions = List[UpdateAction]()
+    var actions = List[UpdateAction]()
 
     targets(ctxs) foreach {
       case TargetRecord(rec, null) =>
@@ -152,7 +154,7 @@ object Evaluator {
             val prev = new GenericData.Record(rec.asInstanceOf[GenericData.Record], true)
             val rlback = { () => replace(rec, prev) }
             val commit = { () => replace(rec, v) }
-            updateActions ::= UpdateAction(commit, rlback, Diff.CHANGE, "/", v)
+            actions ::= UpdateAction(commit, rlback, Changelog("/", v))
           case _ => // log.error 
         }
 
@@ -162,7 +164,7 @@ object Evaluator {
         val prev = rec.get(field.pos)
         val rlback = { () => rec.put(field.pos, prev) }
         val commit = { () => rec.put(field.pos, value1) }
-        updateActions ::= UpdateAction(commit, rlback, Diff.CHANGE, "/" + field.name, value1)
+        actions ::= UpdateAction(commit, rlback, Changelog("/" + field.name, value1))
 
       case TargetArray(arr, idx, arrSchema) =>
         getElementType(arrSchema) foreach { elemSchema =>
@@ -171,7 +173,7 @@ object Evaluator {
           val prev = arraySelect(arr, idx)
           val rlback = { () => arrayUpdate(arr, idx, prev) }
           val commit = { () => arrayUpdate(arr, idx, value1) }
-          updateActions ::= UpdateAction(commit, rlback, Diff.CHANGE, "", (idx, value1))
+          actions ::= UpdateAction(commit, rlback, Changelog("", (idx, value1)))
         }
 
       case TargetMap(map, key, mapSchema) =>
@@ -181,15 +183,15 @@ object Evaluator {
           val prev = map.get(key)
           val rlback = { () => map.put(key, prev) }
           val commit = { () => map.put(key, value1) }
-          updateActions ::= UpdateAction(commit, rlback, Diff.CHANGE, "", (key, value1))
+          actions ::= UpdateAction(commit, rlback, Changelog("", (key, value1)))
         }
     }
 
-    updateActions.reverse
+    actions.reverse
   }
 
   private def opInsert(ctxs: List[Ctx], value: Any, isJsonValue: Boolean): List[UpdateAction] = {
-    var updateActions = List[UpdateAction]()
+    var actions = List[UpdateAction]()
 
     targets(ctxs) foreach {
       case TargetRecord(rec, field) =>
@@ -200,7 +202,7 @@ object Evaluator {
 
               val rlback = { () => arr.remove(value1) }
               val commit = { () => arr.add(value1) }
-              updateActions ::= UpdateAction(commit, rlback, Diff.ADD, "", value1)
+              actions ::= UpdateAction(commit, rlback, Insertlog("", value1))
             }
 
           case map: java.util.Map[String, Any] @unchecked =>
@@ -210,7 +212,7 @@ object Evaluator {
                 val prev = map.get(k)
                 val rlback = { () => map.put(k, prev) }
                 val commit = { () => map.put(k, v) }
-                updateActions ::= UpdateAction(commit, rlback, Diff.ADD, "", (k, v))
+                actions ::= UpdateAction(commit, rlback, Insertlog("", (k, v)))
 
               case kvs: java.util.Map[String, _] @unchecked =>
                 val entries = kvs.entrySet.iterator
@@ -221,7 +223,7 @@ object Evaluator {
                   val prev = map.get(entry.getKey)
                   val rlback = { () => map.put(entry.getKey, prev) }
                   val commit = { () => map.put(entry.getKey, entry.getValue) }
-                  updateActions ::= UpdateAction(commit, rlback, Diff.ADD, "", (entry.getKey, entry.getValue))
+                  actions ::= UpdateAction(commit, rlback, Insertlog("", (entry.getKey, entry.getValue)))
                 }
               case _ =>
             }
@@ -236,11 +238,11 @@ object Evaluator {
       // why are you here, for Insert, you should op on record's map field directly
     }
 
-    updateActions.reverse
+    actions.reverse
   }
 
   private def opInsertAll(ctxs: List[Ctx], value: Any, isJsonValue: Boolean): List[UpdateAction] = {
-    var updateActions = List[UpdateAction]()
+    var actions = List[UpdateAction]()
 
     targets(ctxs) foreach {
       case TargetRecord(rec, field) =>
@@ -252,7 +254,7 @@ object Evaluator {
                 case xs: java.util.Collection[Any] @unchecked =>
                   val rlback = { () => arr.removeAll(xs) }
                   val commit = { () => arr.addAll(xs) }
-                  updateActions ::= UpdateAction(commit, rlback, Diff.ADD, "", xs)
+                  actions ::= UpdateAction(commit, rlback, Insertlog("", xs))
 
                 case _ => // ?
               }
@@ -273,7 +275,7 @@ object Evaluator {
                 }
                 val rlback = { () => map.putAll(prev) }
                 val commit = { () => map.putAll(toPut) }
-                updateActions ::= UpdateAction(commit, rlback, Diff.ADD, "", toPut)
+                actions ::= UpdateAction(commit, rlback, Insertlog("", toPut))
 
               case xs: java.util.Map[String, Any] @unchecked =>
                 val prev = new java.util.HashMap[String, Any]()
@@ -285,7 +287,7 @@ object Evaluator {
                 }
                 val rlback = { () => map.putAll(prev) }
                 val commit = { () => map.putAll(xs) }
-                updateActions ::= UpdateAction(commit, rlback, Diff.ADD, "", xs)
+                actions ::= UpdateAction(commit, rlback, Insertlog("", xs))
 
               case _ => // ?
             }
@@ -298,7 +300,7 @@ object Evaluator {
       // why are you here, for Insert, you should op on record's map field directly
     }
 
-    updateActions.reverse
+    actions.reverse
   }
 
   private def arrayUpdate(arr: java.util.Collection[Any], idx: Int, value: Any) {

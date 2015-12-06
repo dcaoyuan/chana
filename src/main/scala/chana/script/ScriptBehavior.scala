@@ -24,8 +24,8 @@ trait ScriptBehavior extends Entity {
       xs.toArray
     } else {
       val xs = for {
-        binlog @ Binlog(tpe, xpath, value) <- event.binlogs
-        (_, script) <- DistributedScriptBoard.scriptsOf(entityName, xpath)
+        binlog <- event.binlogs
+        (_, script) <- DistributedScriptBoard.scriptsOf(entityName, binlog.xpath)
       } yield script
       xs
     }

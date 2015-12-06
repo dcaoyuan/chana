@@ -5,8 +5,8 @@ import akka.contrib.pattern.{ ClusterSharding, ShardRegion, DistributedPubSubExt
 import akka.event.LoggingAdapter
 import akka.persistence._
 import chana.avpath.Evaluator.Ctx
+import chana.avro.Changelog
 import chana.avro.DefaultRecordBuilder
-import chana.avro.Diff
 import chana.avro.UpdateAction
 import chana.avro.UpdateEvent
 import chana.serializer.AvroMarshaler
@@ -17,11 +17,11 @@ import scala.concurrent.duration._
 import scala.util.{ Failure, Success }
 
 object Entity {
-  lazy val idExtractor: ShardRegion.IdExtractor = {
+  val idExtractor: ShardRegion.IdExtractor = {
     case cmd: Command => (cmd.id, cmd)
   }
 
-  lazy val shardResolver: ShardRegion.ShardResolver = {
+  val shardResolver: ShardRegion.ShardResolver = {
     case cmd: Command => (cmd.id.hashCode % 100).toString
   }
 
@@ -109,8 +109,9 @@ trait Entity extends Actor with Stash with PersistentActor {
   override def receiveRecover: Receive = {
     case SnapshotOffer(metadata, offeredSnapshot: Array[Byte]) =>
       record = avroMarshaler.unmarshal(offeredSnapshot).asInstanceOf[Record]
+    case x: UpdatedFields =>
+      doUpdateRecord(x)
     case x: SnapshotOffer       => log.warning("Recovery received unknown: {}", x)
-    case x: UpdatedFields       => doUpdateRecord(x)
     case RecoveryFailure(cause) => log.error("Recovery failure: {}", cause)
     case RecoveryCompleted      => log.debug("Recovery completed: {}", id)
     case e: Event               =>
@@ -183,7 +184,7 @@ trait Entity extends Actor with Stash with PersistentActor {
         case Success(rec: Record) =>
           commitRecord(id, rec, commander)
         case Success(_) =>
-          val ex = new RuntimeException("Json could not to be parsed to a record: " + json)
+          val ex = new RuntimeException("JSON could not to be parsed to a record: " + json)
           log.error(ex, ex.getMessage)
           commander ! Failure(ex)
         case x @ Failure(ex) =>
@@ -271,7 +272,7 @@ trait Entity extends Actor with Stash with PersistentActor {
       val prev = record.get(field.pos)
       val rlback = { () => record.put(field.pos, prev) }
       val commit = { () => record.put(field.pos, value) }
-      actions ::= UpdateAction(commit, rlback, Diff.CHANGE, "/" + field.name, value)
+      actions ::= UpdateAction(commit, rlback, Changelog("/" + field.name, value))
     }
 
     commit(id, actions.reverse, commander)
@@ -288,14 +289,14 @@ trait Entity extends Actor with Stash with PersistentActor {
       val prev = record.get(field.pos)
       val rlback = { () => record.put(field.pos, prev) }
       val commit = { () => record.put(field.pos, value) }
-      actions ::= UpdateAction(commit, rlback, Diff.CHANGE, "/" + field.name, value)
+      actions ::= UpdateAction(commit, rlback, Changelog("/" + field.name, value))
     }
 
     commit(id, actions.reverse, commander)
   }
 
   protected def commit(id: String, actions: List[UpdateAction], commander: ActorRef) {
-    val event = UpdateEvent(actions.map(_.toBinLog).toArray)
+    val event = UpdateEvent(actions.map(_.binlog).toArray)
 
     // TODO configuration options to persistAsync etc.
     if (isPersistent) {

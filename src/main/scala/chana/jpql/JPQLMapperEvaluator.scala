@@ -1,6 +1,9 @@
 package chana.jpql
 
-import chana.avro.Diff
+import chana.avro.Changelog
+import chana.avro.Deletelog
+import chana.avro.Insertlog
+import chana.avro.Changelog
 import chana.avro.RecordFlatView
 import chana.avro.UpdateAction
 import chana.jpql.nodes._
@@ -191,6 +194,7 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
 
   def deleteEval(stmt: DeleteStatement, record: GenericRecord): Boolean = {
     val entityName = deleteClause(stmt.delete, record)
+    Deletelog("/", record) // TODO changeAction
     entityName.equalsIgnoreCase(record.getSchema.getName) && stmt.where.fold(true) { x => whereClause(x, record) }
   }
 
@@ -238,7 +242,7 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
       // todo
     }
 
-    UpdateAction(commit, rollback, Diff.ADD, "/", fieldToValues)
+    UpdateAction(commit, rollback, Insertlog("/", fieldToValues))
   }
 
   def updateEval(stmt: UpdateStatement, record: GenericRecord): List[List[UpdateAction]] = {
@@ -285,7 +289,7 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
     val prev = record.get(attr)
     val rlback = { () => record.put(attr, prev) }
     val commit = { () => record.put(attr, v) }
-    UpdateAction(commit, rlback, Diff.CHANGE, "/" + attr, v)
+    UpdateAction(commit, rlback, Changelog("/" + attr, v))
   }
 
   private def updateValue(attrPaths: List[String], v: Any, record: GenericRecord): UpdateAction = {
@@ -304,7 +308,7 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
             val rlback = { () => fieldRec.put(path, prev) }
             val commit = { () => fieldRec.put(path, v) }
             val xpath = paths.mkString("/", "/", "") // TODO
-            action = UpdateAction(commit, rlback, Diff.CHANGE, xpath, v)
+            action = UpdateAction(commit, rlback, Changelog(xpath, v))
           } else {
             currTarget = fieldRec.get(path)
           }

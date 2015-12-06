@@ -47,15 +47,15 @@ import scala.util.Try
  */
 package object avro {
 
-  object Diff {
-    val ADD: Byte = 0
-    val DELETE: Byte = 1
-    val CHANGE: Byte = 2
+  sealed trait Binlog {
+    def xpath: String
+    def value: Any
   }
-  final case class UpdateAction(commit: () => Any, rollback: () => Any, tpe: Byte, xpath: String, value: Any) {
-    def toBinLog = Binlog(tpe, xpath, value)
-  }
-  final case class Binlog(diff: Byte, xpath: String, value: Any)
+  final case class Insertlog(xpath: String, value: Any) extends Binlog
+  final case class Deletelog(xpath: String, value: Any) extends Binlog
+  final case class Changelog(xpath: String, value: Any) extends Binlog
+
+  final case class UpdateAction(commit: () => Any, rollback: () => Any, binlog: Binlog)
   final case class UpdateEvent(binlogs: Array[Binlog])
 
   private[avro] val JSON_MAPPER = new ObjectMapper()
@@ -298,7 +298,6 @@ package object avro {
       values
     }
   }
-
   def getFirstNoNullTypeOfUnion(schema: Schema) = {
     val tpes = schema.getTypes.iterator
     var firstNonNullType: Schema = null
