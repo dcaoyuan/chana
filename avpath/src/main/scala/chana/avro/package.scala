@@ -22,8 +22,6 @@ import org.codehaus.jackson.JsonNode
 import org.codehaus.jackson.JsonParser.Feature
 import org.codehaus.jackson.map.ObjectMapper
 import org.codehaus.jackson.node.JsonNodeFactory
-import scala.util.Failure
-import scala.util.Success
 import scala.util.Try
 
 /**
@@ -99,7 +97,7 @@ package object avro {
     def avroEncode[T](value: T, schema: Schema, specific: Boolean = false): Try[Array[Byte]] = {
       // Closing a ByteArrayOutputStream has no effect
       val out = new ByteArrayOutputStream()
-      try {
+      Try {
         encoder = EncoderFactory.get.binaryEncoder(out, encoder)
         val writer = if (specific)
           specificWriter.asInstanceOf[SpecificDatumWriter[T]]
@@ -110,16 +108,14 @@ package object avro {
         writer.write(value, encoder)
         encoder.flush()
 
-        Success(out.toByteArray)
-      } catch {
-        case ex: Throwable => Failure(ex)
+        out.toByteArray
       }
     }
 
     def avroDecode[T](bytes: Array[Byte], schema: Schema, specific: Boolean = false, other: T = null.asInstanceOf[T]): Try[T] = {
       // Closing a ByteArrayInputStream has no effect
       val in = new ByteArrayInputStream(bytes)
-      try {
+      Try {
         decoder = DecoderFactory.get.binaryDecoder(in, decoder)
         val reader = if (specific)
           specificReader.asInstanceOf[SpecificDatumReader[T]]
@@ -129,16 +125,14 @@ package object avro {
         reader.setSchema(schema)
         val value = reader.read(other, decoder)
 
-        Success(value)
-      } catch {
-        case ex: Throwable => Failure(ex)
+        value
       }
     }
 
     def jsonEncode(value: Any, schema: Schema): Try[Array[Byte]] = {
       // Closing a ByteArrayOutputStream has no effect
       val out = new ByteArrayOutputStream()
-      try {
+      Try {
         val generator = JSON_FACTORY.createJsonGenerator(out)
         val encoder = JsonEncoder(schema, generator)
         val writer = genericWriter.asInstanceOf[GenericDatumWriter[Any]]
@@ -146,10 +140,7 @@ package object avro {
         writer.setSchema(schema)
         writer.write(value, encoder)
         encoder.flush()
-
-        Success(out.toByteArray)
-      } catch {
-        case ex: Throwable => Failure(ex)
+        out.toByteArray
       }
     }
   }
@@ -165,19 +156,15 @@ package object avro {
 
   def jsonDecode(json: String, schema: Schema): Try[_] = jsonDecode(json, schema, false)
   def jsonDecode(json: String, schema: Schema, specific: Boolean): Try[_] = {
-    try {
-      Success(FromJson.fromJsonString(json, schema, specific))
-    } catch {
-      case ex: Throwable => Failure(ex)
+    Try {
+      FromJson.fromJsonString(json, schema, specific)
     }
   }
 
   def jsonDecode(json: Array[Byte], schema: Schema): Try[_] = jsonDecode(json, schema, false)
   def jsonDecode(json: Array[Byte], schema: Schema, specific: Boolean): Try[_] =
-    try {
-      Success(FromJson.fromJsonBytes(json, schema, specific))
-    } catch {
-      case ex: Throwable => Failure(ex)
+    Try {
+      FromJson.fromJsonBytes(json, schema, specific)
     }
 
   def newGenericArray(capacity: Int, schema: Schema): GenericData.Array[_] = {
@@ -298,6 +285,7 @@ package object avro {
       values
     }
   }
+
   def getFirstNoNullTypeOfUnion(schema: Schema) = {
     val tpes = schema.getTypes.iterator
     var firstNonNullType: Schema = null

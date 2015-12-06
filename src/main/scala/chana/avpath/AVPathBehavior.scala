@@ -43,7 +43,9 @@ trait AVPathBehavior extends Entity {
       val commander = sender()
       avpath.select(parser)(record, path) match {
         case x @ Success(ctxs) =>
-          Try(ctxs.map { ctx => encoderDecoder.avroEncode(ctx.value, ctx.schema).get }) match {
+          Try {
+            ctxs.map { ctx => encoderDecoder.avroEncode(ctx.value, ctx.schema).get }
+          } match {
             case xs: Success[_] =>
               commander ! xs // List[Array[Byte]] 
             case x @ Failure(ex) =>
@@ -60,7 +62,9 @@ trait AVPathBehavior extends Entity {
       val commander = sender()
       avpath.select(parser)(record, path) match {
         case Success(ctxs) =>
-          Try(ctxs.map { ctx => encoderDecoder.jsonEncode(ctx.value, ctx.schema).get }) match {
+          Try {
+            ctxs.map { ctx => encoderDecoder.jsonEncode(ctx.value, ctx.schema).get }
+          } match {
             case xs: Success[_] =>
               commander ! xs // List[Array[Byte]]
             case x @ Failure(ex) =>
