@@ -194,7 +194,7 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
 
   def deleteEval(stmt: DeleteStatement, record: GenericRecord): Boolean = {
     val entityName = deleteClause(stmt.delete, record)
-    Deletelog("/", record) // TODO changeAction
+    Deletelog("/", record, null) // TODO changeAction
     entityName.equalsIgnoreCase(record.getSchema.getName) && stmt.where.fold(true) { x => whereClause(x, record) }
   }
 
@@ -242,7 +242,7 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
       // todo
     }
 
-    UpdateAction(commit, rollback, Insertlog("/", fieldToValues))
+    UpdateAction(commit, rollback, Insertlog("/", fieldToValues, record.getSchema))
   }
 
   def updateEval(stmt: UpdateStatement, record: GenericRecord): List[List[UpdateAction]] = {
@@ -289,17 +289,20 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
     val prev = record.get(attr)
     val rlback = { () => record.put(attr, prev) }
     val commit = { () => record.put(attr, v) }
-    UpdateAction(commit, rlback, Changelog("/" + attr, v))
+    UpdateAction(commit, rlback, Changelog("/" + attr, v, record.getSchema.getField(attr).schema))
   }
 
   private def updateValue(attrPaths: List[String], v: Any, record: GenericRecord): UpdateAction = {
     var paths = attrPaths
     var currTarget: Any = record
     var action: UpdateAction = null
+    var schema: Schema = record.getSchema
 
     while (paths.nonEmpty) {
       val path = paths.head
       paths = paths.tail
+
+      schema = schema.getField(path).schema
 
       currTarget match {
         case fieldRec: GenericRecord =>
@@ -308,7 +311,7 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
             val rlback = { () => fieldRec.put(path, prev) }
             val commit = { () => fieldRec.put(path, v) }
             val xpath = paths.mkString("/", "/", "") // TODO
-            action = UpdateAction(commit, rlback, Changelog(xpath, v))
+            action = UpdateAction(commit, rlback, Changelog(xpath, v, schema))
           } else {
             currTarget = fieldRec.get(path)
           }

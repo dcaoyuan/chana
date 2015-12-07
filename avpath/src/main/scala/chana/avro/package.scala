@@ -48,10 +48,11 @@ package object avro {
   sealed trait Binlog {
     def xpath: String
     def value: Any
+    def schema: Schema
   }
-  final case class Insertlog(xpath: String, value: Any) extends Binlog
-  final case class Deletelog(xpath: String, value: Any) extends Binlog
-  final case class Changelog(xpath: String, value: Any) extends Binlog
+  final case class Insertlog(xpath: String, value: Any, schema: Schema) extends Binlog
+  final case class Deletelog(xpath: String, value: Any, schema: Schema) extends Binlog
+  final case class Changelog(xpath: String, value: Any, schema: Schema) extends Binlog
 
   final case class UpdateAction(commit: () => Any, rollback: () => Any, binlog: Binlog)
   final case class UpdateEvent(binlogs: Array[Binlog])
