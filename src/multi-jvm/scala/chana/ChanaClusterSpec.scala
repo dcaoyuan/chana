@@ -59,15 +59,17 @@ object ChanaClusterSpecConfig extends MultiNodeConfig {
         serializers {
           avro = "chana.serializer.AvroSerializer"
           avro-projection = "chana.serializer.AvroProjectionSerializer"
-          record-event= "chana.serializer.RecordEventSerializer"
+          binlog = "chana.serializer.BinlogSerializer"
           schema = "chana.serializer.SchemaSerializer"
           schema-event= "chana.serializer.SchemaEventSerializer"
+          update-event = "chana.serializer.UpdateEventSerializer"
           writemessages = "akka.persistence.serialization.WriteMessagesSerializer"
         }
         serialization-bindings {
           "akka.persistence.journal.AsyncWriteTarget$WriteMessages" = writemessages
+          "chana.avro.package$Binlog" = binlog
+          "chana.avro.package$UpdateEvent" = update-event
           "chana.jpql.AvroProjection" = avro-projection
-          "chana.package$UpdatedFields" = record-event
           "chana.package$PutSchema" = schema-event
           "org.apache.avro.generic.GenericContainer" = avro
           "org.apache.avro.Schema" = schema
@@ -79,7 +81,7 @@ object ChanaClusterSpecConfig extends MultiNodeConfig {
       akka.persistence.journal.leveldb-shared.store.native = off
       akka.persistence.journal.leveldb-shared.store.dir = "target/test-shared-journal"
       akka.persistence.snapshot-store.local.dir = "target/test-snapshots"
-      chana.persistence.persistent = off
+      chana.persistence.persistent = on
     """))
 
   nodeConfig(entity1) {
@@ -322,7 +324,7 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
 
         for (i = 0; i < binlogs.length; i++) {
             var binlog = binlogs[i];
-            print_me(binlog.diff());
+            print_me(binlog.tpe());
             print_me(binlog.xpath());
             print_me(binlog.value());
         }

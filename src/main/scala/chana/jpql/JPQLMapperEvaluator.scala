@@ -3,7 +3,6 @@ package chana.jpql
 import chana.avro.Changelog
 import chana.avro.Deletelog
 import chana.avro.Insertlog
-import chana.avro.Changelog
 import chana.avro.RecordFlatView
 import chana.avro.UpdateAction
 import chana.jpql.nodes._
@@ -194,7 +193,7 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
 
   def deleteEval(stmt: DeleteStatement, record: GenericRecord): Boolean = {
     val entityName = deleteClause(stmt.delete, record)
-    Deletelog("/", record, null) // TODO changeAction
+    Deletelog("/", record, record.getSchema) // TODO changeAction
     entityName.equalsIgnoreCase(record.getSchema.getName) && stmt.where.fold(true) { x => whereClause(x, record) }
   }
 

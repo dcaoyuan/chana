@@ -5,11 +5,11 @@ import akka.contrib.pattern.{ ClusterSharding, ShardRegion, DistributedPubSubExt
 import akka.event.LoggingAdapter
 import akka.persistence._
 import chana.avpath.Evaluator.Ctx
+import chana.avro.Binlog
 import chana.avro.Changelog
 import chana.avro.DefaultRecordBuilder
 import chana.avro.UpdateAction
 import chana.avro.UpdateEvent
-import chana.serializer.AvroMarshaler
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData
 import org.apache.avro.generic.GenericData.Record
@@ -56,7 +56,6 @@ trait Entity extends Actor with Stash with PersistentActor {
   def onDeleted() {}
 
   def mediator = DistributedPubSubExtension(context.system).mediator
-  lazy val avroMarshaler = new AvroMarshaler(schema)
 
   protected val id = self.path.name
   protected val encoderDecoder = new avro.EncoderDecoder()
@@ -108,8 +107,8 @@ trait Entity extends Actor with Stash with PersistentActor {
 
   override def receiveRecover: Receive = {
     case SnapshotOffer(metadata, offeredSnapshot: Array[Byte]) =>
-      record = avroMarshaler.unmarshal(offeredSnapshot).asInstanceOf[Record]
-    case x: UpdatedFields =>
+      record = avro.avroDecode[Record](offeredSnapshot, schema).get
+    case x: Binlog =>
       doUpdateRecord(x)
     case x: SnapshotOffer       => log.warning("Recovery received unknown: {}", x)
     case RecoveryFailure(cause) => log.error("Recovery failure: {}", cause)
@@ -311,7 +310,7 @@ trait Entity extends Actor with Stash with PersistentActor {
 
     if (persistCount >= persistParams) {
       if (isPersistent) {
-        saveSnapshot(avroMarshaler.marshal(record))
+        saveSnapshot(avro.avroEncode(record, schema).get)
       }
       // if saveSnapshot failed, we don't care about it, since we've got 
       // events persisted. Anyway, we'll try saveSnapshot at next round
@@ -326,6 +325,10 @@ trait Entity extends Actor with Stash with PersistentActor {
 
   private def doUpdateRecord(event: UpdatedFields): Unit = {
     event.updatedFields foreach { case (pos, value) => record.put(pos, value) }
+  }
+
+  private def doUpdateRecord(binlog: Binlog): Unit = {
+    // TODO
   }
 
   /** for test only */

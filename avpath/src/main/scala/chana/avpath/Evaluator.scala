@@ -154,7 +154,7 @@ object Evaluator {
             val prev = new GenericData.Record(rec.asInstanceOf[GenericData.Record], true)
             val rlback = { () => replace(rec, prev) }
             val commit = { () => replace(rec, v) }
-            actions ::= UpdateAction(commit, rlback, Changelog("/", v, null))
+            actions ::= UpdateAction(commit, rlback, Changelog("/", v, rec.getSchema))
           case _ => // log.error 
         }
 

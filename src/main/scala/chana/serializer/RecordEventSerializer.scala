@@ -16,23 +16,22 @@ final class RecordEventSerializer(system: ExtendedActorSystem) extends Serialize
   private lazy val serialization = SerializationExtension(system)
 
   override def toBinary(obj: AnyRef): Array[Byte] = obj match {
-    case record: UpdatedFields =>
+    case UpdatedFields(posToField) =>
       val builder = ByteString.newBuilder
 
-      val size = record.updatedFields.size
+      val size = posToField.size
       builder.putInt(size)
       var i = 0
       while (i < size) {
-        builder.putInt(record.updatedFields(i)._1)
-        AnyRefSerializer.fromAnyRef(serialization, builder, record.updatedFields(i)._2.asInstanceOf[AnyRef])
+        val entry = posToField(i)
+        builder.putInt(entry._1)
+        AnyRefSerializer.fromAnyRef(serialization, builder, entry._2.asInstanceOf[AnyRef])
         i += 1
       }
       builder.result.toArray
 
-    case _ => {
-      val errorMsg = "Can't serialize a non-Avro message using AvroSerializer [" + obj + "]"
-      throw new IllegalArgumentException(errorMsg)
-    }
+    case _ =>
+      throw new IllegalArgumentException("Can't serialize a non-Avro message using AvroSerializer [" + obj + "]")
   }
 
   override def fromBinary(bytes: Array[Byte], manifest: Option[Class[_]]): AnyRef = {

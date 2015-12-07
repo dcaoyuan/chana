@@ -60,16 +60,20 @@ class AvroMarshaler(val schema: Schema) {
   }
 
   def unmarshalFields(avroBytes: Array[Byte]): List[(Int, Any)] = {
+    var res = List[(Int, Any)]()
     val bytes = ByteString(avroBytes).iterator
     val size = bytes.getInt
-    (1 to size) map { i =>
+    var i = 0
+    while (i < size) {
       val pos = bytes.getInt
       val length = bytes.getInt
       val payload = Array.ofDim[Byte](length)
       bytes.getBytes(payload)
       val value = AvroMarshaler.unmarshal(payload, fieldPosToSchemaMap(pos))
-      (pos, value)
-    } toList
+      res ::= (pos, value)
+      i += 1
+    }
+    res.reverse
   }
 }
 
