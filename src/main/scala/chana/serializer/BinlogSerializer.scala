@@ -12,14 +12,13 @@ final class BinlogSerializer(system: ExtendedActorSystem) extends Serializer {
   implicit val byteOrder = ByteOrder.BIG_ENDIAN
 
   override def identifier: Int = 302668158
-
   override def includeManifest: Boolean = false
 
   override def toBinary(obj: AnyRef): Array[Byte] = obj match {
     case binlog @ Binlog(xpath, value, schema) =>
       val builder = ByteString.newBuilder
 
-      builder.putByte(binlog.tpe)
+      builder.putByte(binlog.`type`)
       StringSerializer.appendToByteString(builder, xpath)
       StringSerializer.appendToByteString(builder, schema.toString(false))
       val payload = avro.avroEncode(value, schema).get

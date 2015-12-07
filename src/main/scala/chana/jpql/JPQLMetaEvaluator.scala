@@ -97,7 +97,7 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
                       val field = currSchema.getField(path)
                       currSchema = field.schema.getType match {
                         case Schema.Type.RECORD => field.schema
-                        case Schema.Type.UNION  => chana.avro.getFirstNoNullTypeOfUnion(field.schema)
+                        case Schema.Type.UNION  => chana.avro.getNonNullOfUnion(field.schema)
                         case Schema.Type.ARRAY  => field.schema // TODO should be ArrayField ?
                         case Schema.Type.MAP    => field.schema // TODO should be MapKeyField/MapValueField ?
                         case _                  => field.schema
@@ -109,7 +109,7 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
 
                     case Schema.Type.UNION =>
                       val field = currSchema.getField(path)
-                      currSchema = chana.avro.getFirstNoNullTypeOfUnion(field.schema)
+                      currSchema = chana.avro.getNonNullOfUnion(field.schema)
 
                       val child = Projection.FieldNode(path, Some(currNode), currSchema)
                       currNode.addChild(child)

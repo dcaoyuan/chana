@@ -99,7 +99,7 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
             val field = currSchema.getField(path)
             currSchema = field.schema.getType match {
               case Schema.Type.RECORD => field.schema
-              case Schema.Type.UNION  => chana.avro.getFirstNoNullTypeOfUnion(field.schema)
+              case Schema.Type.UNION  => chana.avro.getNonNullOfUnion(field.schema)
               case Schema.Type.ARRAY  => field.schema // TODO should be ArrayField ?
               case Schema.Type.MAP    => field.schema // TODO should be MapKeyField/MapValueField ?
               case _                  => field.schema

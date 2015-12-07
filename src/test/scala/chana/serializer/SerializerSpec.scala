@@ -24,17 +24,21 @@ akka.actor {
   serializers {
     avro = "chana.serializer.AvroSerializer"
     avro-projection = "chana.serializer.AvroProjectionSerializer"
+    binlog = "chana.serializer.BinlogSerializer"
     java-map = "chana.serializer.JavaMapSerializer"
     record-event= "chana.serializer.RecordEventSerializer"
     schema = "chana.serializer.SchemaSerializer"
     schema-event= "chana.serializer.SchemaEventSerializer"
+    update-event = "chana.serializer.UpdateEventSerializer"
     writemessages = "akka.persistence.serialization.WriteMessagesSerializer"
   }
                                          
   serialization-bindings {
     "akka.persistence.journal.AsyncWriteTarget$WriteMessages" = writemessages
-    "chana.jpql.AvroProjection" = avro-projection
     "chana.package$UpdatedFields" = record-event
+    "chana.avro.package$Binlog" = binlog
+    "chana.avro.package$UpdateEvent" = update-event
+    "chana.jpql.AvroProjection" = avro-projection
     "chana.package$PutSchema" = schema-event
     "java.util.HashMap" = java-map
     "org.apache.avro.generic.GenericContainer" = avro

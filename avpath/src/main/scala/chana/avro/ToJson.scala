@@ -112,7 +112,7 @@ object ToJson {
       throw new IOException("Avro schema specifies '%s' but got value: '%s'.".format(schema, value))
     }
 
-    val optionalType = chana.avro.getFirstNoNullTypeOfUnion(schema)
+    val optionalType = chana.avro.getNonNullOfUnion(schema)
     if (null != optionalType) {
       return if (null == value) JSON_NODE_FACTORY.nullNode else toJsonNode(value, optionalType)
     }

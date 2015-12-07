@@ -324,7 +324,7 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
 
         for (i = 0; i < binlogs.length; i++) {
             var binlog = binlogs[i];
-            print_me(binlog.tpe());
+            print_me(binlog.type());
             print_me(binlog.xpath());
             print_me(binlog.value());
         }

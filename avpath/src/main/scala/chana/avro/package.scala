@@ -58,14 +58,14 @@ package object avro {
     }
   }
   sealed trait Binlog extends Serializable {
-    def tpe: Byte
+    def `type`: Byte
     def xpath: String
     def value: Any
     def schema: Schema
   }
-  final case class Deletelog(xpath: String, value: Any, schema: Schema) extends Binlog { def tpe = -1 }
-  final case class Changelog(xpath: String, value: Any, schema: Schema) extends Binlog { def tpe = 0 }
-  final case class Insertlog(xpath: String, value: Any, schema: Schema) extends Binlog { def tpe = 1 }
+  final case class Deletelog(xpath: String, value: Any, schema: Schema) extends Binlog { def `type` = -1 }
+  final case class Changelog(xpath: String, value: Any, schema: Schema) extends Binlog { def `type` = 0 }
+  final case class Insertlog(xpath: String, value: Any, schema: Schema) extends Binlog { def `type` = 1 }
 
   final case class UpdateAction(commit: () => Any, rollback: () => Any, binlog: Binlog)
   final case class UpdateEvent(binlogs: Array[Binlog]) extends Serializable
@@ -300,16 +300,23 @@ package object avro {
     }
   }
 
-  def getFirstNoNullTypeOfUnion(schema: Schema) = {
+  /**
+   * Given a union schema, check to see if it is a union of a null type and a regular schema,
+   * and then return the non-null sub-schema. Otherwise, return the given schema.
+   *
+   * @param schema The schema to check
+   * @return The non-null portion of a union schema, or the given schema
+   */
+  def getNonNullOfUnion(schema: Schema) = {
+    var nonNull: Schema = null
     val tpes = schema.getTypes.iterator
-    var firstNonNullType: Schema = null
-    while (tpes.hasNext && firstNonNullType == null) {
+    while (tpes.hasNext && nonNull == null) {
       val tpe = tpes.next
       if (tpe.getType != Type.NULL) {
-        firstNonNullType = tpe
+        nonNull = tpe
       }
     }
-    if (firstNonNullType != null) firstNonNullType else schema.getTypes.get(0)
+    if (nonNull != null) nonNull else schema.getTypes.get(0)
   }
 
 }
