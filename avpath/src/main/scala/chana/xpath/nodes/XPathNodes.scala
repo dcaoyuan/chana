@@ -2,7 +2,7 @@ package chana.xpath
 
 package object nodes {
 
-  sealed abstract class Prefix(val text: String)
+  abstract class Prefix(val text: String)
   case object Nop extends Prefix("")
 
   sealed trait CompOperator
