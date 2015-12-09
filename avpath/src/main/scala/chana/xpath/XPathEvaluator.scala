@@ -1,5 +1,6 @@
 package chana.xpath
 
+import chana.avro
 import chana.xpath.nodes._
 import org.apache.avro.Schema
 import org.apache.avro.generic.IndexedRecord
@@ -268,7 +269,7 @@ class XPathEvaluator {
 
   def relativePathExpr(_stepExpr: StepExpr, prefixedStepExprs: List[StepExpr], ctxs: List[Ctx]): List[Ctx] = {
     val path0 = stepExpr(_stepExpr.prefix, _stepExpr.expr, ctxs)
-    prefixedStepExprs.foldLeft(path0) { (acc, x) => stepExpr(x.prefix, x.expr, ctxs) ::: acc }
+    prefixedStepExprs.foldLeft(path0) { (acc, x) => stepExpr(x.prefix, x.expr, acc) ::: acc }
   }
 
   /**
@@ -324,23 +325,34 @@ class XPathEvaluator {
         ctxs
       case AbbrevForwardStep(_nodeTest, withAtMark) =>
         val res = nodeTest(_nodeTest, ctxs)
-        internal_ctxOfNodeTest(res, ctxs)
+        internal_ctxOfNodeTest(res, withAtMark, ctxs)
     }
   }
 
-  def internal_ctxOfNodeTest(testResult: Any, ctxs: List[Ctx]) = {
+  def internal_ctxOfNodeTest(testResult: Any, withAtMark: Boolean, ctxs: List[Ctx]) = {
     testResult match {
       case URIQualifiedName(uri, name) => ctxs
       case PrefixedName(prefix, local) => ctxs
       case UnprefixedName(local) =>
         ctxs.head match {
           case Ctx(schema, target) =>
-            val field = schema.getField(local)
-            val newTarget = target match {
-              case rec: IndexedRecord => rec.get(field.pos)
-              case _                  =>
+            println("target: ", target)
+            val (newSchema, newTarget) = target match {
+              case rec: IndexedRecord =>
+                val field = schema.getField(local)
+                val fieldSchema = avro.getNonNull(field.schema)
+                (fieldSchema, rec.get(field.pos))
+
+              case map: java.util.Map[String, Any] @unchecked =>
+                if (withAtMark) { // ok we're fetching a map value via key
+                  val valueSchema = avro.getValueType(schema)
+                  (valueSchema, map.get(local))
+                } else {
+                  throw new XPathRuntimeException(map, "try to get value from a non @key.")
+                }
             }
-            Ctx(field.schema, newTarget) :: ctxs
+
+            Ctx(newSchema, newTarget) :: ctxs
           case _ => ctxs
         }
       case _ => ctxs

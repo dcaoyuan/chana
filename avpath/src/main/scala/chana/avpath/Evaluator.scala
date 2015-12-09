@@ -1,6 +1,7 @@
 package chana.avpath
 
 import chana.avpath.Parser._
+import chana.avro
 import chana.avro.FromJson
 import chana.avro.Changelog
 import chana.avro.Deletelog
@@ -167,24 +168,22 @@ object Evaluator {
         actions ::= UpdateAction(commit, rlback, Changelog("/" + field.name, value1, field.schema))
 
       case TargetArray(arr, idx, arrSchema) =>
-        getElementType(arrSchema) foreach { elemSchema =>
-          val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
+        val elemSchema = avro.getElementType(arrSchema)
+        val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
 
-          val prev = arraySelect(arr, idx)
-          val rlback = { () => arrayUpdate(arr, idx, prev) }
-          val commit = { () => arrayUpdate(arr, idx, value1) }
-          actions ::= UpdateAction(commit, rlback, Changelog("", (idx, value1), arrSchema))
-        }
+        val prev = arraySelect(arr, idx)
+        val rlback = { () => arrayUpdate(arr, idx, prev) }
+        val commit = { () => arrayUpdate(arr, idx, value1) }
+        actions ::= UpdateAction(commit, rlback, Changelog("", (idx, value1), arrSchema))
 
       case TargetMap(map, key, mapSchema) =>
-        getValueType(mapSchema) foreach { valueSchema =>
-          val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], valueSchema, false) else value
+        val valueSchema = avro.getValueType(mapSchema)
+        val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], valueSchema, false) else value
 
-          val prev = map.get(key)
-          val rlback = { () => map.put(key, prev) }
-          val commit = { () => map.put(key, value1) }
-          actions ::= UpdateAction(commit, rlback, Changelog("", (key, value1), mapSchema))
-        }
+        val prev = map.get(key)
+        val rlback = { () => map.put(key, prev) }
+        val commit = { () => map.put(key, value1) }
+        actions ::= UpdateAction(commit, rlback, Changelog("", (key, value1), mapSchema))
     }
 
     actions.reverse
@@ -197,13 +196,12 @@ object Evaluator {
       case TargetRecord(rec, field) =>
         rec.get(field.pos) match {
           case arr: java.util.Collection[Any] @unchecked =>
-            getElementType(field.schema) foreach { elemSchema =>
-              val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
+            val elemSchema = avro.getElementType(field.schema)
+            val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
 
-              val rlback = { () => arr.remove(value1) }
-              val commit = { () => arr.add(value1) }
-              actions ::= UpdateAction(commit, rlback, Insertlog("", value1, field.schema))
-            }
+            val rlback = { () => arr.remove(value1) }
+            val commit = { () => arr.add(value1) }
+            actions ::= UpdateAction(commit, rlback, Insertlog("", value1, field.schema))
 
           case map: java.util.Map[String, Any] @unchecked =>
             val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
@@ -248,16 +246,15 @@ object Evaluator {
       case TargetRecord(rec, field) =>
         rec.get(field.pos) match {
           case arr: java.util.Collection[Any] @unchecked =>
-            getElementType(field.schema) foreach { elemSchema =>
-              val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
-              value1 match {
-                case xs: java.util.Collection[Any] @unchecked =>
-                  val rlback = { () => arr.removeAll(xs) }
-                  val commit = { () => arr.addAll(xs) }
-                  actions ::= UpdateAction(commit, rlback, Insertlog("", xs, field.schema))
+            val elemSchema = avro.getElementType(field.schema)
+            val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
+            value1 match {
+              case xs: java.util.Collection[Any] @unchecked =>
+                val rlback = { () => arr.removeAll(xs) }
+                val commit = { () => arr.addAll(xs) }
+                actions ::= UpdateAction(commit, rlback, Insertlog("", xs, field.schema))
 
-                case _ => // ?
-              }
+              case _ => // ?
             }
 
           case map: java.util.Map[String, Any] @unchecked =>
@@ -489,14 +486,13 @@ object Evaluator {
               res ::= Ctx(value, field.schema, if (topLevelField == null) field else topLevelField, Some(TargetRecord(rec, field)))
             }
           case Ctx(arr: java.util.Collection[Any] @unchecked, schema, topLevelField, _) =>
-            getElementType(schema) foreach { elemType =>
-              val values = arr.iterator
-              var j = 0
-              while (values.hasNext) {
-                val value = values.next
-                res ::= Ctx(value, elemType, topLevelField, Some(TargetArray(arr, j, schema)))
-                j += 1
-              }
+            val elemSchema = avro.getElementType(schema)
+            val values = arr.iterator
+            var j = 0
+            while (values.hasNext) {
+              val value = values.next
+              res ::= Ctx(value, elemSchema, topLevelField, Some(TargetArray(arr, j, schema)))
+              j += 1
             }
           case _ => // TODO map
         }
@@ -530,30 +526,28 @@ object Evaluator {
         }
 
       case Ctx(arr: java.util.Collection[Any] @unchecked, schema, topLevelField, _) =>
-        getElementType(schema) foreach { elemType =>
-          val values = arr.iterator
-          var i = 0
-          while (values.hasNext) {
-            val value = values.next
-            val elemCtx = Ctx(value, elemType, topLevelField, Some(TargetArray(arr, i, schema)))
-            evaluateExpr(expr.arg, elemCtx) match {
-              case true => res ::= elemCtx
-              case _    =>
-            }
-            i += 1
+        val elemSchema = avro.getElementType(schema)
+        val values = arr.iterator
+        var i = 0
+        while (values.hasNext) {
+          val value = values.next
+          val elemCtx = Ctx(value, elemSchema, topLevelField, Some(TargetArray(arr, i, schema)))
+          evaluateExpr(expr.arg, elemCtx) match {
+            case true => res ::= elemCtx
+            case _ =>
+              i += 1
           }
         }
 
       case Ctx(map: java.util.Map[String, Any] @unchecked, schema, topLevelField, _) =>
-        getValueType(schema) foreach { elemType =>
-          val entries = map.entrySet.iterator
-          while (entries.hasNext) {
-            val entry = entries.next
-            val elemCtx = Ctx(entry.getValue, elemType, topLevelField, Some(TargetMap(map, entry.getKey, schema)))
-            evaluateExpr(expr.arg, elemCtx) match {
-              case true => res ::= elemCtx
-              case _    =>
-            }
+        val valSchema = avro.getValueType(schema)
+        val entries = map.entrySet.iterator
+        while (entries.hasNext) {
+          val entry = entries.next
+          val elemCtx = Ctx(entry.getValue, valSchema, topLevelField, Some(TargetMap(map, entry.getKey, schema)))
+          evaluateExpr(expr.arg, elemCtx) match {
+            case true => res ::= elemCtx
+            case _    =>
           }
         }
 
@@ -569,136 +563,135 @@ object Evaluator {
     var res = List[Either[Ctx, Array[Ctx]]]()
     ctxs foreach {
       case currCtx @ Ctx(arr: java.util.Collection[Any] @unchecked, schema, topLevelField, _) =>
-        getElementType(schema) foreach { elemType =>
-          posExpr match {
-            case PosSyntax(LiteralSyntax("*"), _, _) =>
-              val values = arr.iterator
-              val n = arr.size
-              val elems = Array.ofDim[Ctx](n)
-              var i = 0
-              while (values.hasNext) {
-                val value = values.next
-                elems(i) = Ctx(value, elemType, topLevelField, Some(TargetArray(arr, i, schema)))
-                i += 1
-              }
-              res ::= Right(elems)
+        val elemSchema = avro.getElementType(schema)
+        posExpr match {
+          case PosSyntax(LiteralSyntax("*"), _, _) =>
+            val values = arr.iterator
+            val n = arr.size
+            val elems = Array.ofDim[Ctx](n)
+            var i = 0
+            while (values.hasNext) {
+              val value = values.next
+              elems(i) = Ctx(value, elemSchema, topLevelField, Some(TargetArray(arr, i, schema)))
+              i += 1
+            }
+            res ::= Right(elems)
 
-            case PosSyntax(idxSyn: Syntax, _, _) =>
-              // idx
-              evaluateExpr(posExpr.idx, currCtx) match {
-                case idx: Int =>
-                  val ix = theIdx(idx, arr.size)
-                  val value = arr match {
-                    case xs: java.util.List[_] =>
-                      xs.get(ix)
-                    case _ =>
-                      val values = arr.iterator
-                      var i = 0
-                      while (i < ix) {
-                        values.next
-                        i += 1
-                      }
+          case PosSyntax(idxSyn: Syntax, _, _) =>
+            // idx
+            evaluateExpr(posExpr.idx, currCtx) match {
+              case idx: Int =>
+                val ix = theIdx(idx, arr.size)
+                val value = arr match {
+                  case xs: java.util.List[_] =>
+                    xs.get(ix)
+                  case _ =>
+                    val values = arr.iterator
+                    var i = 0
+                    while (i < ix) {
                       values.next
-                  }
-                  res ::= Left(Ctx(value, elemType, topLevelField, Some(TargetArray(arr, ix, schema))))
-                case _ =>
-              }
+                      i += 1
+                    }
+                    values.next
+                }
+                res ::= Left(Ctx(value, elemSchema, topLevelField, Some(TargetArray(arr, ix, schema))))
+              case _ =>
+            }
 
-            case PosSyntax(null, fromIdxSyn: Syntax, toIdxSyn: Syntax) =>
-              evaluateExpr(fromIdxSyn, currCtx) match {
-                case fromIdx: Int =>
-                  evaluateExpr(toIdxSyn, currCtx) match {
-                    case toIdx: Int =>
-                      val n = arr.size
-                      val from = theIdx(fromIdx, n)
-                      val to = theIdx(toIdx, n)
-                      val elems = Array.ofDim[Ctx](to - from + 1)
-                      arr match {
-                        case xs: java.util.List[_] =>
-                          var i = from
-                          while (i <= to) {
-                            val value = xs.get(i)
-                            elems(i - from) = Ctx(value, elemType, topLevelField, Some(TargetArray(arr, i, schema)))
-                            i += 1
-                          }
-                        case _ =>
-                          val values = arr.iterator
-                          var i = 0
-                          while (values.hasNext && i <= to) {
-                            val value = values.next
-                            if (i >= from) {
-                              elems(i) = Ctx(value, elemType, topLevelField, Some(TargetArray(arr, i, schema)))
-                            }
-                            i += 1
-                          }
-                      }
-                      res ::= Right(elems)
-
-                    case _ =>
-                  }
-
-                case _ =>
-              }
-
-            case PosSyntax(null, fromIdxSyn: Syntax, null) =>
-              evaluateExpr(fromIdxSyn, currCtx) match {
-                case fromIdx: Int =>
-                  val n = arr.size
-                  val from = theIdx(fromIdx, n)
-                  val elems = Array.ofDim[Ctx](n - from)
-                  arr match {
-                    case xs: java.util.List[_] =>
-                      var i = from
-                      while (i < n) {
-                        elems(i - from) = Ctx(xs.get(i), elemType, topLevelField, Some(TargetArray(arr, i, schema)))
-                        i += 1
-                      }
-                    case _ =>
-                      val values = arr.iterator
-                      var i = 0
-                      while (values.hasNext && i < n) {
-                        val value = values.next
-                        if (i >= from) {
-                          elems(i - from) = Ctx(value, elemType, topLevelField, Some(TargetArray(arr, i, schema)))
+          case PosSyntax(null, fromIdxSyn: Syntax, toIdxSyn: Syntax) =>
+            evaluateExpr(fromIdxSyn, currCtx) match {
+              case fromIdx: Int =>
+                evaluateExpr(toIdxSyn, currCtx) match {
+                  case toIdx: Int =>
+                    val n = arr.size
+                    val from = theIdx(fromIdx, n)
+                    val to = theIdx(toIdx, n)
+                    val elems = Array.ofDim[Ctx](to - from + 1)
+                    arr match {
+                      case xs: java.util.List[_] =>
+                        var i = from
+                        while (i <= to) {
+                          val value = xs.get(i)
+                          elems(i - from) = Ctx(value, elemSchema, topLevelField, Some(TargetArray(arr, i, schema)))
+                          i += 1
                         }
-                        i += 1
-                      }
-                  }
-                  res ::= Right(elems)
-
-                case _ =>
-              }
-
-            case PosSyntax(null, null, toIdxSyn: Syntax) =>
-              evaluateExpr(toIdxSyn, currCtx) match {
-                case toIdx: Int =>
-                  val n = arr.size
-                  val to = theIdx(toIdx, n)
-                  val elems = Array.ofDim[Ctx](to + 1)
-                  arr match {
-                    case xs: java.util.List[_] =>
-                      var i = 0
-                      while (i <= to && i < n) {
-                        elems(i) = Ctx(xs.get(i), elemType, topLevelField, Some(TargetArray(arr, i, schema)))
-                        i += 1
-                      }
-                    case _ =>
-                      val values = arr.iterator
-                      var i = 0
-                      while (values.hasNext && i < n) {
-                        val value = values.next
-                        if (i <= to) {
-                          elems(i) = Ctx(value, elemType, topLevelField, Some(TargetArray(arr, i, schema)))
+                      case _ =>
+                        val values = arr.iterator
+                        var i = 0
+                        while (values.hasNext && i <= to) {
+                          val value = values.next
+                          if (i >= from) {
+                            elems(i) = Ctx(value, elemSchema, topLevelField, Some(TargetArray(arr, i, schema)))
+                          }
+                          i += 1
                         }
-                        i += 1
+                    }
+                    res ::= Right(elems)
+
+                  case _ =>
+                }
+
+              case _ =>
+            }
+
+          case PosSyntax(null, fromIdxSyn: Syntax, null) =>
+            evaluateExpr(fromIdxSyn, currCtx) match {
+              case fromIdx: Int =>
+                val n = arr.size
+                val from = theIdx(fromIdx, n)
+                val elems = Array.ofDim[Ctx](n - from)
+                arr match {
+                  case xs: java.util.List[_] =>
+                    var i = from
+                    while (i < n) {
+                      elems(i - from) = Ctx(xs.get(i), elemSchema, topLevelField, Some(TargetArray(arr, i, schema)))
+                      i += 1
+                    }
+                  case _ =>
+                    val values = arr.iterator
+                    var i = 0
+                    while (values.hasNext && i < n) {
+                      val value = values.next
+                      if (i >= from) {
+                        elems(i - from) = Ctx(value, elemSchema, topLevelField, Some(TargetArray(arr, i, schema)))
                       }
-                  }
-                  res ::= Right(elems)
+                      i += 1
+                    }
+                }
+                res ::= Right(elems)
 
-                case _ =>
-              }
+              case _ =>
+            }
 
-          }
+          case PosSyntax(null, null, toIdxSyn: Syntax) =>
+            evaluateExpr(toIdxSyn, currCtx) match {
+              case toIdx: Int =>
+                val n = arr.size
+                val to = theIdx(toIdx, n)
+                val elems = Array.ofDim[Ctx](to + 1)
+                arr match {
+                  case xs: java.util.List[_] =>
+                    var i = 0
+                    while (i <= to && i < n) {
+                      elems(i) = Ctx(xs.get(i), elemSchema, topLevelField, Some(TargetArray(arr, i, schema)))
+                      i += 1
+                    }
+                  case _ =>
+                    val values = arr.iterator
+                    var i = 0
+                    while (values.hasNext && i < n) {
+                      val value = values.next
+                      if (i <= to) {
+                        elems(i) = Ctx(value, elemSchema, topLevelField, Some(TargetArray(arr, i, schema)))
+                      }
+                      i += 1
+                    }
+                }
+                res ::= Right(elems)
+
+              case _ =>
+            }
+
         }
 
       case _ => // should be array
@@ -722,18 +715,17 @@ object Evaluator {
     var res = List[Ctx]()
     ctxs foreach {
       case Ctx(map: java.util.Map[String, Any] @unchecked, schema, topLevelField, _) =>
-        getValueType(schema) foreach { valueSchema =>
-          // the order of selected map items is not guaranteed due to the implemetation of java.util.Map
-          val entries = map.entrySet.iterator
-          while (entries.hasNext) {
-            val entry = entries.next
-            val key = entry.getKey
-            expectKeys.collectFirst {
-              case Left(expectKey) if expectKey == key        => entry.getValue
-              case Right(regex) if regex.matcher(key).matches => entry.getValue
-            } foreach { value =>
-              res = Ctx(value, valueSchema, topLevelField, Some(TargetMap(map, key, schema))) :: res
-            }
+        val valueSchema = avro.getValueType(schema)
+        // the order of selected map items is not guaranteed due to the implemetation of java.util.Map
+        val entries = map.entrySet.iterator
+        while (entries.hasNext) {
+          val entry = entries.next
+          val key = entry.getKey
+          expectKeys.collectFirst {
+            case Left(expectKey) if expectKey == key        => entry.getValue
+            case Right(regex) if regex.matcher(key).matches => entry.getValue
+          } foreach { value =>
+            res = Ctx(value, valueSchema, topLevelField, Some(TargetMap(map, key, schema))) :: res
           }
         }
       case _ => // should be map
@@ -998,45 +990,4 @@ object Evaluator {
     }
   }
 
-  /**
-   * For array
-   */
-  private def getElementType(schema: Schema): Option[Schema] = {
-    schema.getType match {
-      case Type.ARRAY =>
-        Option(schema.getElementType)
-      case Type.UNION =>
-        val unions = schema.getTypes.iterator
-        var res: Option[Schema] = None
-        while (unions.hasNext && res == None) {
-          val union = unions.next
-          if (union.getType == Type.ARRAY) {
-            res = Some(union.getElementType)
-          }
-        }
-        res
-      case _ => None
-    }
-  }
-
-  /**
-   * For map
-   */
-  private def getValueType(schema: Schema): Option[Schema] = {
-    schema.getType match {
-      case Type.MAP =>
-        Option(schema.getValueType)
-      case Type.UNION =>
-        val unions = schema.getTypes.iterator
-        var res: Option[Schema] = None
-        while (unions.hasNext && res == None) {
-          val union = unions.next
-          if (union.getType == Type.MAP) {
-            res = Some(union.getValueType)
-          }
-        }
-        res
-      case _ => None
-    }
-  }
 }

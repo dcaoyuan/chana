@@ -43,6 +43,7 @@ object AvroRecords {
     devApps.put("c", appInfo3)
 
     account.put("chargeRecords", chargeRecords)
+    account.put("lastChargeRecord", chargeRecord2)
     account.put("devApps", devApps)
     account
   }

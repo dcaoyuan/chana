@@ -301,13 +301,13 @@ package object avro {
   }
 
   /**
-   * Given a union schema, check to see if it is a union of a null type and a regular schema,
+   * Given an union schema, check to see if it is a union of a null type and a regular schema,
    * and then return the non-null sub-schema. Otherwise, return the given schema.
    *
    * @param schema The schema to check
    * @return The non-null portion of a union schema, or the given schema
    */
-  def getNonNullOfUnion(schema: Schema) = {
+  def getNonNullOfUnion(schema: Schema): Schema = {
     var nonNull: Schema = null
     val tpes = schema.getTypes.iterator
     while (tpes.hasNext && nonNull == null) {
@@ -319,4 +319,71 @@ package object avro {
     if (nonNull != null) nonNull else schema.getTypes.get(0)
   }
 
+  /**
+   * Given a schema, check to see if it is a union of a null type and a regular schema,
+   * and then return the non-null sub-schema. Otherwise, return the given schema.
+   *
+   * @param schema The schema to check
+   * @return The non-null portion of a union schema, or the given schema
+   */
+  def getNonNull(schema: Schema): Schema = {
+    if (schema.getType == Schema.Type.UNION) {
+      val schemas = schema.getTypes
+      if (schemas.size == 2) {
+        if (schemas.get(0).getType == Schema.Type.NULL) {
+          schemas.get(1)
+        } else if (schemas.get(1).getType == Schema.Type.NULL) {
+          schemas.get(0)
+        } else {
+          schema
+        }
+      } else {
+        schema
+      }
+    } else {
+      schema
+    }
+  }
+
+  /**
+   * For array
+   */
+  def getElementType(arrSchema: Schema): Schema = {
+    arrSchema.getType match {
+      case Type.ARRAY =>
+        arrSchema.getElementType
+      case Type.UNION =>
+        val unions = arrSchema.getTypes.iterator
+        var res: Schema = null
+        while (unions.hasNext && res == null) {
+          val union = unions.next
+          if (union.getType == Type.ARRAY) {
+            res = union.getElementType
+          }
+        }
+        res
+      case _ => null
+    }
+  }
+
+  /**
+   * For map
+   */
+  def getValueType(mapSchema: Schema): Schema = {
+    mapSchema.getType match {
+      case Type.MAP =>
+        mapSchema.getValueType
+      case Type.UNION =>
+        val unions = mapSchema.getTypes.iterator
+        var res: Schema = null
+        while (unions.hasNext && res == null) {
+          val union = unions.next
+          if (union.getType == Type.MAP) {
+            res = union.getValueType
+          }
+        }
+        res
+      case _ => null
+    }
+  }
 }

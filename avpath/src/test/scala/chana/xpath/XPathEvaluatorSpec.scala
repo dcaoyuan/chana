@@ -41,6 +41,17 @@ class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterA
 
       var q = "/registerTime"
       eval(q, record) should be(List(List(10000)))
+
+      q = "/lastChargeRecord/time"
+      eval(q, record) should be(List(List(2)))
+
+      q = "/devApps/@a"
+      var resString = """List(List({"numBlackApps": 1, "numInstalledApps": 0, "numUninstalledApps": 0, "stdDevInstallingTime": 0.0, "hasAppList": false, "scoreAppInfo": 0.0}))"""
+      eval(q, record).toString should be(resString)
+
+      q = "/devApps/@a/numBlackApps"
+      eval(q, record) should be(List(List(1)))
+
     }
 
   }
