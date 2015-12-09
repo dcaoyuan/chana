@@ -131,7 +131,8 @@ class XPathEvaluator {
   }
 
   def stringConcatExpr(_rangeExpr: RangeExpr, rangeExprs: List[RangeExpr], ctxs: List[Ctx]) = {
-    _rangeExpr :: rangeExprs map { x => rangeExpr(x.addExpr, x.toExpr, ctxs) }
+    val res = _rangeExpr :: rangeExprs map { x => rangeExpr(x.addExpr, x.toExpr, ctxs) }
+    res.head // TODO
   }
 
   def rangeExpr(addExpr: AdditiveExpr, toExpr: Option[AdditiveExpr], ctxs: List[Ctx]) = {
@@ -292,7 +293,7 @@ class XPathEvaluator {
   }
 
   def reverseAxisStep(step: ReverseStep, predicates: PredicateList, ctxs: List[Ctx]) = {
-    predicateList(predicates.predicates, ctxs)
+    val preds = predicateList(predicates.predicates, ctxs)
     step match {
       case ReverseStep_Axis(axis, _nodeTest) =>
         axis match {
@@ -309,6 +310,8 @@ class XPathEvaluator {
   }
 
   def forwardAxisStep(step: ForwardStep, predicates: PredicateList, ctxs: List[Ctx]): List[Ctx] = {
+    val preds = predicateList(predicates.predicates, ctxs)
+    println("preds: ", preds)
     step match {
       case ForwardStep_Axis(axis, _nodeTest) =>
         axis match {
@@ -325,8 +328,37 @@ class XPathEvaluator {
         ctxs
       case AbbrevForwardStep(_nodeTest, withAtMark) =>
         val res = nodeTest(_nodeTest, ctxs)
-        internal_ctxOfNodeTest(res, withAtMark, ctxs)
+        val (curr :: tail) = internal_ctxOfNodeTest(res, withAtMark, ctxs)
+        internal_filterByPredicateList(preds, curr) :: tail
     }
+  }
+
+  def internal_filterByPredicateList(preds: List[Any], ctx: Ctx): Ctx = {
+    if (preds.nonEmpty) {
+      ctx.schema.getType match {
+        case Schema.Type.ARRAY =>
+          val arr = ctx.target.asInstanceOf[java.util.Collection[Any]].iterator
+          preds.head match {
+            case List(x: Number) =>
+              val elemSchema = avro.getElementType(ctx.schema)
+              val idx = x.intValue
+              var i = 1
+              var elem: Any = ()
+              while (arr.hasNext && i <= idx) {
+                if (i == idx) {
+                  elem = arr.next
+                } else {
+                  arr.next
+                }
+                i += 1
+              }
+              Ctx(elemSchema, elem)
+
+            case _ =>
+              ctx // TODO
+          }
+      }
+    } else ctx
   }
 
   def internal_ctxOfNodeTest(testResult: Any, withAtMark: Boolean, ctxs: List[Ctx]) = {
@@ -336,7 +368,7 @@ class XPathEvaluator {
       case UnprefixedName(local) =>
         ctxs.head match {
           case Ctx(schema, target) =>
-            println("target: ", target)
+            //println("target: ", target)
             val (newSchema, newTarget) = target match {
               case rec: IndexedRecord =>
                 val field = schema.getField(local)
@@ -353,6 +385,7 @@ class XPathEvaluator {
             }
 
             Ctx(newSchema, newTarget) :: ctxs
+
           case _ => ctxs
         }
       case _ => ctxs
@@ -396,10 +429,10 @@ class XPathEvaluator {
     }
   }
 
-  def postfixExpr(expr: PrimaryExpr, postfixes: List[PostFix], ctxs: List[Ctx]) = {
-    primaryExpr(expr, ctxs)
+  def postfixExpr(expr: PrimaryExpr, postfixes: List[PostFix], ctxs: List[Ctx]): List[Ctx] = {
+    val value = primaryExpr(expr, ctxs)
     postfixes map { x => postfix(x, ctxs) }
-    ctxs
+    Ctx(null, value) :: ctxs
   }
 
   def postfix(post: PostFix, ctxs: List[Ctx]) = {

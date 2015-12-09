@@ -40,17 +40,25 @@ class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterA
       record.put("id", "abcd")
 
       var q = "/registerTime"
-      eval(q, record) should be(List(List(10000)))
+      eval(q, record) should be(List(10000))
 
       q = "/lastChargeRecord/time"
-      eval(q, record) should be(List(List(2)))
+      eval(q, record) should be(List(2))
 
       q = "/devApps/@a"
-      var resString = """List(List({"numBlackApps": 1, "numInstalledApps": 0, "numUninstalledApps": 0, "stdDevInstallingTime": 0.0, "hasAppList": false, "scoreAppInfo": 0.0}))"""
-      eval(q, record).toString should be(resString)
+      eval(q, record).asInstanceOf[List[java.util.Collection[_]]].head should be(
+        record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("a"))
 
       q = "/devApps/@a/numBlackApps"
-      eval(q, record) should be(List(List(1)))
+      eval(q, record) should be(List(1))
+
+      q = "/chargeRecords"
+      eval(q, record).asInstanceOf[List[java.util.Collection[_]]].head should be(
+        record.get("chargeRecords"))
+
+      q = "/chargeRecords[1]"
+      eval(q, record).asInstanceOf[List[java.util.Collection[_]]].head should be(
+        record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0))
 
     }
 
