@@ -1,6 +1,6 @@
-package chana.xpath.nodes
+package chana.xpath
 
-object XPathNodes {
+package object nodes {
 
   sealed abstract class Prefix(val text: String)
   case object Nop extends Prefix("")
@@ -22,7 +22,7 @@ object XPathNodes {
   final case class SimpleForClause(binding: SimpleForBinding, bindings: List[SimpleForBinding])
   final case class SimpleForBinding(varName: VarName, inExpr: ExprSingle)
   final case class LetExpr(letClause: SimpleLetClause, returnExpr: ExprSingle) extends ExprSingle
-  final case class SimpleLetClause(bingding: SimpleLetBinding, bindings: List[SimpleLetBinding])
+  final case class SimpleLetClause(binding: SimpleLetBinding, bindings: List[SimpleLetBinding])
   final case class SimpleLetBinding(varName: VarName, boundTo: ExprSingle)
   final case class QuantifiedExpr(isEvery: Boolean, varExpr: VarInExprSingle, varExprs: List[VarInExprSingle], statisExpr: ExprSingle) extends ExprSingle
   final case class VarInExprSingle(varName: VarName, inExpr: ExprSingle)
@@ -34,7 +34,7 @@ object XPathNodes {
   final case class ComparisonExprPostfix(compOp: CompOperator, concExpr: StringConcatExpr)
   final case class StringConcatExpr(rangeExpr: RangeExpr, rangeExprs: List[RangeExpr])
   final case class RangeExpr(addExpr: AdditiveExpr, toExpr: Option[AdditiveExpr])
-  final case class AdditiveExpr(multiExpr: MultiplicativeExpr, prefixedMutltiExpr: List[MultiplicativeExpr])
+  final case class AdditiveExpr(multiExpr: MultiplicativeExpr, prefixedMultiExprs: List[MultiplicativeExpr])
 
   /**
    * prefix is "", or "+", "-"
@@ -73,7 +73,7 @@ object XPathNodes {
   /**
    * prefix is "", or "-", "+"
    */
-  final case class UnaryExpr(prefixs: List[Prefix], valueExpr: ValueExpr)
+  final case class UnaryExpr(prefix: Prefix, valueExpr: ValueExpr)
   final case class ValueExpr(simpleMapExpr: SimpleMapExpr)
 
   /**
@@ -164,11 +164,11 @@ object XPathNodes {
   final case class AsterName(name: String) extends Wildcard
   final case class UriAster(uri: String) extends Wildcard
 
-  final case class PostfixExpr(expr: PrimaryExpr, postFix: List[PostFix])
+  final case class PostfixExpr(expr: PrimaryExpr, postfixes: List[PostFix])
   sealed trait PostFix
   final case class Postfix_Predicate(predicate: Predicate) extends PostFix
   final case class Postfix_Arguments(args: ArgumentList) extends PostFix
-  final case class Postfix_Lookup(loolup: Lookup) extends PostFix
+  final case class Postfix_Lookup(lookup: Lookup) extends PostFix
   final case class Postfix_ArrowPostfix(arrowPostfix: ArrowPostfix) extends PostFix
 
   final case class ArgumentList(args: List[Argument])
@@ -224,7 +224,7 @@ object XPathNodes {
   final case class MapValueExpr(expr: ExprSingle)
 
   sealed trait ArrayConstructor
-  final case class SquareArrayConstructor(expr: List[ExprSingle]) extends ArrayConstructor
+  final case class SquareArrayConstructor(exprs: List[ExprSingle]) extends ArrayConstructor
   final case class BraceArrayConstructor(expr: Option[Expr]) extends ArrayConstructor
 
   final case class UnaryLookup(key: KeySpecifier)
@@ -298,12 +298,12 @@ object XPathNodes {
   final case class ElementTest_Name(name: ElementNameOrWildcard, typeName: Option[TypeName], withQuestionMark: Boolean) extends ElementTest
 
   type ElementNameOrWildcard = Either[ElementName, Aster.type]
-  final case class SchemaElementTest(elementDecl: ElementDeclaration) extends KindTest
+  final case class SchemaElementTest(elemDecl: ElementDeclaration) extends KindTest
   final case class ElementDeclaration(name: ElementName)
 
   final case class AttributeName(name: EQName)
   final case class ElementName(name: EQName)
-  final case class SimpleTypeName(name: TypeName);
+  final case class SimpleTypeName(name: TypeName)
   final case class TypeName(name: EQName)
 
   sealed trait FunctionTest extends ItemType

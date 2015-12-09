@@ -1,6 +1,6 @@
 package chana.xpath.nodes
 
-import chana.xpath.nodes.XPathNodes._
+import chana.xpath.nodes._
 import chana.xpath.rats.XPathGrammar
 import java.io.StringReader
 import xtc.tree.Node
@@ -437,19 +437,14 @@ final class XPathParser {
    * (MINUS / PLUS)* ValueExpr
    */
   def unaryExpr(node: Node) = {
-    var prefixes = List[Prefix]()
-    var xs = node.getList[String](0)
-    if (xs ne null) {
-      val pres = xs.iterator
-      while (pres.hasNext) {
-        pres.next match {
-          case "-" => prefixes ::= Minus
-          case "+" => prefixes ::= Plus
-        }
-      }
+    val prefix = node.getString(0) match {
+      case null => Nop
+      case "+"  => Plus
+      case "-"  => Minus
     }
+
     val value = visit(node.getNode(1))(valueExpr)
-    UnaryExpr(prefixes.reverse, value)
+    UnaryExpr(prefix, value)
   }
 
   /**

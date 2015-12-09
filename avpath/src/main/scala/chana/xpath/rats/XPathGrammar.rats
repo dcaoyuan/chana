@@ -177,8 +177,10 @@ generic CastExpr =
   UnaryExpr ( CAST AS SingleType )?
 ;
 
+// according to the spec, should be: ( MINUS / PLUS )* ValueExpr
+// But why not just '?'  ???
 generic UnaryExpr =
-  ( MINUS / PLUS )* ValueExpr
+  ( MINUS / PLUS )? ValueExpr
 ;
 
 generic ValueExpr =
