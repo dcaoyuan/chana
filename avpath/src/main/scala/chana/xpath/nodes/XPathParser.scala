@@ -794,8 +794,8 @@ final class XPathParser {
   def literal(node: Node): Literal = {
     val n = node.getNode(0)
     n.getName match {
-      case "NumericLiteral" => NumericLiteral(visit(n)(numericLiteral))
-      case "StringLiteral"  => StringLiteral(n.getString(0))
+      case "NumericLiteral" => Literal(visit(n)(numericLiteral))
+      case "StringLiteral"  => Literal(n.getString(0))
     }
   }
 
@@ -803,8 +803,10 @@ final class XPathParser {
    *   DoubleLiteral
    * / DecimalLiteral
    * / IntegerLiteral
+   *
+   * Note: force return type to Number to avoid being infered to double
    */
-  def numericLiteral(node: Node) = {
+  def numericLiteral(node: Node): Any = {
     val n = node.getNode(0)
     n.getName match {
       case "DoubleLiteral"  => visit(n)(doubleLiteral)

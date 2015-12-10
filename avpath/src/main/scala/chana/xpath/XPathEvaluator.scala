@@ -99,15 +99,15 @@ class XPathEvaluator {
   }
 
   def orExpr(_andExpr: AndExpr, andExprs: List[AndExpr], ctxs: List[Ctx]) = {
-    val value = andExpr(_andExpr.compExpr, _andExpr.compExprs, ctxs)
-    andExprs map { x => andExpr(x.compExpr, x.compExprs, ctxs) }
-    value
+    val value0 = andExpr(_andExpr.compExpr, _andExpr.compExprs, ctxs)
+    val values = andExprs map { x => andExpr(x.compExpr, x.compExprs, ctxs) }
+    value0
   }
 
   def andExpr(compExpr: ComparisonExpr, compExprs: List[ComparisonExpr], ctxs: List[Ctx]) = {
-    val value = comparisonExpr(compExpr.concExpr, compExpr.compExprPostfix, ctxs)
-    compExprs map { x => comparisonExpr(x.concExpr, x.compExprPostfix, ctxs) }
-    value
+    val value0 = comparisonExpr(compExpr.concExpr, compExpr.compExprPostfix, ctxs)
+    val values = compExprs map { x => comparisonExpr(x.concExpr, x.compExprPostfix, ctxs) }
+    value0
   }
 
   def comparisonExpr(concExpr: StringConcatExpr, compExprPostfix: Option[ComparisonExprPostfix], ctxs: List[Ctx]) = {
@@ -147,12 +147,8 @@ class XPathEvaluator {
       case Nop | Plus => v0
       case Minus =>
         v0 match {
-          case x: Int    => -x
-          case x: Long   => -x
-          case x: Float  => -x
-          case x: Double => -x
-          case x: Number => -x.doubleValue
-          case _         => v0
+          case value: Number => XPathFunctions.neg(value)
+          case _             => v0
         }
     }
 
@@ -174,7 +170,7 @@ class XPathEvaluator {
     values.foldLeft(value0) {
       case (acc: Number, (Aster, value: Number)) => XPathFunctions.multiply(acc, value)
       case (acc: Number, (Div, value: Number))   => XPathFunctions.divide(acc, value)
-      case (acc: Number, (IDiv, value: Number))  => XPathFunctions.divide(acc.intValue, value.intValue)
+      case (acc: Number, (IDiv, value: Number))  => XPathFunctions.idivide(acc, value)
       case (acc: Number, (Mod, value: Number))   => XPathFunctions.mod(acc.intValue, value.intValue)
       case _                                     => value0
     }
@@ -543,11 +539,11 @@ class XPathEvaluator {
     }
   }
 
-  def literal(v: Literal, ctxs: List[Ctx]): Any = {
-    v match {
-      case NumericLiteral(x) => x
-      case StringLiteral(x)  => x
-    }
+  /**
+   * Force Any to AnyRef to avoid AnyVal be boxed/unboxed again and again
+   */
+  def literal(v: Literal, ctxs: List[Ctx]): AnyRef = {
+    v.x.asInstanceOf[AnyRef]
   }
 
   def varRef(_varName: VarName, ctxs: List[Ctx]) = {

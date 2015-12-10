@@ -199,9 +199,7 @@ package object nodes {
   final case class PrimaryExpr_ArrayConstructor(arrayConstructor: ArrayConstructor) extends PrimaryExpr
   final case class PrimaryExpr_UnaryLookup(unaryLoolup: UnaryLookup) extends PrimaryExpr
 
-  sealed trait Literal
-  final case class NumericLiteral(x: Number) extends Literal
-  final case class StringLiteral(x: String) extends Literal
+  final case class Literal(x: Any)
 
   final case class VarRef(varName: VarName)
   final case class VarName(eqName: EQName)

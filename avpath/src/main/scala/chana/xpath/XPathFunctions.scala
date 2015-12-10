@@ -8,7 +8,7 @@ import java.time.temporal.Temporal
 object XPathFunctions {
 
   def plus(left: Any, right: Any): Number = {
-    (left, right) match {
+    (left.asInstanceOf[AnyRef], right.asInstanceOf[AnyRef]) match {
       case (x: java.lang.Double, y: Number)  => x + y.doubleValue
       case (x: Number, y: java.lang.Double)  => x.doubleValue + y
       case (x: java.lang.Float, y: Number)   => x + y.floatValue
@@ -22,7 +22,7 @@ object XPathFunctions {
   }
 
   def minus(left: Any, right: Any): Number = {
-    (left, right) match {
+    (left.asInstanceOf[AnyRef], right.asInstanceOf[AnyRef]) match {
       case (x: java.lang.Double, y: Number)  => x - y.doubleValue
       case (x: Number, y: java.lang.Double)  => x.doubleValue - y
       case (x: java.lang.Float, y: Number)   => x - y.floatValue
@@ -36,7 +36,7 @@ object XPathFunctions {
   }
 
   def multiply(left: Any, right: Any): Number = {
-    (left, right) match {
+    (left.asInstanceOf[AnyRef], right.asInstanceOf[AnyRef]) match {
       case (x: java.lang.Double, y: Number)  => x * y.doubleValue
       case (x: Number, y: java.lang.Double)  => x.doubleValue * y
       case (x: java.lang.Float, y: Number)   => x * y.floatValue
@@ -50,7 +50,7 @@ object XPathFunctions {
   }
 
   def divide(left: Any, right: Any): Number = {
-    (left, right) match {
+    (left.asInstanceOf[AnyRef], right.asInstanceOf[AnyRef]) match {
       case (x: java.lang.Double, y: Number)  => x / y.doubleValue
       case (x: Number, y: java.lang.Double)  => x.doubleValue / y
       case (x: java.lang.Float, y: Number)   => x / y.floatValue
@@ -63,8 +63,22 @@ object XPathFunctions {
     }
   }
 
+  def idivide(left: Any, right: Any): Number = {
+    (left.asInstanceOf[AnyRef], right.asInstanceOf[AnyRef]) match {
+      case (x: java.lang.Double, y: Number)  => x.intValue / y.intValue
+      case (x: Number, y: java.lang.Double)  => x.intValue / y.intValue
+      case (x: java.lang.Float, y: Number)   => x.intValue / y.intValue
+      case (x: Number, y: java.lang.Float)   => x.intValue / y.intValue
+      case (x: java.lang.Long, y: Number)    => x.intValue / y.intValue
+      case (x: Number, y: java.lang.Long)    => x.intValue / y.intValue
+      case (x: java.lang.Integer, y: Number) => x.intValue / y.intValue
+      case (x: Number, y: java.lang.Integer) => x.intValue / y.intValue
+      case x                                 => throw XPathRuntimeException(x, "is not pair of number")
+    }
+  }
+
   def mod(left: Any, right: Any): Number = {
-    (left, right) match {
+    (left.asInstanceOf[AnyRef], right.asInstanceOf[AnyRef]) match {
       case (x: java.lang.Integer, y: java.lang.Integer) => x % y
       case x => throw XPathRuntimeException(x, "is not pair of number")
     }
@@ -81,7 +95,7 @@ object XPathFunctions {
   }
 
   def abs(v: Any): Number = {
-    v match {
+    v.asInstanceOf[AnyRef] match {
       case x: java.lang.Integer => math.abs(x)
       case x: java.lang.Long    => math.abs(x)
       case x: java.lang.Float   => math.abs(x)
@@ -91,7 +105,7 @@ object XPathFunctions {
   }
 
   def eq(left: Any, right: Any) = {
-    (left, right) match {
+    (left.asInstanceOf[AnyRef], right.asInstanceOf[AnyRef]) match {
       case (x: Number, y: Number) => x == y
       case (x: CharSequence, y: CharSequence) => x == y
       case (x: LocalTime, y: LocalTime) => !(x.isAfter(y) || x.isBefore(y)) // ??
@@ -104,7 +118,7 @@ object XPathFunctions {
   }
 
   def ne(left: Any, right: Any) = {
-    (left, right) match {
+    (left.asInstanceOf[AnyRef], right.asInstanceOf[AnyRef]) match {
       case (x: Number, y: Number) => x != y
       case (x: CharSequence, y: CharSequence) => x != y
       case (x: LocalTime, y: LocalTime) => x.isAfter(y) || x.isBefore(y)
@@ -117,7 +131,7 @@ object XPathFunctions {
   }
 
   def gt(left: Any, right: Any) = {
-    (left, right) match {
+    (left.asInstanceOf[AnyRef], right.asInstanceOf[AnyRef]) match {
       case (x: Number, y: Number)               => x.doubleValue > y.doubleValue
       case (x: LocalTime, y: LocalTime)         => x.isAfter(y)
       case (x: LocalDate, y: LocalDate)         => x.isAfter(y)
@@ -127,7 +141,7 @@ object XPathFunctions {
   }
 
   def ge(left: Any, right: Any) = {
-    (left, right) match {
+    (left.asInstanceOf[AnyRef], right.asInstanceOf[AnyRef]) match {
       case (x: Number, y: Number)               => x.doubleValue >= y.doubleValue
       case (x: LocalTime, y: LocalTime)         => x.isAfter(y) || !x.isBefore(y)
       case (x: LocalDate, y: LocalDate)         => x.isAfter(y) || x.isEqual(y)
@@ -137,7 +151,7 @@ object XPathFunctions {
   }
 
   def lt(left: Any, right: Any) = {
-    (left, right) match {
+    (left.asInstanceOf[AnyRef], right.asInstanceOf[AnyRef]) match {
       case (x: Number, y: Number)               => x.doubleValue < y.doubleValue
       case (x: LocalTime, y: LocalTime)         => x.isBefore(y)
       case (x: LocalDate, y: LocalDate)         => x.isBefore(y)
@@ -147,7 +161,7 @@ object XPathFunctions {
   }
 
   def le(left: Any, right: Any) = {
-    (left, right) match {
+    (left.asInstanceOf[AnyRef], right.asInstanceOf[AnyRef]) match {
       case (x: Number, y: Number)               => x.doubleValue <= y.doubleValue
       case (x: LocalTime, y: LocalTime)         => x.isBefore(y) || !x.isAfter(y)
       case (x: LocalDate, y: LocalDate)         => x.isBefore(y) || x.isEqual(y)
@@ -162,7 +176,7 @@ object XPathFunctions {
   }
 
   def between(base: Any, min: Any, max: Any) = {
-    (base, min, max) match {
+    (base.asInstanceOf[AnyRef], min.asInstanceOf[AnyRef], max.asInstanceOf[AnyRef]) match {
       case (x: Number, min: Number, max: Number) =>
         x.doubleValue >= min.doubleValue && x.doubleValue <= max.doubleValue
       case (x: LocalTime, min: LocalTime, max: LocalTime) =>
