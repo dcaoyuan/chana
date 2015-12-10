@@ -60,6 +60,14 @@ class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterA
       eval(q, record).asInstanceOf[List[java.util.Collection[_]]].head should be(
         record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0))
 
+      q = "/chargeRecords[last()]"
+      eval(q, record).asInstanceOf[List[java.util.Collection[_]]].head should be(
+        record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1))
+
+      q = "/chargeRecords[last()-1]"
+      eval(q, record).asInstanceOf[List[java.util.Collection[_]]].head should be(
+        record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0))
+
     }
 
   }

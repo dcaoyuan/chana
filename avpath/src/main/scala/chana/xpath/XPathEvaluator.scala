@@ -142,64 +142,76 @@ class XPathEvaluator {
   }
 
   def additiveExpr(multiExpr: MultiplicativeExpr, prefixedMultiExprs: List[MultiplicativeExpr], ctxs: List[Ctx]) = {
-    val value = multiplicativeExpr(multiExpr.prefix, multiExpr.unionExpr, multiExpr.prefixedUnionExprs, ctxs)
-    prefixedMultiExprs map { x => multiplicativeExpr(x.prefix, x.unionExpr, x.prefixedUnionExprs, ctxs) }
-    value
+    val v0 = multiplicativeExpr(multiExpr.prefix, multiExpr.unionExpr, multiExpr.prefixedUnionExprs, ctxs)
+    val value0 = multiExpr.prefix match {
+      case Nop | Plus => v0
+      case Minus =>
+        v0 match {
+          case x: Int    => -x
+          case x: Long   => -x
+          case x: Float  => -x
+          case x: Double => -x
+          case x: Number => -x.doubleValue
+          case _         => v0
+        }
+    }
+
+    val values = prefixedMultiExprs map { x => (x.prefix, multiplicativeExpr(x.prefix, x.unionExpr, x.prefixedUnionExprs, ctxs)) }
+    values.foldLeft(value0) {
+      case (acc: Number, (Plus, value: Number))  => XPathFunctions.plus(acc, value)
+      case (acc: Number, (Minus, value: Number)) => XPathFunctions.minus(acc, value)
+      case _                                     => value0
+    }
   }
 
   /**
    * prefix is "", or "+", "-"
    */
   def multiplicativeExpr(prefix: Prefix, _unionExpr: UnionExpr, prefixedUnionExprs: List[UnionExpr], ctxs: List[Ctx]) = {
-    prefix match {
-      case Nop   =>
-      case Plus  =>
-      case Minus =>
+    val value0 = unionExpr(_unionExpr.prefix, _unionExpr.intersectExceptExpr, _unionExpr.prefixedIntersectExceptExprs, ctxs)
+
+    val values = prefixedUnionExprs map { x => (x.prefix, unionExpr(x.prefix, x.intersectExceptExpr, x.prefixedIntersectExceptExprs, ctxs)) }
+    values.foldLeft(value0) {
+      case (acc: Number, (Aster, value: Number)) => XPathFunctions.multiply(acc, value)
+      case (acc: Number, (Div, value: Number))   => XPathFunctions.divide(acc, value)
+      case (acc: Number, (IDiv, value: Number))  => XPathFunctions.divide(acc.intValue, value.intValue)
+      case (acc: Number, (Mod, value: Number))   => XPathFunctions.mod(acc.intValue, value.intValue)
+      case _                                     => value0
     }
-    val value = unionExpr(_unionExpr.prefix, _unionExpr.intersectExceptExpr, _unionExpr.prefixedIntersectExceptExprs, ctxs)
-    prefixedUnionExprs map { x => unionExpr(x.prefix, x.intersectExceptExpr, x.prefixedIntersectExceptExprs, ctxs) }
-    value
   }
 
   /**
    * prefix is "", or "*", "div", "idiv", "mod"
    */
   def unionExpr(prefix: Prefix, _intersectExceptExpr: IntersectExceptExpr, prefixedIntersectExceptExprs: List[IntersectExceptExpr], ctxs: List[Ctx]) = {
-    prefix match {
-      case Nop   =>
-      case Aster =>
-      case Div   =>
-      case IDiv  =>
-      case Mod   =>
+    val value0 = intersectExceptExpr(_intersectExceptExpr.prefix, _intersectExceptExpr.instanceOfExpr, _intersectExceptExpr.prefixedInstanceOfExprs, ctxs)
+
+    val values = prefixedIntersectExceptExprs map { x => (x.prefix, intersectExceptExpr(x.prefix, x.instanceOfExpr, x.prefixedInstanceOfExprs, ctxs)) }
+    values.foldLeft(value0) {
+      case (acc, (Union, value)) => value0 // TODO
+      case (acc, (Pipe, value))  => value0 // TODO
+      case _                     => value0
     }
-    val value = intersectExceptExpr(_intersectExceptExpr.prefix, _intersectExceptExpr.instanceOfExpr, _intersectExceptExpr.prefixedInstanceOfExprs, ctxs)
-    prefixedIntersectExceptExprs map { x => intersectExceptExpr(x.prefix, x.instanceOfExpr, x.prefixedInstanceOfExprs, ctxs) }
-    value
   }
 
   /**
    * prefix is "", or "union", "|"
    */
   def intersectExceptExpr(prefix: Prefix, _instanceOfExpr: InstanceofExpr, prefixedInstanceOfExprs: List[InstanceofExpr], ctxs: List[Ctx]) = {
-    prefix match {
-      case Nop   =>
-      case Union =>
-      case Pipe  =>
+    val value0 = instanceofExpr(_instanceOfExpr.prefix, _instanceOfExpr.treatExpr, _instanceOfExpr.ofType, ctxs)
+
+    val values = prefixedInstanceOfExprs map { x => (x.prefix, instanceofExpr(x.prefix, x.treatExpr, x.ofType, ctxs)) }
+    values.foldLeft(value0) {
+      case (acc, (Intersect, value)) => value0 // TODO
+      case (acc, (Except, value))    => value0 // TODO
+      case _                         => value0
     }
-    val value = instanceofExpr(_instanceOfExpr.prefix, _instanceOfExpr.treatExpr, _instanceOfExpr.ofType, ctxs)
-    prefixedInstanceOfExprs map { x => instanceofExpr(x.prefix, x.treatExpr, x.ofType, ctxs) }
-    value
   }
 
   /**
    * prefix is "", or "intersect", "except"
    */
   def instanceofExpr(prefix: Prefix, _treatExpr: TreatExpr, ofType: Option[SequenceType], ctxs: List[Ctx]) = {
-    prefix match {
-      case Nop       =>
-      case Intersect =>
-      case Except    =>
-    }
     val value = treatExpr(_treatExpr.castableExpr, _treatExpr.asType, ctxs)
     ofType map { x => sequenceType(x, ctxs) }
     value
@@ -310,8 +322,6 @@ class XPathEvaluator {
   }
 
   def forwardAxisStep(step: ForwardStep, predicates: PredicateList, ctxs: List[Ctx]): List[Ctx] = {
-    val preds = predicateList(predicates.predicates, ctxs)
-    println("preds: ", preds)
     step match {
       case ForwardStep_Axis(axis, _nodeTest) =>
         axis match {
@@ -328,8 +338,10 @@ class XPathEvaluator {
         ctxs
       case AbbrevForwardStep(_nodeTest, withAtMark) =>
         val res = nodeTest(_nodeTest, ctxs)
-        val (curr :: tail) = internal_ctxOfNodeTest(res, withAtMark, ctxs)
-        internal_filterByPredicateList(preds, curr) :: tail
+        val newCtxs = internal_ctxOfNodeTest(res, withAtMark, ctxs)
+        val preds = predicateList(predicates.predicates, newCtxs)
+        //println("preds: ", preds)
+        internal_filterByPredicateList(preds, newCtxs.head) :: newCtxs.tail
     }
   }
 
@@ -357,6 +369,8 @@ class XPathEvaluator {
             case _ =>
               ctx // TODO
           }
+
+        case _ => ctx // TODO
       }
     } else ctx
   }
@@ -548,9 +562,22 @@ class XPathEvaluator {
     _expr map { x => expr(x.expr, x.exprs, ctxs) }
   }
 
-  def functionCall(name: EQName, args: ArgumentList, ctxs: List[Ctx]) = {
-    //name
-    argumentList(args.args, ctxs)
+  def functionCall(name: EQName, _args: ArgumentList, ctxs: List[Ctx]) = {
+    val fnName = name match {
+      case UnprefixedName(x)           => x
+      case PrefixedName(prefix, local) => local
+      case URIQualifiedName(uri, name) => name
+    }
+    val args = argumentList(_args.args, ctxs)
+
+    fnName match {
+      case "last" =>
+        //println("target: ", ctxs.head.target)
+        ctxs.head.target match {
+          case arr: java.util.Collection[Any] @unchecked => arr.size
+          case _                                         => ()
+        }
+    }
   }
 
   def namedFunctionRef(name: EQName, index: Int, ctxs: List[Ctx]) = {
