@@ -16,7 +16,7 @@ class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterA
 
   def eval(query: String, record: Record) = {
     val reader = new StringReader(query)
-    val grammar = new XPathGrammar(reader, "<current>")
+    val grammar = new XPathGrammar(reader, "")
     val r = grammar.pXPath(0)
     val rootNode = r.semanticValue[Node]
     info("\n\n## " + query + " ##")

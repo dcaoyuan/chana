@@ -18,7 +18,7 @@ class XPathGrammarSpec extends WordSpecLike with Matchers with BeforeAndAfterAll
 
   def parse(query: String) {
     val reader = new StringReader(query)
-    val grammar = new XPathGrammar(reader, "<current>")
+    val grammar = new XPathGrammar(reader, "")
     val r = grammar.pXPath(0)
     if (r.hasValue) {
       // for the signature of method: <T> T semanticValue(), we have to call

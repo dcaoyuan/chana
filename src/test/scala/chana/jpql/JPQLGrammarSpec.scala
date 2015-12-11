@@ -12,7 +12,7 @@ class JPQLGrammarSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
 
   def parse(query: String) {
     val reader = new StringReader(query)
-    val grammar = new JPQLGrammar(reader, "<current>")
+    val grammar = new JPQLGrammar(reader, "")
     val r = grammar.pJPQL(0)
     if (r.hasValue) {
       // for the signature of method: <T> T semanticValue(), we have to call

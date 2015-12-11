@@ -15,7 +15,7 @@ class JPQLEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterAl
 
   def eval(query: String, record: Record) = {
     val reader = new StringReader(query)
-    val grammar = new JPQLGrammar(reader, "<current>")
+    val grammar = new JPQLGrammar(reader, "")
     val r = grammar.pJPQL(0)
     val rootNode = r.semanticValue[Node]
     info("\n\n## " + query + " ##")

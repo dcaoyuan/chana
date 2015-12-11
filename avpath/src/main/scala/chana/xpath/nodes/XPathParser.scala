@@ -12,7 +12,7 @@ final class XPathParser {
    */
   def parse(jpql: String) = {
     val reader = new StringReader(jpql)
-    val grammar = new XPathGrammar(reader, "<current>")
+    val grammar = new XPathGrammar(reader, "")
     val r = grammar.pXPath(0)
     if (r.hasValue) {
       val rootNode = r.semanticValue[Node]

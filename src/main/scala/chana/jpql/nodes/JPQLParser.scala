@@ -15,7 +15,7 @@ final class JPQLParser() {
    */
   def parse(jpql: String) = {
     val reader = new StringReader(jpql)
-    val grammar = new JPQLGrammar(reader, "<current>")
+    val grammar = new JPQLGrammar(reader, "")
     val r = grammar.pJPQL(0)
     if (r.hasValue) {
       val rootNode = r.semanticValue[Node]

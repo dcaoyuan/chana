@@ -9,10 +9,12 @@ object XPathFunctions {
 
   // TODO ------------ right is collection
 
+  type FunctionOnArray = (Any => Any) => List[Any]
+
   def plus(left: Any, right: Any) = left match {
-    case xs: List[_] => xs map internal_plusRight(right)
-    case fn: ((Any => Any) => List[Any]) @unchecked => fn(internal_plusRight(right))
-    case _ => internal_plus(left, right)
+    case xs: List[_]                    => xs map internal_plusRight(right)
+    case fn: FunctionOnArray @unchecked => fn(internal_plusRight(right))
+    case _                              => internal_plus(left, right)
   }
   private def internal_plusRight(right: Any) = { (left: Any) => internal_plus(left, right) }
   private def internal_plus(left: Any, right: Any): Number = {
@@ -30,9 +32,9 @@ object XPathFunctions {
   }
 
   def minus(left: Any, right: Any) = left match {
-    case xs: List[_] => xs map internal_minusRight(right)
-    case fn: ((Any => Any) => List[Any]) @unchecked => fn(internal_minusRight(right))
-    case _ => internal_minus(left, right)
+    case xs: List[_]                    => xs map internal_minusRight(right)
+    case fn: FunctionOnArray @unchecked => fn(internal_minusRight(right))
+    case _                              => internal_minus(left, right)
   }
   private def internal_minusRight(right: Any) = { (left: Any) => internal_minus(left, right) }
   private def internal_minus(left: Any, right: Any): Number = {
@@ -50,9 +52,9 @@ object XPathFunctions {
   }
 
   def multiply(left: Any, right: Any) = left match {
-    case xs: List[_] => xs map internal_multiplyRight(right)
-    case fn: ((Any => Any) => List[Any]) @unchecked => fn(internal_multiplyRight(right))
-    case _ => internal_multiply(left, right)
+    case xs: List[_]                    => xs map internal_multiplyRight(right)
+    case fn: FunctionOnArray @unchecked => fn(internal_multiplyRight(right))
+    case _                              => internal_multiply(left, right)
   }
   private def internal_multiplyRight(right: Any) = { (left: Any) => internal_multiply(left, right) }
   private def internal_multiply(left: Any, right: Any): Number = {
@@ -70,9 +72,9 @@ object XPathFunctions {
   }
 
   def divide(left: Any, right: Any) = left match {
-    case xs: List[_] => xs map internal_divideRight(right)
-    case fn: ((Any => Any) => List[Any]) @unchecked => fn(internal_divideRight(right))
-    case _ => internal_divide(left, right)
+    case xs: List[_]                    => xs map internal_divideRight(right)
+    case fn: FunctionOnArray @unchecked => fn(internal_divideRight(right))
+    case _                              => internal_divide(left, right)
   }
   private def internal_divideRight(right: Any) = { (left: Any) => internal_divide(left, right) }
   private def internal_divide(left: Any, right: Any): Number = {
@@ -90,9 +92,9 @@ object XPathFunctions {
   }
 
   def idivide(left: Any, right: Any) = left match {
-    case xs: List[_] => xs map internal_idivideRight(right)
-    case fn: ((Any => Any) => List[Any]) @unchecked => fn(internal_idivideRight(right))
-    case _ => internal_idivide(left, right)
+    case xs: List[_]                    => xs map internal_idivideRight(right)
+    case fn: FunctionOnArray @unchecked => fn(internal_idivideRight(right))
+    case _                              => internal_idivide(left, right)
   }
   private def internal_idivideRight(right: Any) = { (left: Any) => internal_idivide(left, right) }
   private def internal_idivide(left: Any, right: Any): Number = {
@@ -110,29 +112,22 @@ object XPathFunctions {
   }
 
   def mod(left: Any, right: Any) = left match {
-    case xs: List[_] => xs map internal_modRight(right)
-    case fn: ((Any => Any) => List[Any]) @unchecked => fn(internal_modRight(right))
-    case _ => internal_mod(left, right)
+    case xs: List[_]                    => xs map internal_modRight(right)
+    case fn: FunctionOnArray @unchecked => fn(internal_modRight(right))
+    case _                              => internal_mod(left, right)
   }
   private def internal_modRight(right: Any) = { (left: Any) => internal_mod(left, right) }
   private def internal_mod(left: Any, right: Any): Number = {
     (left.asInstanceOf[AnyRef], right.asInstanceOf[AnyRef]) match {
-      case (x: java.lang.Double, y: Number)  => x.intValue % y.intValue
-      case (x: Number, y: java.lang.Double)  => x.intValue % y.intValue
-      case (x: java.lang.Float, y: Number)   => x.intValue % y.intValue
-      case (x: Number, y: java.lang.Float)   => x.intValue % y.intValue
-      case (x: java.lang.Long, y: Number)    => x.intValue % y.intValue
-      case (x: Number, y: java.lang.Long)    => x.intValue % y.intValue
-      case (x: java.lang.Integer, y: Number) => x.intValue % y.intValue
-      case (x: Number, y: java.lang.Integer) => x.intValue % y.intValue
-      case x                                 => throw XPathRuntimeException(x, "is not pair of number")
+      case (x: Number, y: Number) => x.intValue % y.intValue
+      case x                      => throw XPathRuntimeException(x, "is not pair of number")
     }
   }
 
   def neg(v: Any) = v match {
-    case xs: List[_] => xs map internal_neg
-    case fn: ((Any => Any) => List[Any]) @unchecked => fn(internal_neg)
-    case _ => internal_neg(v)
+    case xs: List[_]                    => xs map internal_neg
+    case fn: FunctionOnArray @unchecked => fn(internal_neg)
+    case _                              => internal_neg(v)
   }
   def internal_neg(v: Any): Number = {
     v match {
@@ -145,9 +140,9 @@ object XPathFunctions {
   }
 
   def abs(v: Any) = v match {
-    case xs: List[_] => xs map internal_abs
-    case fn: ((Any => Any) => List[Any]) @unchecked => fn(internal_abs)
-    case _ => internal_abs(v)
+    case xs: List[_]                    => xs map internal_abs
+    case fn: FunctionOnArray @unchecked => fn(internal_abs)
+    case _                              => internal_abs(v)
   }
   def internal_abs(v: Any): Number = {
     v.asInstanceOf[AnyRef] match {
@@ -160,9 +155,9 @@ object XPathFunctions {
   }
 
   def eq(left: Any, right: Any) = left match {
-    case xs: List[_] => xs map internal_eqRight(right)
-    case fn: ((Any => Any) => List[Any]) @unchecked => fn(internal_eqRight(right))
-    case _ => internal_eq(left, right)
+    case xs: List[_]                    => xs map internal_eqRight(right)
+    case fn: FunctionOnArray @unchecked => fn(internal_eqRight(right))
+    case _                              => internal_eq(left, right)
   }
   private def internal_eqRight(right: Any) = { (left: Any) => internal_eq(left, right) }
   private def internal_eq(left: Any, right: Any): Boolean = {
@@ -179,9 +174,9 @@ object XPathFunctions {
   }
 
   def ne(left: Any, right: Any) = left match {
-    case xs: List[_] => xs map internal_neRight(right)
-    case fn: ((Any => Any) => List[Any]) @unchecked => fn(internal_neRight(right))
-    case _ => internal_ne(left, right)
+    case xs: List[_]                    => xs map internal_neRight(right)
+    case fn: FunctionOnArray @unchecked => fn(internal_neRight(right))
+    case _                              => internal_ne(left, right)
   }
   private def internal_neRight(right: Any) = { (left: Any) => internal_ne(left, right) }
   private def internal_ne(left: Any, right: Any) = {
@@ -198,9 +193,9 @@ object XPathFunctions {
   }
 
   def gt(left: Any, right: Any) = left match {
-    case xs: List[_] => xs map internal_gtRight(right)
-    case fn: ((Any => Any) => List[Any]) @unchecked => fn(internal_gtRight(right))
-    case _ => internal_gt(left, right)
+    case xs: List[_]                    => xs map internal_gtRight(right)
+    case fn: FunctionOnArray @unchecked => fn(internal_gtRight(right))
+    case _                              => internal_gt(left, right)
   }
   private def internal_gtRight(right: Any) = { (left: Any) => internal_gt(left, right) }
   private def internal_gt(left: Any, right: Any) = {
@@ -214,9 +209,9 @@ object XPathFunctions {
   }
 
   def ge(left: Any, right: Any) = left match {
-    case xs: List[_] => xs map internal_geRight(right)
-    case fn: ((Any => Any) => List[Any]) @unchecked => fn(internal_geRight(right))
-    case _ => internal_ge(left, right)
+    case xs: List[_]                    => xs map internal_geRight(right)
+    case fn: FunctionOnArray @unchecked => fn(internal_geRight(right))
+    case _                              => internal_ge(left, right)
   }
   private def internal_geRight(right: Any) = { (left: Any) => internal_ge(left, right) }
   private def internal_ge(left: Any, right: Any) = {
@@ -230,9 +225,9 @@ object XPathFunctions {
   }
 
   def lt(left: Any, right: Any) = left match {
-    case xs: List[_] => xs map internal_ltRight(right)
-    case fn: ((Any => Any) => List[Any]) @unchecked => fn(internal_ltRight(right))
-    case _ => internal_lt(left, right)
+    case xs: List[_]                    => xs map internal_ltRight(right)
+    case fn: FunctionOnArray @unchecked => fn(internal_ltRight(right))
+    case _                              => internal_lt(left, right)
   }
   private def internal_ltRight(right: Any) = { (left: Any) => internal_lt(left, right) }
   private def internal_lt(left: Any, right: Any) = {
@@ -246,9 +241,9 @@ object XPathFunctions {
   }
 
   def le(left: Any, right: Any) = left match {
-    case xs: List[_] => xs map internal_leRight(right)
-    case fn: ((Any => Any) => List[Any]) @unchecked => fn(internal_leRight(right))
-    case _ => internal_le(left, right)
+    case xs: List[_]                    => xs map internal_leRight(right)
+    case fn: FunctionOnArray @unchecked => fn(internal_leRight(right))
+    case _                              => internal_le(left, right)
   }
   private def internal_leRight(right: Any) = { (left: Any) => internal_le(left, right) }
   private def internal_le(left: Any, right: Any) = {
@@ -290,7 +285,7 @@ object XPathFunctions {
     xs.size
   }
 
-  def position(xs: java.util.Collection[Any]) = { (op: Int => Any) =>
+  def position(xs: java.util.Collection[Any]): FunctionOnArray = { (op: Int => Any) =>
     var res = List[Any]()
     val itr = xs.iterator
     var i = 1
