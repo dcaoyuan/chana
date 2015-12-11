@@ -8,6 +8,7 @@ import org.apache.avro.generic.GenericData.Record
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.Matchers
 import org.scalatest.WordSpecLike
+import scala.collection.JavaConversions._
 import xtc.tree.Node
 
 class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
@@ -46,27 +47,83 @@ class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterA
       eval(q, record) should be(List(2))
 
       q = "/devApps/@a"
-      eval(q, record).asInstanceOf[List[java.util.Collection[_]]].head should be(
+      eval(q, record).head should be(
         record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("a"))
 
       q = "/devApps/@a/numBlackApps"
       eval(q, record) should be(List(1))
 
       q = "/chargeRecords"
-      eval(q, record).asInstanceOf[List[java.util.Collection[_]]].head should be(
+      eval(q, record).head should be(
         record.get("chargeRecords"))
 
       q = "/chargeRecords[1]"
-      eval(q, record).asInstanceOf[List[java.util.Collection[_]]].head should be(
-        record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0))
+      eval(q, record).head should be(
+        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
 
       q = "/chargeRecords[last()]"
-      eval(q, record).asInstanceOf[List[java.util.Collection[_]]].head should be(
-        record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1))
+      eval(q, record).head should be(
+        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
       q = "/chargeRecords[last()-1]"
-      eval(q, record).asInstanceOf[List[java.util.Collection[_]]].head should be(
-        record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0))
+      eval(q, record).head should be(
+        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
+
+    }
+
+    "query fields with complex predicates" should {
+      val record = initAccount()
+      record.put("registerTime", 10000L)
+      record.put("lastLoginTime", 20000L)
+      record.put("id", "abcd")
+
+      var q = "/chargeRecords[position() = 2]"
+      eval(q, record).head should be(
+        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
+
+      q = "/chargeRecords[position() != 1]"
+      eval(q, record).head should be(
+        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
+
+      q = "/chargeRecords[position() >= 2]"
+      eval(q, record).head should be(
+        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
+
+      q = "/chargeRecords[position() > 1]"
+      eval(q, record).head should be(
+        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
+
+      q = "/chargeRecords[position() < 2]"
+      eval(q, record).head should be(
+        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
+
+      q = "/chargeRecords[position() <= 1]"
+      eval(q, record).head should be(
+        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
+
+      q = "/chargeRecords[position() <= 2]"
+      eval(q, record).head should be(
+        record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].toList)
+
+      q = "/chargeRecords[position() > 0]"
+      eval(q, record).head should be(
+        record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].toList)
+
+      q = "/chargeRecords[position() + 1 > 1]"
+      eval(q, record).head should be(
+        record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].toList)
+
+      q = "/chargeRecords[position() - 1 + 1 > 1]"
+      eval(q, record).head should be(
+        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
+
+      q = "/chargeRecords[-position() >= -1]"
+      eval(q, record).head should be(
+        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
+
+      q = "/chargeRecords[-position() -1 + 1 >= -1]"
+      eval(q, record).head should be(
+        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
 
     }
 
