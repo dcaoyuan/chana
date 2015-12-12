@@ -101,13 +101,13 @@ class XPathEvaluator {
   def orExpr(_andExpr: AndExpr, andExprs: List[AndExpr], ctxs: List[Ctx]) = {
     val value0 = andExpr(_andExpr.compExpr, _andExpr.compExprs, ctxs)
     val values = andExprs map { x => andExpr(x.compExpr, x.compExprs, ctxs) }
-    value0
+    values.foldLeft(value0) { (acc, x) => XPathFunctions.or(acc, x) }
   }
 
   def andExpr(compExpr: ComparisonExpr, compExprs: List[ComparisonExpr], ctxs: List[Ctx]) = {
     val value0 = comparisonExpr(compExpr.concExpr, compExpr.compExprPostfix, ctxs)
     val values = compExprs map { x => comparisonExpr(x.concExpr, x.compExprPostfix, ctxs) }
-    value0
+    values.foldLeft(value0) { (acc, x) => XPathFunctions.and(acc, x) }
   }
 
   def comparisonExpr(concExpr: StringConcatExpr, compExprPostfix: Option[ComparisonExprPostfix], ctxs: List[Ctx]) = {
@@ -224,20 +224,35 @@ class XPathEvaluator {
    */
   def instanceofExpr(prefix: Prefix, _treatExpr: TreatExpr, ofType: Option[SequenceType], ctxs: List[Ctx]) = {
     val value = treatExpr(_treatExpr.castableExpr, _treatExpr.asType, ctxs)
-    ofType map { x => sequenceType(x, ctxs) }
-    value
+
+    ofType match {
+      case Some(x) =>
+        val tpe = sequenceType(x, ctxs)
+        value // TODO
+      case None => value
+    }
   }
 
   def treatExpr(_castableExpr: CastableExpr, asType: Option[SequenceType], ctxs: List[Ctx]) = {
     val value = castableExpr(_castableExpr.castExpr, _castableExpr.asType, ctxs)
-    asType map { x => sequenceType(x, ctxs) }
-    value
+
+    asType match {
+      case Some(x) =>
+        val tpe = sequenceType(x, ctxs)
+        value // TODO
+      case None => value
+    }
   }
 
   def castableExpr(_castExpr: CastExpr, asType: Option[SingleType], ctxs: List[Ctx]) = {
     val value = castExpr(_castExpr.unaryExpr, _castExpr.asType, ctxs)
-    asType map { x => singleType(x.name, x.withQuestionMark, ctxs) }
-    value
+
+    asType match {
+      case Some(x) =>
+        val tpe = singleType(x.name, x.withQuestionMark, ctxs)
+        value // TODO
+      case None => value
+    }
   }
 
   def castExpr(_unaryExpr: UnaryExpr, asType: Option[SingleType], ctxs: List[Ctx]) = {
@@ -246,8 +261,13 @@ class XPathEvaluator {
       case Nop | Plus => v0
       case Minus      => XPathFunctions.neg(v0)
     }
-    asType map { x => singleType(x.name, x.withQuestionMark, ctxs) }
-    value
+
+    asType match {
+      case Some(x) =>
+        val tpe = singleType(x.name, x.withQuestionMark, ctxs)
+        value // TODO
+      case None => value
+    }
   }
 
   /**
@@ -333,6 +353,13 @@ class XPathEvaluator {
 
   def forwardAxisStep(step: ForwardStep, predicates: PredicateList, ctxs: List[Ctx]): List[Ctx] = {
     step match {
+      case AbbrevForwardStep(_nodeTest, withAtMark) =>
+        val res = nodeTest(_nodeTest, ctxs)
+        val newCtxs = internal_ctxOfNodeTest(res, withAtMark, ctxs)
+        val preds = predicateList(predicates.predicates, newCtxs)
+        //println("preds: ", preds)
+        internal_filterByPredicateList(preds, newCtxs.head) :: newCtxs.tail
+
       case ForwardStep_Axis(axis, _nodeTest) =>
         axis match {
           case Child            =>
@@ -346,12 +373,6 @@ class XPathEvaluator {
         }
         nodeTest(_nodeTest, ctxs)
         ctxs
-      case AbbrevForwardStep(_nodeTest, withAtMark) =>
-        val res = nodeTest(_nodeTest, ctxs)
-        val newCtxs = internal_ctxOfNodeTest(res, withAtMark, ctxs)
-        val preds = predicateList(predicates.predicates, newCtxs)
-        //println("preds: ", preds)
-        internal_filterByPredicateList(preds, newCtxs.head) :: newCtxs.tail
     }
   }
 
@@ -614,8 +635,8 @@ class XPathEvaluator {
 
   def inlineFunctionExpr(params: Option[ParamList], asType: Option[SequenceType], _functionBody: FunctionBody, ctxs: List[Ctx]) = {
     params match {
-      case None    => Nil
       case Some(x) => paramList(x.param, x.params, ctxs)
+      case None    => Nil
     }
     asType map { sequenceType(_, ctxs) }
     functionBody(_functionBody.expr, ctxs)

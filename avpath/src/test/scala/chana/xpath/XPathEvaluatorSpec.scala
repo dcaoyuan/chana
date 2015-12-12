@@ -137,6 +137,14 @@ class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterA
       eval(q, record).head should be(
         List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
+      q = "/chargeRecords[position() > 1 and position() <= 2]"
+      eval(q, record).head should be(
+        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
+
+      q = "/chargeRecords[position() = 1 or position() = 2]"
+      eval(q, record).head should be(
+        record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].toList)
+
     }
 
   }
