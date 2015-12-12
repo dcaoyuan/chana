@@ -556,8 +556,9 @@ final class XPathParser {
       case "ForwardAxis" =>
         val axis = visit(n)(forwardAxis)
         val nodeTst = visit(node.getNode(1))(nodeTest)
-        ForwardStep_Axis(axis, nodeTst)
-      case "AbbrevForwardStep" => visit(n)(abbrevForwardStep)
+        ForwardStep(axis, nodeTst)
+      case "AbbrevForwardStep" =>
+        visit(n)(abbrevForwardStep)
     }
   }
 
@@ -578,12 +579,12 @@ final class XPathParser {
    * "@"? NodeTest
    */
   def abbrevForwardStep(node: Node) = {
-    val withAt = node.get(0) match {
-      case null => false
-      case "@"  => true
+    val axis = node.get(0) match {
+      case null => Child
+      case "@"  => Attribute
     }
     val nodeTst = visit(node.getNode(1))(nodeTest)
-    AbbrevForwardStep(nodeTst, withAt)
+    ForwardStep(axis, nodeTst)
   }
 
   /**
@@ -595,8 +596,10 @@ final class XPathParser {
       case n: Node =>
         val axis = visit(n)(reverseAxis)
         val nodeTst = visit(node.getNode(1))(nodeTest)
-        ReverseStep_Axis(axis, nodeTst)
-      case _ => AbbrevReverseStep
+        ReverseStep(axis, nodeTst)
+      case _ =>
+        // ".." - AbbrevReverseStep
+        ReverseStep(Parent, AnyKindTest)
     }
   }
 
@@ -608,12 +611,6 @@ final class XPathParser {
       case "preceding"         => Preceding
       case "ancestor-or-self"  => AncestorOrSelf
     }
-  }
-
-  /**
-   * ".."
-   */
-  def abbrevReverseStep(node: Node) = {
   }
 
   /**

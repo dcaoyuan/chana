@@ -114,11 +114,10 @@ package object nodes {
   final case class ReverseAxisStep(step: ReverseStep, predicates: PredicateList) extends AxisStep
   final case class ForwardAxisStep(step: ForwardStep, predicates: PredicateList) extends AxisStep
 
-  sealed trait ForwardStep
-  final case class ForwardStep_Axis(axis: ForwardAxis, nodeTest: NodeTest) extends ForwardStep
-  final case class AbbrevForwardStep(nodeTest: NodeTest, withAtMark: Boolean) extends ForwardStep
+  final case class ForwardStep(axis: ForwardAxis, nodeTest: NodeTest)
 
-  sealed abstract class ForwardAxis(val text: String) { val textWithMark = text + "::" }
+  trait Axis
+  sealed abstract class ForwardAxis(val text: String) extends Axis { val textWithMark = text + "::" }
   case object Child extends ForwardAxis("child")
   case object Descendant extends ForwardAxis("decendant")
   case object Attribute extends ForwardAxis("attribute")
@@ -128,11 +127,9 @@ package object nodes {
   case object Following extends ForwardAxis("following")
   case object Namespace extends ForwardAxis("namesapce")
 
-  sealed trait ReverseStep
-  final case class ReverseStep_Axis(axis: ReverseAxis, nodeTest: NodeTest) extends ReverseStep
-  case object AbbrevReverseStep extends ReverseStep
+  final case class ReverseStep(axis: ReverseAxis, nodeTest: NodeTest)
 
-  sealed abstract class ReverseAxis(val text: String) { val textWithMark = text + "::" }
+  sealed abstract class ReverseAxis(val text: String) extends Axis { val textWithMark = text + "::" }
   case object Parent extends ReverseAxis("parent")
   case object Ancestor extends ReverseAxis("ancestor")
   case object PrecedingSibling extends ReverseAxis("preceding-sibling")
@@ -271,6 +268,9 @@ package object nodes {
    */
   sealed trait KindTest extends NodeTest with ItemType
 
+  /*
+   * node()
+   */
   case object AnyKindTest extends KindTest
   /**
    * elemTest should be either ElementTest or SchemaElementTest
