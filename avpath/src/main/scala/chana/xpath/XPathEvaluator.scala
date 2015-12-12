@@ -11,7 +11,8 @@ case class XPathRuntimeException(value: Any, message: String)
       case null      => null
       case x: AnyRef => x.getClass.getName
       case _         => "primary type."
-    }))
+    })
+  )
 
 final case class Ctx(schema: Schema, target: Any)
 
@@ -351,12 +352,16 @@ class XPathEvaluator {
     if (preds.nonEmpty) {
       ctx.schema.getType match {
         case Schema.Type.ARRAY =>
-          val arr = ctx.target.asInstanceOf[java.util.Collection[Any]].iterator
+          import scala.collection.JavaConversions._
+          val arr = ctx.target match {
+            case xs: java.util.Collection[Any] @unchecked => xs.iterator.toIterator
+            case xs: List[Any] @unchecked                 => xs.iterator
+          }
           val elemSchema = avro.getElementType(ctx.schema)
           preds.head match {
-            case List(x: Number) =>
+            case List(ix: Number) =>
               var elems = List[Any]()
-              val idx = x.intValue
+              val idx = ix.intValue
               var i = 1
               while (arr.hasNext && i <= idx) {
                 if (i == idx) {
@@ -367,11 +372,11 @@ class XPathEvaluator {
                 i += 1
               }
 
-              Ctx(elemSchema, elems)
+              Ctx(ctx.schema, elems.reverse)
 
-            case List(xs: List[Boolean] @unchecked) =>
+            case List(bools: List[Boolean] @unchecked) =>
               var elems = List[Any]()
-              val conds = xs.iterator
+              val conds = bools.iterator
               while (arr.hasNext && conds.hasNext) {
                 if (conds.next) {
                   elems ::= arr.next
@@ -380,7 +385,7 @@ class XPathEvaluator {
                 }
               }
 
-              Ctx(elemSchema, elems.reverse)
+              Ctx(ctx.schema, elems.reverse)
 
             case _ =>
               ctx // TODO
@@ -408,10 +413,11 @@ class XPathEvaluator {
               ctx // TODO
           }
 
-        case x =>
-          //println("schema type: " + x + ", value: " + ctx.target)
+        case tpe =>
+          //println("schema type: " + tpe + ", value: " + ctx.target)
+          //println("pred: " + preds.head)
           preds.head match {
-            case List(x: Boolean) => if (x) ctx else Ctx(ctx.schema, ())
+            case List(x: Boolean) => if (x) ctx else Ctx(ctx.schema, List())
             case _                => ctx
           }
       }
@@ -430,6 +436,10 @@ class XPathEvaluator {
     }
   }
 
+  /**
+   * Node: Always convert selected collection result to scala list except which 
+   * is selected by exactly the field name.
+   */
   def internal_ctxOfNameTest(axis: Axis, testResult: Any, ctxs: List[Ctx]): List[Ctx] = {
     val currCtx = ctxs.head
     testResult match {
@@ -457,15 +467,16 @@ class XPathEvaluator {
                   val elem = itr.next
                   elems ::= elem.get(field.pos)
                 }
-                Ctx(fieldSchema, elems.reverse)
+                Ctx(schema, elems.reverse)
 
               case xs: List[IndexedRecord] @unchecked =>
                 //println("local: " + local + ", schema: " + schema)
-                val field = schema.getField(local)
+                val elemSchema = avro.getElementType(schema)
+                val field = elemSchema.getField(local)
                 val fieldSchema = avro.getNonNull(field.schema)
 
                 val elems = xs map (_.get(field.pos))
-                Ctx(fieldSchema, elems)
+                Ctx(schema, elems)
 
               case x => // what happens?
                 throw new XPathRuntimeException(x, "try to get child of: " + local)
@@ -497,10 +508,15 @@ class XPathEvaluator {
             //println("target: ", target)
             val newCtx = target match {
               case map: java.util.Map[String, Any] @unchecked =>
-                var elems = List()
+                var elems = List[Any]()
                 // ok we're fetching all map values
                 val valueSchema = avro.getValueType(schema)
-                Ctx(Schema.createArray(valueSchema), map.values)
+                val itr = map.entrySet.iterator
+                while (itr.hasNext) {
+                  elems ::= itr.next.getValue
+                }
+                // we convert values to a scala List, since it's selected result
+                Ctx(Schema.createArray(valueSchema), elems.reverse)
 
               case x => // what happens?
                 throw new XPathRuntimeException(x, "try to get attribute of: " + Aster)
