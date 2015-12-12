@@ -41,17 +41,20 @@ class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterA
       record.put("id", "abcd")
 
       var q = "/registerTime"
-      eval(q, record) should be(List(10000))
+      eval(q, record) should be(
+        List(10000))
 
       q = "/lastChargeRecord/time"
-      eval(q, record) should be(List(2))
+      eval(q, record) should be(
+        List(2))
 
       q = "/devApps/@a"
       eval(q, record).head should be(
         record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("a"))
 
       q = "/devApps/@a/numBlackApps"
-      eval(q, record) should be(List(1))
+      eval(q, record) should be(
+        List(1))
 
       q = "/chargeRecords"
       eval(q, record).head should be(
@@ -71,7 +74,7 @@ class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterA
 
     }
 
-    "query fields with complex predicates" should {
+    "query fields with position() predicates" should {
       val record = initAccount()
       record.put("registerTime", 10000L)
       record.put("lastLoginTime", 20000L)
@@ -145,6 +148,29 @@ class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterA
       eval(q, record).head should be(
         record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].toList)
 
+    }
+
+    "query fields with more predicates" should {
+      val record = initAccount()
+      record.put("registerTime", 10000L)
+      record.put("lastLoginTime", 20000L)
+      record.put("id", "abcd")
+
+      var q = "/chargeRecords[time = 2]"
+      eval(q, record).head should be(
+        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
+
+      q = "/chargeRecords[time=2 or amount=100.0]"
+      eval(q, record).head should be(
+        record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].toList)
+
+      q = "/chargeRecords[time*100 = amount]"
+      eval(q, record).head should be(
+        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
+
+      q = "/chargeRecords[time=1]/time"
+      eval(q, record).head should be(
+        List(1))
     }
 
   }

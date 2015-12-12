@@ -432,15 +432,39 @@ class XPathEvaluator {
               case rec: IndexedRecord =>
                 val field = schema.getField(local)
                 val fieldSchema = avro.getNonNull(field.schema)
+
                 (fieldSchema, rec.get(field.pos))
 
               case map: java.util.Map[String, Any] @unchecked =>
                 if (withAtMark) { // ok we're fetching a map value via key
                   val valueSchema = avro.getValueType(schema)
+
                   (valueSchema, map.get(local))
                 } else {
                   throw new XPathRuntimeException(map, "try to get value from a non @key.")
                 }
+
+              case arr: java.util.Collection[Any] @unchecked =>
+                var elems = List[Any]()
+                val elemSchema = avro.getElementType(schema)
+                val field = elemSchema.getField(local)
+                val fieldSchema = avro.getNonNull(field.schema)
+                val itr = arr.iterator
+                while (itr.hasNext) {
+                  val elem = itr.next.asInstanceOf[IndexedRecord]
+                  elems ::= elem.get(field.pos)
+                }
+
+                (fieldSchema, elems.reverse)
+
+              case xs: List[IndexedRecord] @unchecked =>
+                //println("local: " + local + ", schema: " + schema)
+                val field = schema.getField(local)
+                val fieldSchema = avro.getNonNull(field.schema)
+
+                val elems = xs map { _.get(field.pos) }
+
+                (fieldSchema, elems)
             }
 
             Ctx(newSchema, newTarget) :: ctxs
