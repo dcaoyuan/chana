@@ -171,6 +171,22 @@ class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterA
       q = "/chargeRecords[time=1]/time"
       eval(q, record).head should be(
         List(1))
+
+      q = "/devApps/@a[numBlackApps = 1]"
+      eval(q, record).head should be(
+        record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("a"))
+
+      q = "/devApps/@a[numBlackApps != 1]"
+      eval(q, record).head should be(
+        ())
+
+      q = "/devApps/@*"
+      eval(q, record).head should be( // TODO result is a java.util.Collection of values
+        record.get("devApps").asInstanceOf[java.util.Map[String, _]].values)
+
+      q = "/devApps/@*[numBlackApps=2]"
+      eval(q, record).head should be(
+        List(record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("b")))
     }
 
   }

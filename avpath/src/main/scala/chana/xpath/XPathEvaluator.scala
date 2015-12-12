@@ -40,7 +40,7 @@ class XPathEvaluator {
     expr(_expr.expr, _expr.exprs, ctxs)
   }
 
-  def expr(expr: ExprSingle, exprs: List[ExprSingle], ctxs: List[Ctx]) = {
+  def expr(expr: ExprSingle, exprs: List[ExprSingle], ctxs: List[Ctx]): List[Any] = {
     expr :: exprs map { exprSingle(_, ctxs) }
   }
 
@@ -376,7 +376,87 @@ class XPathEvaluator {
     }
   }
 
+  def internal_ctxOfNodeTest(testResult: Any, withAtMark: Boolean, ctxs: List[Ctx]) = {
+    testResult match {
+      case URIQualifiedName(uri, name) => ctxs
+      case PrefixedName(prefix, local) => ctxs
+      case UnprefixedName(local) =>
+        ctxs.head match {
+          case Ctx(schema, target) =>
+            //println("target: ", target)
+            val (newSchema, newTarget) = target match {
+              case rec: IndexedRecord =>
+                val field = schema.getField(local)
+                val fieldSchema = avro.getNonNull(field.schema)
+                (fieldSchema, rec.get(field.pos))
+
+              case map: java.util.Map[String, Any] @unchecked =>
+                if (withAtMark) { // ok we're fetching a map value via key
+                  val valueSchema = avro.getValueType(schema)
+                  (valueSchema, map.get(local))
+                } else {
+                  throw new XPathRuntimeException(map, "try to get value from a non @key: " + local)
+                }
+
+              case arr: java.util.Collection[Any] @unchecked =>
+                var elems = List[Any]()
+                val elemSchema = avro.getElementType(schema)
+                val field = elemSchema.getField(local)
+                val fieldSchema = avro.getNonNull(field.schema)
+                val itr = arr.iterator
+                while (itr.hasNext) {
+                  val elem = itr.next.asInstanceOf[IndexedRecord]
+                  elems ::= elem.get(field.pos)
+                }
+                (fieldSchema, elems.reverse)
+
+              case xs: List[IndexedRecord] @unchecked =>
+                //println("local: " + local + ", schema: " + schema)
+                val field = schema.getField(local)
+                val fieldSchema = avro.getNonNull(field.schema)
+
+                val elems = xs map (_.get(field.pos))
+                (fieldSchema, elems)
+            }
+
+            Ctx(newSchema, newTarget) :: ctxs
+
+          case _ => ctxs
+        }
+
+      case x: Wildcard =>
+        x match {
+          case Aster =>
+            ctxs.head match {
+              case Ctx(schema, target) =>
+                //println("target: ", target)
+                val (newSchema, newTarget) = target match {
+                  case map: java.util.Map[String, Any] @unchecked =>
+                    var elems = List()
+                    // ok we're fetching all map values
+                    val valueSchema = avro.getValueType(schema)
+                    (Schema.createArray(valueSchema), map.values)
+
+                  case _ => // TODO
+                    (schema, target)
+                }
+
+                Ctx(newSchema, newTarget) :: ctxs
+            }
+          case NameAster(name) => ctxs // TODO
+          case AsterName(name) => ctxs // TODO
+          case UriAster(uri)   => ctxs // TODO
+        }
+
+      case _ =>
+        //println("NodeTest res: " + testResult)
+        ctxs
+
+    }
+  }
+
   def internal_filterByPredicateList(preds: List[Any], ctx: Ctx): Ctx = {
+    //println("ctx: " + ctx + " in predicates: " + preds)
     if (preds.nonEmpty) {
       ctx.schema.getType match {
         case Schema.Type.ARRAY =>
@@ -415,64 +495,36 @@ class XPathEvaluator {
               ctx // TODO
           }
 
-        case _ => ctx // TODO
+        case Schema.Type.MAP => // TODO
+          val map = ctx.target.asInstanceOf[java.util.Map[String, Any]]
+          val valueSchema = avro.getValueType(ctx.schema)
+          preds.head match {
+            case List(xs: List[Boolean] @unchecked) =>
+              var elems = List[Any]()
+              val conds = xs.iterator
+              //              while (arr.hasNext && conds.hasNext) {
+              //                if (conds.next) {
+              //                  elems ::= arr.next
+              //                } else {
+              //                  arr.next
+              //                }
+              //              }
+
+              //Ctx(valueSchema, elems.reverse)
+              ctx // TODO
+
+            case _ =>
+              ctx // TODO
+          }
+
+        case x =>
+          println("schema type: " + x + ", value: " + ctx.target)
+          preds.head match {
+            case List(x: Boolean) => if (x) ctx else Ctx(ctx.schema, ())
+            case _                => ctx
+          }
       }
     } else ctx
-  }
-
-  def internal_ctxOfNodeTest(testResult: Any, withAtMark: Boolean, ctxs: List[Ctx]) = {
-    testResult match {
-      case URIQualifiedName(uri, name) => ctxs
-      case PrefixedName(prefix, local) => ctxs
-      case UnprefixedName(local) =>
-        ctxs.head match {
-          case Ctx(schema, target) =>
-            //println("target: ", target)
-            val (newSchema, newTarget) = target match {
-              case rec: IndexedRecord =>
-                val field = schema.getField(local)
-                val fieldSchema = avro.getNonNull(field.schema)
-
-                (fieldSchema, rec.get(field.pos))
-
-              case map: java.util.Map[String, Any] @unchecked =>
-                if (withAtMark) { // ok we're fetching a map value via key
-                  val valueSchema = avro.getValueType(schema)
-
-                  (valueSchema, map.get(local))
-                } else {
-                  throw new XPathRuntimeException(map, "try to get value from a non @key.")
-                }
-
-              case arr: java.util.Collection[Any] @unchecked =>
-                var elems = List[Any]()
-                val elemSchema = avro.getElementType(schema)
-                val field = elemSchema.getField(local)
-                val fieldSchema = avro.getNonNull(field.schema)
-                val itr = arr.iterator
-                while (itr.hasNext) {
-                  val elem = itr.next.asInstanceOf[IndexedRecord]
-                  elems ::= elem.get(field.pos)
-                }
-
-                (fieldSchema, elems.reverse)
-
-              case xs: List[IndexedRecord] @unchecked =>
-                //println("local: " + local + ", schema: " + schema)
-                val field = schema.getField(local)
-                val fieldSchema = avro.getNonNull(field.schema)
-
-                val elems = xs map { _.get(field.pos) }
-
-                (fieldSchema, elems)
-            }
-
-            Ctx(newSchema, newTarget) :: ctxs
-
-          case _ => ctxs
-        }
-      case _ => ctxs
-    }
   }
 
   def nodeTest(test: NodeTest, ctxs: List[Ctx]) = {
@@ -484,14 +536,8 @@ class XPathEvaluator {
 
   def nameTest(test: NameTest, ctxs: List[Ctx]) = {
     test match {
-      case NameTest_Name(name) => name
-      case NameTest_Wildcard(wildcard) =>
-        wildcard match {
-          case NameAster(name) =>
-          case AsterName(name) =>
-          case UriAster(uri)   =>
-          case Aster           =>
-        }
+      case NameTest_Name(name)         => name
+      case NameTest_Wildcard(wildcard) => wildcard
     }
   }
 
@@ -740,9 +786,10 @@ class XPathEvaluator {
   }
 
   def attributeTest_Name(name: AttribNameOrWildcard, typeName: Option[TypeName], ctxs: List[Ctx]) = {
+    // TODO optional type name
     name match {
       case Left(x)  => attributeName(x.name, ctxs)
-      case Right(x) => // '*'
+      case Right(x) => // Aster - QName
     }
   }
 
@@ -757,7 +804,7 @@ class XPathEvaluator {
   def elementTest_Name(name: ElementNameOrWildcard, typeName: Option[TypeName], withQuestionMark: Boolean, ctxs: List[Ctx]) = {
     name match {
       case Left(x)  => elementName(x.name, ctxs)
-      case Right(x) => // '*'
+      case Right(x) => // Aster - QName
     }
   }
 
