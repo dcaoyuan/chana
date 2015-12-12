@@ -11,112 +11,111 @@ case class XPathRuntimeException(value: Any, message: String)
       case null      => null
       case x: AnyRef => x.getClass.getName
       case _         => "primary type."
-    })
-  )
+    }))
 
 final case class Ctx(schema: Schema, target: Any)
 
 class XPathEvaluator {
 
-  def simpleEval(xpath: Expr, ctxs: List[Ctx]) = {
-    expr(xpath.expr, xpath.exprs, ctxs)
+  def simpleEval(xpath: Expr, ctx: Ctx) = {
+    expr(xpath.expr, xpath.exprs, ctx)
   }
 
   // -------------------------------------------------------------------------
 
-  def paramList(param0: Param, params: List[Param], ctxs: List[Ctx]): List[Any] = {
-    param0 :: params map { x => param(x.name, x.typeDecl, ctxs) }
+  def paramList(param0: Param, params: List[Param], ctx: Ctx): List[Any] = {
+    param0 :: params map { x => param(x.name, x.typeDecl, ctx) }
   }
 
-  def param(name: EQName, typeDecl: Option[TypeDeclaration], ctxs: List[Ctx]) = {
+  def param(name: EQName, typeDecl: Option[TypeDeclaration], ctx: Ctx) = {
     // name
-    typeDecl map { x => typeDeclaration(x.asType, ctxs) }
+    typeDecl map { x => typeDeclaration(x.asType, ctx) }
   }
 
-  def functionBody(expr: EnclosedExpr, ctxs: List[Ctx]) = {
-    enclosedExpr(expr.expr, ctxs)
+  def functionBody(expr: EnclosedExpr, ctx: Ctx) = {
+    enclosedExpr(expr.expr, ctx)
   }
 
-  def enclosedExpr(_expr: Expr, ctxs: List[Ctx]): Any = {
-    expr(_expr.expr, _expr.exprs, ctxs)
+  def enclosedExpr(_expr: Expr, ctx: Ctx): Any = {
+    expr(_expr.expr, _expr.exprs, ctx)
   }
 
-  def expr(expr: ExprSingle, exprs: List[ExprSingle], ctxs: List[Ctx]): List[Any] = {
-    expr :: exprs map { exprSingle(_, ctxs) }
+  def expr(expr: ExprSingle, exprs: List[ExprSingle], ctx: Ctx): List[Any] = {
+    expr :: exprs map { exprSingle(_, ctx) }
   }
 
-  def exprSingle(expr: ExprSingle, ctxs: List[Ctx]) = {
+  def exprSingle(expr: ExprSingle, ctx: Ctx) = {
     expr match {
-      case ForExpr(forClause, returnExpr)                         => forExpr(forClause, returnExpr, ctxs)
-      case LetExpr(letClause, returnExpr)                         => letExpr(letClause, returnExpr, ctxs)
-      case QuantifiedExpr(isEvery, varExpr, varExprs, statisExpr) => quantifiedExpr(isEvery, varExpr, varExprs, statisExpr, ctxs)
-      case IfExpr(_ifExpr, thenExpr, elseExpr)                    => ifExpr(_ifExpr, thenExpr, elseExpr, ctxs)
-      case OrExpr(andExpr, andExprs)                              => orExpr(andExpr, andExprs, ctxs)
+      case ForExpr(forClause, returnExpr)                         => forExpr(forClause, returnExpr, ctx)
+      case LetExpr(letClause, returnExpr)                         => letExpr(letClause, returnExpr, ctx)
+      case QuantifiedExpr(isEvery, varExpr, varExprs, statisExpr) => quantifiedExpr(isEvery, varExpr, varExprs, statisExpr, ctx)
+      case IfExpr(_ifExpr, thenExpr, elseExpr)                    => ifExpr(_ifExpr, thenExpr, elseExpr, ctx)
+      case OrExpr(andExpr, andExprs)                              => orExpr(andExpr, andExprs, ctx)
     }
   }
 
-  def forExpr(forClause: SimpleForClause, returnExpr: ExprSingle, ctxs: List[Ctx]): Any = {
-    simpleForClause(forClause.binding, forClause.bindings, ctxs)
-    exprSingle(returnExpr, ctxs)
+  def forExpr(forClause: SimpleForClause, returnExpr: ExprSingle, ctx: Ctx): Any = {
+    simpleForClause(forClause.binding, forClause.bindings, ctx)
+    exprSingle(returnExpr, ctx)
   }
 
-  def simpleForClause(binding: SimpleForBinding, bindings: List[SimpleForBinding], ctxs: List[Ctx]) = {
-    binding :: bindings map { x => simpleForBinding(x.varName, x.inExpr, ctxs) }
+  def simpleForClause(binding: SimpleForBinding, bindings: List[SimpleForBinding], ctx: Ctx) = {
+    binding :: bindings map { x => simpleForBinding(x.varName, x.inExpr, ctx) }
   }
 
-  def simpleForBinding(_varName: VarName, inExpr: ExprSingle, ctxs: List[Ctx]) = {
-    varName(_varName.eqName, ctxs)
-    exprSingle(inExpr, ctxs)
+  def simpleForBinding(_varName: VarName, inExpr: ExprSingle, ctx: Ctx) = {
+    varName(_varName.eqName, ctx)
+    exprSingle(inExpr, ctx)
   }
 
-  def letExpr(letClause: SimpleLetClause, returnExpr: ExprSingle, ctxs: List[Ctx]): Any = {
-    simpleLetClause(letClause.binding, letClause.bindings, ctxs)
-    exprSingle(returnExpr, ctxs)
+  def letExpr(letClause: SimpleLetClause, returnExpr: ExprSingle, ctx: Ctx): Any = {
+    simpleLetClause(letClause.binding, letClause.bindings, ctx)
+    exprSingle(returnExpr, ctx)
   }
 
-  def simpleLetClause(binding: SimpleLetBinding, bindings: List[SimpleLetBinding], ctxs: List[Ctx]) = {
-    binding :: bindings map { x => simpleLetBinding(x.varName, x.boundTo, ctxs) }
+  def simpleLetClause(binding: SimpleLetBinding, bindings: List[SimpleLetBinding], ctx: Ctx) = {
+    binding :: bindings map { x => simpleLetBinding(x.varName, x.boundTo, ctx) }
   }
 
-  def simpleLetBinding(_varName: VarName, boundTo: ExprSingle, ctxs: List[Ctx]) = {
-    varName(_varName.eqName, ctxs)
-    exprSingle(boundTo, ctxs)
+  def simpleLetBinding(_varName: VarName, boundTo: ExprSingle, ctx: Ctx) = {
+    varName(_varName.eqName, ctx)
+    exprSingle(boundTo, ctx)
   }
 
-  def quantifiedExpr(isEvery: Boolean, varExpr: VarInExprSingle, varExprs: List[VarInExprSingle], statisExpr: ExprSingle, ctxs: List[Ctx]): Any = {
-    varExpr :: varExprs map { x => varInExprSingle(x.varName, x.inExpr, ctxs) }
-    exprSingle(statisExpr, ctxs)
+  def quantifiedExpr(isEvery: Boolean, varExpr: VarInExprSingle, varExprs: List[VarInExprSingle], statisExpr: ExprSingle, ctx: Ctx): Any = {
+    varExpr :: varExprs map { x => varInExprSingle(x.varName, x.inExpr, ctx) }
+    exprSingle(statisExpr, ctx)
   }
 
-  def varInExprSingle(_varName: VarName, inExpr: ExprSingle, ctxs: List[Ctx]) = {
-    varName(_varName.eqName, ctxs)
-    exprSingle(inExpr, ctxs)
+  def varInExprSingle(_varName: VarName, inExpr: ExprSingle, ctx: Ctx) = {
+    varName(_varName.eqName, ctx)
+    exprSingle(inExpr, ctx)
   }
 
-  def ifExpr(ifExpr: Expr, thenExpr: ExprSingle, elseExpr: ExprSingle, ctxs: List[Ctx]): Any = {
-    expr(ifExpr.expr, ifExpr.exprs, ctxs)
-    exprSingle(thenExpr, ctxs)
-    exprSingle(elseExpr, ctxs)
+  def ifExpr(ifExpr: Expr, thenExpr: ExprSingle, elseExpr: ExprSingle, ctx: Ctx): Any = {
+    expr(ifExpr.expr, ifExpr.exprs, ctx)
+    exprSingle(thenExpr, ctx)
+    exprSingle(elseExpr, ctx)
   }
 
-  def orExpr(_andExpr: AndExpr, andExprs: List[AndExpr], ctxs: List[Ctx]) = {
-    val value0 = andExpr(_andExpr.compExpr, _andExpr.compExprs, ctxs)
-    val values = andExprs map { x => andExpr(x.compExpr, x.compExprs, ctxs) }
+  def orExpr(_andExpr: AndExpr, andExprs: List[AndExpr], ctx: Ctx) = {
+    val value0 = andExpr(_andExpr.compExpr, _andExpr.compExprs, ctx)
+    val values = andExprs map { x => andExpr(x.compExpr, x.compExprs, ctx) }
     values.foldLeft(value0) { (acc, x) => XPathFunctions.or(acc, x) }
   }
 
-  def andExpr(compExpr: ComparisonExpr, compExprs: List[ComparisonExpr], ctxs: List[Ctx]) = {
-    val value0 = comparisonExpr(compExpr.concExpr, compExpr.compExprPostfix, ctxs)
-    val values = compExprs map { x => comparisonExpr(x.concExpr, x.compExprPostfix, ctxs) }
+  def andExpr(compExpr: ComparisonExpr, compExprs: List[ComparisonExpr], ctx: Ctx) = {
+    val value0 = comparisonExpr(compExpr.concExpr, compExpr.compExprPostfix, ctx)
+    val values = compExprs map { x => comparisonExpr(x.concExpr, x.compExprPostfix, ctx) }
     values.foldLeft(value0) { (acc, x) => XPathFunctions.and(acc, x) }
   }
 
-  def comparisonExpr(concExpr: StringConcatExpr, compExprPostfix: Option[ComparisonExprPostfix], ctxs: List[Ctx]) = {
-    val value0 = stringConcatExpr(concExpr.rangeExpr, concExpr.rangeExprs, ctxs)
+  def comparisonExpr(concExpr: StringConcatExpr, compExprPostfix: Option[ComparisonExprPostfix], ctx: Ctx) = {
+    val value0 = stringConcatExpr(concExpr.rangeExpr, concExpr.rangeExprs, ctx)
     compExprPostfix match {
       case None => value0
       case Some(ComparisonExprPostfix(compOp, concExpr)) =>
-        val right = comparisonExprPostfix(compOp, concExpr, ctxs)
+        val right = comparisonExprPostfix(compOp, concExpr, ctx)
         compOp match {
           case GeneralComp(op) =>
             op match {
@@ -146,29 +145,29 @@ class XPathEvaluator {
    * valuecomp: "eq", "ne", "lt", "le", "gt", "ge"
    * nodecomp: "is", "<<", ">>"
    */
-  def comparisonExprPostfix(compOp: CompOperator, concExpr: StringConcatExpr, ctxs: List[Ctx]) = {
-    stringConcatExpr(concExpr.rangeExpr, concExpr.rangeExprs, ctxs)
+  def comparisonExprPostfix(compOp: CompOperator, concExpr: StringConcatExpr, ctx: Ctx) = {
+    stringConcatExpr(concExpr.rangeExpr, concExpr.rangeExprs, ctx)
   }
 
-  def stringConcatExpr(_rangeExpr: RangeExpr, rangeExprs: List[RangeExpr], ctxs: List[Ctx]) = {
-    val res = _rangeExpr :: rangeExprs map { x => rangeExpr(x.addExpr, x.toExpr, ctxs) }
+  def stringConcatExpr(_rangeExpr: RangeExpr, rangeExprs: List[RangeExpr], ctx: Ctx) = {
+    val res = _rangeExpr :: rangeExprs map { x => rangeExpr(x.addExpr, x.toExpr, ctx) }
     res.head // TODO
   }
 
-  def rangeExpr(addExpr: AdditiveExpr, toExpr: Option[AdditiveExpr], ctxs: List[Ctx]) = {
-    val value = additiveExpr(addExpr.multiExpr, addExpr.prefixedMultiExprs, ctxs)
-    toExpr map { x => additiveExpr(x.multiExpr, x.prefixedMultiExprs, ctxs) }
+  def rangeExpr(addExpr: AdditiveExpr, toExpr: Option[AdditiveExpr], ctx: Ctx) = {
+    val value = additiveExpr(addExpr.multiExpr, addExpr.prefixedMultiExprs, ctx)
+    toExpr map { x => additiveExpr(x.multiExpr, x.prefixedMultiExprs, ctx) }
     value
   }
 
-  def additiveExpr(multiExpr: MultiplicativeExpr, prefixedMultiExprs: List[MultiplicativeExpr], ctxs: List[Ctx]) = {
-    val v0 = multiplicativeExpr(multiExpr.prefix, multiExpr.unionExpr, multiExpr.prefixedUnionExprs, ctxs)
+  def additiveExpr(multiExpr: MultiplicativeExpr, prefixedMultiExprs: List[MultiplicativeExpr], ctx: Ctx) = {
+    val v0 = multiplicativeExpr(multiExpr.prefix, multiExpr.unionExpr, multiExpr.prefixedUnionExprs, ctx)
     val value0 = multiExpr.prefix match {
       case Nop | Plus => v0
       case Minus      => XPathFunctions.neg(v0)
     }
 
-    val values = prefixedMultiExprs map { x => (x.prefix, multiplicativeExpr(x.prefix, x.unionExpr, x.prefixedUnionExprs, ctxs)) }
+    val values = prefixedMultiExprs map { x => (x.prefix, multiplicativeExpr(x.prefix, x.unionExpr, x.prefixedUnionExprs, ctx)) }
     values.foldLeft(value0) {
       case (acc, (Plus, x))  => XPathFunctions.plus(acc, x)
       case (acc, (Minus, x)) => XPathFunctions.minus(acc, x)
@@ -179,10 +178,10 @@ class XPathEvaluator {
   /**
    * prefix is "", or "+", "-"
    */
-  def multiplicativeExpr(prefix: Prefix, _unionExpr: UnionExpr, prefixedUnionExprs: List[UnionExpr], ctxs: List[Ctx]) = {
-    val value0 = unionExpr(_unionExpr.prefix, _unionExpr.intersectExceptExpr, _unionExpr.prefixedIntersectExceptExprs, ctxs)
+  def multiplicativeExpr(prefix: Prefix, _unionExpr: UnionExpr, prefixedUnionExprs: List[UnionExpr], ctx: Ctx) = {
+    val value0 = unionExpr(_unionExpr.prefix, _unionExpr.intersectExceptExpr, _unionExpr.prefixedIntersectExceptExprs, ctx)
 
-    val values = prefixedUnionExprs map { x => (x.prefix, unionExpr(x.prefix, x.intersectExceptExpr, x.prefixedIntersectExceptExprs, ctxs)) }
+    val values = prefixedUnionExprs map { x => (x.prefix, unionExpr(x.prefix, x.intersectExceptExpr, x.prefixedIntersectExceptExprs, ctx)) }
     values.foldLeft(value0) {
       case (acc, (Aster, x)) => XPathFunctions.multiply(acc, x)
       case (acc, (Div, x))   => XPathFunctions.divide(acc, x)
@@ -195,10 +194,10 @@ class XPathEvaluator {
   /**
    * prefix is "", or "*", "div", "idiv", "mod"
    */
-  def unionExpr(prefix: Prefix, _intersectExceptExpr: IntersectExceptExpr, prefixedIntersectExceptExprs: List[IntersectExceptExpr], ctxs: List[Ctx]) = {
-    val value0 = intersectExceptExpr(_intersectExceptExpr.prefix, _intersectExceptExpr.instanceOfExpr, _intersectExceptExpr.prefixedInstanceOfExprs, ctxs)
+  def unionExpr(prefix: Prefix, _intersectExceptExpr: IntersectExceptExpr, prefixedIntersectExceptExprs: List[IntersectExceptExpr], ctx: Ctx) = {
+    val value0 = intersectExceptExpr(_intersectExceptExpr.prefix, _intersectExceptExpr.instanceOfExpr, _intersectExceptExpr.prefixedInstanceOfExprs, ctx)
 
-    val values = prefixedIntersectExceptExprs map { x => (x.prefix, intersectExceptExpr(x.prefix, x.instanceOfExpr, x.prefixedInstanceOfExprs, ctxs)) }
+    val values = prefixedIntersectExceptExprs map { x => (x.prefix, intersectExceptExpr(x.prefix, x.instanceOfExpr, x.prefixedInstanceOfExprs, ctx)) }
     values.foldLeft(value0) {
       case (acc, (Union, x)) => value0 // TODO
       case (acc, (Pipe, x))  => value0 // TODO
@@ -209,10 +208,10 @@ class XPathEvaluator {
   /**
    * prefix is "", or "union", "|"
    */
-  def intersectExceptExpr(prefix: Prefix, _instanceOfExpr: InstanceofExpr, prefixedInstanceOfExprs: List[InstanceofExpr], ctxs: List[Ctx]) = {
-    val value0 = instanceofExpr(_instanceOfExpr.prefix, _instanceOfExpr.treatExpr, _instanceOfExpr.ofType, ctxs)
+  def intersectExceptExpr(prefix: Prefix, _instanceOfExpr: InstanceofExpr, prefixedInstanceOfExprs: List[InstanceofExpr], ctx: Ctx) = {
+    val value0 = instanceofExpr(_instanceOfExpr.prefix, _instanceOfExpr.treatExpr, _instanceOfExpr.ofType, ctx)
 
-    val values = prefixedInstanceOfExprs map { x => (x.prefix, instanceofExpr(x.prefix, x.treatExpr, x.ofType, ctxs)) }
+    val values = prefixedInstanceOfExprs map { x => (x.prefix, instanceofExpr(x.prefix, x.treatExpr, x.ofType, ctx)) }
     values.foldLeft(value0) {
       case (acc, (Intersect, x)) => value0 // TODO
       case (acc, (Except, x))    => value0 // TODO
@@ -223,41 +222,41 @@ class XPathEvaluator {
   /**
    * prefix is "", or "intersect", "except"
    */
-  def instanceofExpr(prefix: Prefix, _treatExpr: TreatExpr, ofType: Option[SequenceType], ctxs: List[Ctx]) = {
-    val value = treatExpr(_treatExpr.castableExpr, _treatExpr.asType, ctxs)
+  def instanceofExpr(prefix: Prefix, _treatExpr: TreatExpr, ofType: Option[SequenceType], ctx: Ctx) = {
+    val value = treatExpr(_treatExpr.castableExpr, _treatExpr.asType, ctx)
 
     ofType match {
       case Some(x) =>
-        val tpe = sequenceType(x, ctxs)
+        val tpe = sequenceType(x, ctx)
         value // TODO
       case None => value
     }
   }
 
-  def treatExpr(_castableExpr: CastableExpr, asType: Option[SequenceType], ctxs: List[Ctx]) = {
-    val value = castableExpr(_castableExpr.castExpr, _castableExpr.asType, ctxs)
+  def treatExpr(_castableExpr: CastableExpr, asType: Option[SequenceType], ctx: Ctx) = {
+    val value = castableExpr(_castableExpr.castExpr, _castableExpr.asType, ctx)
 
     asType match {
       case Some(x) =>
-        val tpe = sequenceType(x, ctxs)
+        val tpe = sequenceType(x, ctx)
         value // TODO
       case None => value
     }
   }
 
-  def castableExpr(_castExpr: CastExpr, asType: Option[SingleType], ctxs: List[Ctx]) = {
-    val value = castExpr(_castExpr.unaryExpr, _castExpr.asType, ctxs)
+  def castableExpr(_castExpr: CastExpr, asType: Option[SingleType], ctx: Ctx) = {
+    val value = castExpr(_castExpr.unaryExpr, _castExpr.asType, ctx)
 
     asType match {
       case Some(x) =>
-        val tpe = singleType(x.name, x.withQuestionMark, ctxs)
+        val tpe = singleType(x.name, x.withQuestionMark, ctx)
         value // TODO
       case None => value
     }
   }
 
-  def castExpr(_unaryExpr: UnaryExpr, asType: Option[SingleType], ctxs: List[Ctx]) = {
-    val v0 = unaryExpr(_unaryExpr.prefix, _unaryExpr.valueExpr, ctxs)
+  def castExpr(_unaryExpr: UnaryExpr, asType: Option[SingleType], ctx: Ctx) = {
+    val v0 = unaryExpr(_unaryExpr.prefix, _unaryExpr.valueExpr, ctx)
     val value = _unaryExpr.prefix match {
       case Nop | Plus => v0
       case Minus      => XPathFunctions.neg(v0)
@@ -265,7 +264,7 @@ class XPathEvaluator {
 
     asType match {
       case Some(x) =>
-        val tpe = singleType(x.name, x.withQuestionMark, ctxs)
+        val tpe = singleType(x.name, x.withQuestionMark, ctx)
         value // TODO
       case None => value
     }
@@ -274,21 +273,21 @@ class XPathEvaluator {
   /**
    * prefix is "", or "-", "+"
    */
-  def unaryExpr(prefix: Prefix, _valueExpr: ValueExpr, ctxs: List[Ctx]) = {
-    valueExpr(_valueExpr.simpleMapExpr, ctxs)
+  def unaryExpr(prefix: Prefix, _valueExpr: ValueExpr, ctx: Ctx) = {
+    valueExpr(_valueExpr.simpleMapExpr, ctx)
   }
 
   /**
    * TODO, fetch value here or later?
    */
-  def valueExpr(_simpleMapExpr: SimpleMapExpr, ctxs: List[Ctx]) = {
-    val newCtxs = simpleMapExpr(_simpleMapExpr.pathExpr, _simpleMapExpr.exclamExprs, ctxs)
-    newCtxs.head.target
+  def valueExpr(_simpleMapExpr: SimpleMapExpr, ctx: Ctx) = {
+    val newCtxs = simpleMapExpr(_simpleMapExpr.pathExpr, _simpleMapExpr.exclamExprs, ctx)
+    newCtxs.target
   }
 
-  def simpleMapExpr(_pathExpr: PathExpr, exclamExprs: List[PathExpr], ctxs: List[Ctx]) = {
-    val path = pathExpr(_pathExpr.prefix, _pathExpr.relativeExpr, ctxs)
-    exclamExprs map { x => pathExpr(x.prefix, x.relativeExpr, ctxs) }
+  def simpleMapExpr(_pathExpr: PathExpr, exclamExprs: List[PathExpr], ctx: Ctx) = {
+    val path = pathExpr(_pathExpr.prefix, _pathExpr.relativeExpr, ctx)
+    exclamExprs map { x => pathExpr(x.prefix, x.relativeExpr, ctx) }
     path
   }
 
@@ -299,27 +298,27 @@ class XPathEvaluator {
    * / "/"  RelativePathExpr?
    * / RelativePathExpr
    */
-  def pathExpr(prefix: Prefix, relativeExpr: Option[RelativePathExpr], ctxs: List[Ctx]): List[Ctx] = {
+  def pathExpr(prefix: Prefix, relativeExpr: Option[RelativePathExpr], ctx: Ctx): Ctx = {
     prefix match {
       case Nop      =>
       case Absolute =>
       case Relative =>
     }
     relativeExpr match {
-      case Some(x) => relativePathExpr(x.stepExpr, x.prefixedStepExprs, ctxs)
-      case None    => ctxs
+      case Some(x) => relativePathExpr(x.stepExpr, x.prefixedStepExprs, ctx)
+      case None    => ctx
     }
   }
 
-  def relativePathExpr(_stepExpr: StepExpr, prefixedStepExprs: List[StepExpr], ctxs: List[Ctx]): List[Ctx] = {
-    val path0 = stepExpr(_stepExpr.prefix, _stepExpr.expr, ctxs)
-    prefixedStepExprs.foldLeft(path0) { (acc, x) => stepExpr(x.prefix, x.expr, acc) ::: acc }
+  def relativePathExpr(_stepExpr: StepExpr, prefixedStepExprs: List[StepExpr], ctx: Ctx): Ctx = {
+    val path0 = stepExpr(_stepExpr.prefix, _stepExpr.expr, ctx)
+    prefixedStepExprs.foldLeft(path0) { (acc, x) => stepExpr(x.prefix, x.expr, acc) }
   }
 
   /**
    * prefix is "" or "/" or "//"
    */
-  def stepExpr(prefix: Prefix, expr: Either[PostfixExpr, AxisStep], ctxs: List[Ctx]): List[Ctx] = {
+  def stepExpr(prefix: Prefix, expr: Either[PostfixExpr, AxisStep], ctx: Ctx): Ctx = {
     prefix match {
       case Nop      =>
       case Absolute =>
@@ -327,24 +326,24 @@ class XPathEvaluator {
     }
     expr match {
       case Left(PostfixExpr(expr, postfixes)) =>
-        postfixExpr(expr, postfixes, ctxs)
+        postfixExpr(expr, postfixes, ctx)
       case Right(ReverseAxisStep(step, predicates)) =>
-        reverseAxisStep(step, predicates, ctxs)
+        reverseAxisStep(step, predicates, ctx)
       case Right(ForwardAxisStep(step, predicates)) =>
-        forwardAxisStep(step, predicates, ctxs)
+        forwardAxisStep(step, predicates, ctx)
     }
   }
 
-  def reverseAxisStep(step: ReverseStep, predicates: PredicateList, ctxs: List[Ctx]) = {
-    val newCtxs = nodeTest(step.axis, step.nodeTest, ctxs)
-    val preds = predicateList(predicates.predicates, ctxs)
-    internal_filterByPredicateList(preds, newCtxs.head) :: newCtxs.tail
+  def reverseAxisStep(step: ReverseStep, predicates: PredicateList, ctx: Ctx): Ctx = {
+    val newCtx = nodeTest(step.axis, step.nodeTest, ctx)
+    val preds = predicateList(predicates.predicates, ctx)
+    internal_filterByPredicateList(preds, newCtx)
   }
 
-  def forwardAxisStep(step: ForwardStep, predicates: PredicateList, ctxs: List[Ctx]): List[Ctx] = {
-    val newCtxs = nodeTest(step.axis, step.nodeTest, ctxs)
-    val preds = predicateList(predicates.predicates, newCtxs)
-    internal_filterByPredicateList(preds, newCtxs.head) :: newCtxs.tail
+  def forwardAxisStep(step: ForwardStep, predicates: PredicateList, ctx: Ctx): Ctx = {
+    val newCtx = nodeTest(step.axis, step.nodeTest, ctx)
+    val preds = predicateList(predicates.predicates, newCtx)
+    internal_filterByPredicateList(preds, newCtx)
   }
 
   def internal_filterByPredicateList(preds: List[Any], ctx: Ctx): Ctx = {
@@ -424,32 +423,30 @@ class XPathEvaluator {
     } else ctx
   }
 
-  def nodeTest(axis: Axis, test: NodeTest, ctxs: List[Ctx]): List[Ctx] = {
+  def nodeTest(axis: Axis, test: NodeTest, ctx: Ctx): Ctx = {
     test match {
       case x: NameTest =>
-        val res = nameTest(x, ctxs)
-        val newCtxs = internal_ctxOfNameTest(axis, res, ctxs)
-        newCtxs
+        val res = nameTest(x, ctx)
+        internal_ctxOfNameTest(axis, res, ctx)
       case x: KindTest =>
-        kindTest(x, ctxs) // TODO
-        ctxs
+        kindTest(x, ctx) // TODO
+        ctx
     }
   }
 
   /**
-   * Node: Always convert selected collection result to scala list except which 
+   * Node: Always convert selected collection result to scala list except which
    * is selected by exactly the field name.
    */
-  def internal_ctxOfNameTest(axis: Axis, testResult: Any, ctxs: List[Ctx]): List[Ctx] = {
-    val currCtx = ctxs.head
+  def internal_ctxOfNameTest(axis: Axis, testResult: Any, ctx: Ctx): Ctx = {
     testResult match {
-      case URIQualifiedName(uri, name) => ctxs
-      case PrefixedName(prefix, local) => ctxs
+      case URIQualifiedName(uri, name) => ctx
+      case PrefixedName(prefix, local) => ctx
       case UnprefixedName(local) =>
-        val schema = currCtx.schema
-        val target = currCtx.target
+        val schema = ctx.schema
+        val target = ctx.target
 
-        val newCtx = axis match {
+        axis match {
           case Child =>
             target match {
               case rec: IndexedRecord =>
@@ -495,18 +492,16 @@ class XPathEvaluator {
 
         }
 
-        newCtx :: ctxs
-
       case Aster =>
-        val schema = currCtx.schema
-        val target = currCtx.target
+        val schema = ctx.schema
+        val target = ctx.target
 
         axis match {
-          case Child => ctxs // TODO
+          case Child => ctx // TODO
 
           case Attribute =>
             //println("target: ", target)
-            val newCtx = target match {
+            target match {
               case map: java.util.Map[String, Any] @unchecked =>
                 var elems = List[Any]()
                 // ok we're fetching all map values
@@ -522,175 +517,176 @@ class XPathEvaluator {
                 throw new XPathRuntimeException(x, "try to get attribute of: " + Aster)
             }
 
-            newCtx :: ctxs
+          case _ => ctx // TODO
+
         }
 
-      case NameAster(name) => ctxs // TODO
-      case AsterName(name) => ctxs // TODO
-      case UriAster(uri)   => ctxs // TODO
+      case NameAster(name) => ctx // TODO
+      case AsterName(name) => ctx // TODO
+      case UriAster(uri)   => ctx // TODO
 
       case _ =>
         //println("NodeTest res: " + testResult)
-        ctxs
+        ctx
 
     }
   }
 
-  def nameTest(test: NameTest, ctxs: List[Ctx]) = {
+  def nameTest(test: NameTest, ctx: Ctx) = {
     test match {
       case NameTest_Name(name)         => name
       case NameTest_Wildcard(wildcard) => wildcard
     }
   }
 
-  def kindTest(test: KindTest, ctxs: List[Ctx]) = {
+  def kindTest(test: KindTest, ctx: Ctx) = {
     test match {
       case AnyKindTest =>
-      case DocumentTest(elemTest) => documentTest(elemTest, ctxs)
+      case DocumentTest(elemTest) => documentTest(elemTest, ctx)
       case TextTest =>
       case CommentTest =>
       case NamespaceNodeTest =>
-      case PITest(name) => piTest(name, ctxs)
+      case PITest(name) => piTest(name, ctx)
       case AttributeTest_Empty =>
-      case AttributeTest_Name(name, typeName) => attributeTest_Name(name, typeName, ctxs)
-      case SchemaAttributeTest(attrDecl) => schemaAttributeTest(attrDecl, ctxs)
+      case AttributeTest_Name(name, typeName) => attributeTest_Name(name, typeName, ctx)
+      case SchemaAttributeTest(attrDecl) => schemaAttributeTest(attrDecl, ctx)
       case ElementTest_Empty =>
-      case ElementTest_Name(name, typeName, withQuestionMark) => elementTest_Name(name, typeName, withQuestionMark, ctxs)
-      case SchemaElementTest(elemDecl) => schemaElementTest(elemDecl, ctxs)
+      case ElementTest_Name(name, typeName, withQuestionMark) => elementTest_Name(name, typeName, withQuestionMark, ctx)
+      case SchemaElementTest(elemDecl) => schemaElementTest(elemDecl, ctx)
     }
   }
 
-  def postfixExpr(expr: PrimaryExpr, postfixes: List[PostFix], ctxs: List[Ctx]): List[Ctx] = {
-    val value = primaryExpr(expr, ctxs)
-    postfixes map { x => postfix(x, ctxs) }
-    Ctx(null, value) :: ctxs
+  def postfixExpr(expr: PrimaryExpr, postfixes: List[PostFix], ctx: Ctx): Ctx = {
+    val value = primaryExpr(expr, ctx)
+    postfixes map { x => postfix(x, ctx) }
+    Ctx(null, value)
   }
 
-  def postfix(post: PostFix, ctxs: List[Ctx]) = {
+  def postfix(post: PostFix, ctx: Ctx) = {
     post match {
-      case Postfix_Predicate(predicate)       => postfix_Predicate(predicate, ctxs)
-      case Postfix_Arguments(args)            => postfix_Arguments(args, ctxs)
-      case Postfix_Lookup(lookup)             => postfix_Lookup(lookup, ctxs)
-      case Postfix_ArrowPostfix(arrowPostfix) => postfix_ArrowPostfix(arrowPostfix, ctxs)
+      case Postfix_Predicate(predicate)       => postfix_Predicate(predicate, ctx)
+      case Postfix_Arguments(args)            => postfix_Arguments(args, ctx)
+      case Postfix_Lookup(lookup)             => postfix_Lookup(lookup, ctx)
+      case Postfix_ArrowPostfix(arrowPostfix) => postfix_ArrowPostfix(arrowPostfix, ctx)
     }
   }
 
-  def postfix_Predicate(_predicate: Predicate, ctxs: List[Ctx]) = {
-    predicate(_predicate.expr, ctxs)
+  def postfix_Predicate(_predicate: Predicate, ctx: Ctx) = {
+    predicate(_predicate.expr, ctx)
   }
 
-  def postfix_Arguments(args: ArgumentList, ctxs: List[Ctx]) = {
-    argumentList(args.args, ctxs)
+  def postfix_Arguments(args: ArgumentList, ctx: Ctx) = {
+    argumentList(args.args, ctx)
   }
 
-  def postfix_Lookup(_lookup: Lookup, ctxs: List[Ctx]) = {
-    lookup(_lookup.keySpecifier, ctxs)
+  def postfix_Lookup(_lookup: Lookup, ctx: Ctx) = {
+    lookup(_lookup.keySpecifier, ctx)
   }
 
-  def postfix_ArrowPostfix(_arrowPostfix: ArrowPostfix, ctxs: List[Ctx]) = {
-    arrowPostfix(_arrowPostfix.arrowFunction, _arrowPostfix.args, ctxs)
+  def postfix_ArrowPostfix(_arrowPostfix: ArrowPostfix, ctx: Ctx) = {
+    arrowPostfix(_arrowPostfix.arrowFunction, _arrowPostfix.args, ctx)
   }
 
-  def argumentList(args: List[Argument], ctxs: List[Ctx]): Any = {
+  def argumentList(args: List[Argument], ctx: Ctx): Any = {
     args map {
-      case Argument_ExprSingle(expr) => exprSingle(expr, ctxs)
+      case Argument_ExprSingle(expr) => exprSingle(expr, ctx)
       case ArgumentPlaceholder       =>
     }
   }
 
-  def predicateList(predicates: List[Predicate], ctxs: List[Ctx]) = {
-    predicates map { x => predicate(x.expr, ctxs) }
+  def predicateList(predicates: List[Predicate], ctx: Ctx) = {
+    predicates map { x => predicate(x.expr, ctx) }
   }
 
-  def predicate(_expr: Expr, ctxs: List[Ctx]): Any = {
-    expr(_expr.expr, _expr.exprs, ctxs)
+  def predicate(_expr: Expr, ctx: Ctx): Any = {
+    expr(_expr.expr, _expr.exprs, ctx)
   }
 
-  def lookup(_keySpecifier: KeySpecifier, ctxs: List[Ctx]) = {
-    keySpecifier(_keySpecifier, ctxs)
+  def lookup(_keySpecifier: KeySpecifier, ctx: Ctx) = {
+    keySpecifier(_keySpecifier, ctx)
   }
 
-  def keySpecifier(specifier: KeySpecifier, ctxs: List[Ctx]) = {
+  def keySpecifier(specifier: KeySpecifier, ctx: Ctx) = {
     specifier match {
       case KeySpecifier_NCName(ncName)          =>
-      case KeySpecifier_IntegerLiteral(x)       => x
+      case KeySpecifier_IntegerLiteral(v)       => v
       case KeySpecifier_ParenthesizedExpr(expr) =>
       case KeySpecifier_ASTER                   =>
     }
   }
 
-  def arrowPostfix(arrowFunction: ArrowFunctionSpecifier, args: ArgumentList, ctxs: List[Ctx]) = {
+  def arrowPostfix(arrowFunction: ArrowFunctionSpecifier, args: ArgumentList, ctx: Ctx) = {
     arrowFunction match {
       case ArrowFunctionSpecifier_EQName(name)            =>
       case ArrowFunctionSpecifier_VarRef(varRef)          =>
-      case ArrowFunctionSpecifier_ParenthesizedExpr(expr) => parenthesizedExpr(expr.expr, ctxs)
+      case ArrowFunctionSpecifier_ParenthesizedExpr(expr) => parenthesizedExpr(expr.expr, ctx)
     }
   }
 
-  def primaryExpr(expr: PrimaryExpr, ctxs: List[Ctx]) = {
+  def primaryExpr(expr: PrimaryExpr, ctx: Ctx) = {
     expr match {
       case PrimaryExpr_Literal(_literal) =>
-        literal(_literal, ctxs)
+        literal(_literal, ctx)
 
       case PrimaryExpr_VarRef(ref) =>
-        varRef(ref.varName, ctxs)
+        varRef(ref.varName, ctx)
 
       case PrimaryExpr_ParenthesizedExpr(expr) =>
-        parenthesizedExpr(expr.expr, ctxs)
+        parenthesizedExpr(expr.expr, ctx)
 
       case PrimaryExpr_ContextItemExpr => // TODO
 
       case PrimaryExpr_FunctionCall(call) =>
-        functionCall(call.name, call.args, ctxs)
+        functionCall(call.name, call.args, ctx)
 
       case PrimaryExpr_FunctionItemExpr(item) =>
         item match {
           case NamedFunctionRef(name, index) =>
-            namedFunctionRef(name, index, ctxs)
+            namedFunctionRef(name, index, ctx)
           case InlineFunctionExpr(params, asType, functionBody) =>
-            inlineFunctionExpr(params, asType, functionBody, ctxs)
+            inlineFunctionExpr(params, asType, functionBody, ctx)
         }
 
       case PrimaryExpr_MapConstructor(constructor) =>
-        mapConstructor(constructor.entrys, ctxs)
+        mapConstructor(constructor.entrys, ctx)
 
       case PrimaryExpr_ArrayConstructor(constructor) =>
-        arrayConstructor(constructor, ctxs)
+        arrayConstructor(constructor, ctx)
 
       case PrimaryExpr_UnaryLookup(lookup) =>
-        unaryLookup(lookup.key, ctxs)
+        unaryLookup(lookup.key, ctx)
     }
   }
 
   /**
    * Force Any to AnyRef to avoid AnyVal be boxed/unboxed again and again
    */
-  def literal(v: Literal, ctxs: List[Ctx]): AnyRef = {
+  def literal(v: Literal, ctx: Ctx): AnyRef = {
     v.x.asInstanceOf[AnyRef]
   }
 
-  def varRef(_varName: VarName, ctxs: List[Ctx]) = {
-    varName(_varName.eqName, ctxs)
+  def varRef(_varName: VarName, ctx: Ctx) = {
+    varName(_varName.eqName, ctx)
   }
 
-  def varName(eqName: EQName, ctxs: List[Ctx]): EQName = {
+  def varName(eqName: EQName, ctx: Ctx): EQName = {
     eqName
   }
 
-  def parenthesizedExpr(_expr: Option[Expr], ctxs: List[Ctx]): Any = {
-    _expr map { x => expr(x.expr, x.exprs, ctxs) }
+  def parenthesizedExpr(_expr: Option[Expr], ctx: Ctx): Any = {
+    _expr map { x => expr(x.expr, x.exprs, ctx) }
   }
 
-  def functionCall(name: EQName, _args: ArgumentList, ctxs: List[Ctx]) = {
+  def functionCall(name: EQName, _args: ArgumentList, ctx: Ctx) = {
     val fnName = name match {
-      case UnprefixedName(x)           => x
+      case UnprefixedName(local)       => local
       case PrefixedName(prefix, local) => local
       case URIQualifiedName(uri, name) => name
     }
-    val args = argumentList(_args.args, ctxs)
+    val args = argumentList(_args.args, ctx)
 
-    //println("target: ", ctxs.head.target)
-    ctxs.head.target match {
+    //println("target: ", ctx.target)
+    ctx.target match {
       case arr: java.util.Collection[Any] @unchecked =>
         fnName match {
           case "last"     => XPathFunctions.last(arr)
@@ -701,57 +697,57 @@ class XPathEvaluator {
     }
   }
 
-  def namedFunctionRef(name: EQName, index: Int, ctxs: List[Ctx]) = {
+  def namedFunctionRef(name: EQName, index: Int, ctx: Ctx) = {
     // TODO
   }
 
-  def inlineFunctionExpr(params: Option[ParamList], asType: Option[SequenceType], _functionBody: FunctionBody, ctxs: List[Ctx]) = {
+  def inlineFunctionExpr(params: Option[ParamList], asType: Option[SequenceType], _functionBody: FunctionBody, ctx: Ctx) = {
     params match {
-      case Some(x) => paramList(x.param, x.params, ctxs)
+      case Some(x) => paramList(x.param, x.params, ctx)
       case None    => Nil
     }
-    asType map { sequenceType(_, ctxs) }
-    functionBody(_functionBody.expr, ctxs)
+    asType map { sequenceType(_, ctx) }
+    functionBody(_functionBody.expr, ctx)
   }
 
-  def mapConstructor(entrys: List[MapConstructorEntry], ctxs: List[Ctx]) = {
-    entrys map { x => mapConstructorEntry(x.key, x.value, ctxs) }
+  def mapConstructor(entrys: List[MapConstructorEntry], ctx: Ctx) = {
+    entrys map { x => mapConstructorEntry(x.key, x.value, ctx) }
   }
 
-  def mapConstructorEntry(key: MapKeyExpr, value: MapValueExpr, ctxs: List[Ctx]): Any = {
-    exprSingle(key.expr, ctxs)
-    exprSingle(value.expr, ctxs)
+  def mapConstructorEntry(key: MapKeyExpr, value: MapValueExpr, ctx: Ctx): Any = {
+    exprSingle(key.expr, ctx)
+    exprSingle(value.expr, ctx)
   }
 
-  def arrayConstructor(constructor: ArrayConstructor, ctxs: List[Ctx]): Any = {
+  def arrayConstructor(constructor: ArrayConstructor, ctx: Ctx): Any = {
     constructor match {
       case SquareArrayConstructor(exprs) =>
-        exprs map { x => exprSingle(x, ctxs) }
+        exprs map { x => exprSingle(x, ctx) }
       case BraceArrayConstructor(_expr) =>
         _expr match {
-          case Some(Expr(expr0, exprs)) => expr(expr0, exprs, ctxs)
+          case Some(Expr(expr0, exprs)) => expr(expr0, exprs, ctx)
           case None                     =>
         }
     }
   }
 
-  def unaryLookup(key: KeySpecifier, ctxs: List[Ctx]) = {
-    keySpecifier(key, ctxs)
+  def unaryLookup(key: KeySpecifier, ctx: Ctx) = {
+    keySpecifier(key, ctx)
   }
 
-  def singleType(name: SimpleTypeName, withQuestionMark: Boolean, ctxs: List[Ctx]) = {
-    simpleTypeName(name.name, ctxs)
+  def singleType(name: SimpleTypeName, withQuestionMark: Boolean, ctx: Ctx) = {
+    simpleTypeName(name.name, ctx)
   }
 
-  def typeDeclaration(asType: SequenceType, ctxs: List[Ctx]) = {
-    sequenceType(asType, ctxs)
+  def typeDeclaration(asType: SequenceType, ctx: Ctx) = {
+    sequenceType(asType, ctx)
   }
 
-  def sequenceType(tpe: SequenceType, ctxs: List[Ctx]) = {
+  def sequenceType(tpe: SequenceType, ctx: Ctx) = {
     tpe match {
       case SequenceType_Empty =>
       case SequenceType_ItemType(_itemType, occurrence) =>
-        itemType(_itemType, ctxs)
+        itemType(_itemType, ctx)
         occurrence match {
           case None                            =>
           case Some(OccurrenceIndicator_QUEST) =>
@@ -761,112 +757,112 @@ class XPathEvaluator {
     }
   }
 
-  def itemType(tpe: ItemType, ctxs: List[Ctx]): Any = {
+  def itemType(tpe: ItemType, ctx: Ctx): Any = {
     tpe match {
       case ItemType_ITEM                    =>
       case AtomicOrUnionType(eqName)        => eqName
-      case x: KindTest                      => kindTest(x, ctxs)
-      case x: FunctionTest                  => functionTest(x, ctxs)
-      case x: MapTest                       => mapTest(x, ctxs)
-      case x: ArrayTest                     => arrayTest(x, ctxs)
-      case ParenthesizedItemType(_itemType) => itemType(_itemType, ctxs)
+      case x: KindTest                      => kindTest(x, ctx)
+      case x: FunctionTest                  => functionTest(x, ctx)
+      case x: MapTest                       => mapTest(x, ctx)
+      case x: ArrayTest                     => arrayTest(x, ctx)
+      case ParenthesizedItemType(_itemType) => itemType(_itemType, ctx)
     }
   }
 
   /**
    * elemTest should be either ElementTest or SchemaElementTest
    */
-  def documentTest(elemTest: Option[KindTest], ctxs: List[Ctx]): Any = {
-    elemTest map { x => kindTest(x, ctxs) }
+  def documentTest(elemTest: Option[KindTest], ctx: Ctx): Any = {
+    elemTest map { x => kindTest(x, ctx) }
   }
 
-  def piTest(name: Option[String], ctxs: List[Ctx]) = {
+  def piTest(name: Option[String], ctx: Ctx) = {
     name match {
       case Some(x) =>
       case None    =>
     }
   }
 
-  def attributeTest_Name(name: AttribNameOrWildcard, typeName: Option[TypeName], ctxs: List[Ctx]) = {
+  def attributeTest_Name(name: AttribNameOrWildcard, typeName: Option[TypeName], ctx: Ctx) = {
     // TODO optional type name
     name match {
-      case Left(x)  => attributeName(x.name, ctxs)
+      case Left(x)  => attributeName(x.name, ctx)
       case Right(x) => // Aster - QName
     }
   }
 
-  def schemaAttributeTest(attrDecl: AttributeDeclaration, ctxs: List[Ctx]) = {
-    attributeDeclaration(attrDecl.name, ctxs)
+  def schemaAttributeTest(attrDecl: AttributeDeclaration, ctx: Ctx) = {
+    attributeDeclaration(attrDecl.name, ctx)
   }
 
-  def attributeDeclaration(name: AttributeName, ctxs: List[Ctx]) = {
-    attributeName(name.name, ctxs)
+  def attributeDeclaration(name: AttributeName, ctx: Ctx) = {
+    attributeName(name.name, ctx)
   }
 
-  def elementTest_Name(name: ElementNameOrWildcard, typeName: Option[TypeName], withQuestionMark: Boolean, ctxs: List[Ctx]) = {
+  def elementTest_Name(name: ElementNameOrWildcard, typeName: Option[TypeName], withQuestionMark: Boolean, ctx: Ctx) = {
     name match {
-      case Left(x)  => elementName(x.name, ctxs)
+      case Left(x)  => elementName(x.name, ctx)
       case Right(x) => // Aster - QName
     }
   }
 
-  def schemaElementTest(elemDecl: ElementDeclaration, ctxs: List[Ctx]) = {
-    elementDeclaration(elemDecl.name, ctxs)
+  def schemaElementTest(elemDecl: ElementDeclaration, ctx: Ctx) = {
+    elementDeclaration(elemDecl.name, ctx)
   }
 
-  def elementDeclaration(name: ElementName, ctxs: List[Ctx]) = {
-    elementName(name.name, ctxs)
+  def elementDeclaration(name: ElementName, ctx: Ctx) = {
+    elementName(name.name, ctx)
   }
 
-  def attributeName(name: EQName, ctxs: List[Ctx]): EQName = {
+  def attributeName(name: EQName, ctx: Ctx): EQName = {
     name
   }
 
-  def elementName(name: EQName, ctxs: List[Ctx]): EQName = {
+  def elementName(name: EQName, ctx: Ctx): EQName = {
     name
   }
 
-  def simpleTypeName(name: TypeName, ctxs: List[Ctx]): EQName = {
-    typeName(name.name, ctxs)
+  def simpleTypeName(name: TypeName, ctx: Ctx): EQName = {
+    typeName(name.name, ctx)
   }
 
-  def typeName(name: EQName, ctxs: List[Ctx]): EQName = {
+  def typeName(name: EQName, ctx: Ctx): EQName = {
     name
   }
 
-  def functionTest(test: FunctionTest, ctxs: List[Ctx]) = {
+  def functionTest(test: FunctionTest, ctx: Ctx) = {
     test match {
       case AnyFunctionTest                  =>
-      case TypedFunctionTest(types, asType) => typedFunctionTest(types, asType, ctxs)
+      case TypedFunctionTest(types, asType) => typedFunctionTest(types, asType, ctx)
     }
   }
 
-  def typedFunctionTest(types: List[SequenceType], asType: SequenceType, ctxs: List[Ctx]): Any = {
-    types map { sequenceType(_, ctxs) }
-    sequenceType(asType, ctxs)
+  def typedFunctionTest(types: List[SequenceType], asType: SequenceType, ctx: Ctx): Any = {
+    types map { sequenceType(_, ctx) }
+    sequenceType(asType, ctx)
   }
 
-  def mapTest(test: MapTest, ctxs: List[Ctx]) = {
+  def mapTest(test: MapTest, ctx: Ctx) = {
     test match {
       case AnyMapTest                =>
-      case TypedMapTest(tpe, asType) => typedMapTest(tpe, asType, ctxs)
+      case TypedMapTest(tpe, asType) => typedMapTest(tpe, asType, ctx)
     }
   }
 
-  def typedMapTest(tpe: AtomicOrUnionType, asType: SequenceType, ctxs: List[Ctx]) = {
+  def typedMapTest(tpe: AtomicOrUnionType, asType: SequenceType, ctx: Ctx) = {
     //tpe.eqName
-    sequenceType(asType, ctxs)
+    sequenceType(asType, ctx)
   }
 
-  def arrayTest(test: ArrayTest, ctxs: List[Ctx]) = {
+  def arrayTest(test: ArrayTest, ctx: Ctx) = {
     test match {
       case AnyArrayTest        =>
-      case TypedArrayTest(tpe) => typedArrayTest(tpe, ctxs)
+      case TypedArrayTest(tpe) => typedArrayTest(tpe, ctx)
     }
   }
 
-  def typedArrayTest(tpe: SequenceType, ctxs: List[Ctx]) = {
-    sequenceType(tpe, ctxs)
+  def typedArrayTest(tpe: SequenceType, ctx: Ctx) = {
+    sequenceType(tpe, ctx)
   }
 
 }

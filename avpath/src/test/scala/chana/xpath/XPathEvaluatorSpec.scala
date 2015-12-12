@@ -27,7 +27,7 @@ class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterA
     info("\nParsed:\n" + stmt)
 
     val e = new XPathEvaluator()
-    val res = e.simpleEval(stmt, List(Ctx(record.getSchema, record)))
+    val res = e.simpleEval(stmt, Ctx(record.getSchema, record))
     info("\nResult:\n" + res)
     res
   }
