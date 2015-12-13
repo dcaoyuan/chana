@@ -599,12 +599,13 @@ class XPathEvaluator {
     keySpecifier(_keySpecifier, ctx)
   }
 
-  def keySpecifier(specifier: KeySpecifier, ctx: Ctx) = {
-    specifier match {
-      case KeySpecifier_NCName(ncName)          =>
-      case KeySpecifier_IntegerLiteral(v)       => v
-      case KeySpecifier_ParenthesizedExpr(expr) =>
-      case KeySpecifier_ASTER                   =>
+  def keySpecifier(key: AnyRef, ctx: Ctx) = {
+    key match {
+      case ncName: String          => ncName
+      case v: java.lang.Integer    => v
+      case ParenthesizedExpr(expr) => parenthesizedExpr(expr, ctx)
+      case Aster                   => Aster
+      case x                       => throw new XPathRuntimeException(x, "could not to be a KeySpecifier.")
     }
   }
 

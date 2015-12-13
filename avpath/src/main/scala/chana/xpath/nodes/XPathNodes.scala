@@ -167,11 +167,10 @@ package object nodes {
   final case class Predicate(expr: Expr) extends PostFix
   final case class Lookup(keySpecifier: KeySpecifier) extends PostFix
 
-  sealed trait KeySpecifier
-  final case class KeySpecifier_NCName(ncName: String) extends KeySpecifier
-  final case class KeySpecifier_IntegerLiteral(int: Int) extends KeySpecifier
-  final case class KeySpecifier_ParenthesizedExpr(expr: ParenthesizedExpr) extends KeySpecifier
-  case object KeySpecifier_ASTER extends KeySpecifier
+  /**
+   * @param key, String NCName, or int, or ParenthesizedExpr or Aster
+   */
+  final case class KeySpecifier(key: AnyRef)
 
   final case class ArrowPostfix(arrowFunction: ArrowFunctionSpecifier, args: ArgumentList) extends PostFix
   sealed trait ArrowFunctionSpecifier

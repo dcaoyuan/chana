@@ -725,12 +725,12 @@ final class XPathParser {
    */
   def keySpecifier(node: Node): KeySpecifier = {
     node.get(0) match {
-      case "*"          => KeySpecifier_ASTER
-      case name: String => KeySpecifier_NCName(name)
+      case "*"          => KeySpecifier(Aster)
+      case name: String => KeySpecifier(name)
       case n: Node =>
         n.getName match {
-          case "IntegerLiteral"    => KeySpecifier_IntegerLiteral(visit(n)(integerLiteral))
-          case "ParenthesizedExpr" => KeySpecifier_ParenthesizedExpr(visit(n)(parenthesizedExpr))
+          case "IntegerLiteral"    => KeySpecifier(visit(n)(integerLiteral).asInstanceOf[AnyRef])
+          case "ParenthesizedExpr" => KeySpecifier(visit(n)(parenthesizedExpr))
         }
     }
   }
