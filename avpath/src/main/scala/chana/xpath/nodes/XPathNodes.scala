@@ -177,9 +177,6 @@ package object nodes {
 
   final case class ArrowPostfix(arrowFunction: ArrowFunctionSpecifier, args: ArgumentList) extends PostFix
   sealed trait ArrowFunctionSpecifier
-  final case class ArrowFunctionSpecifier_EQName(eqName: EQName) extends ArrowFunctionSpecifier
-  final case class ArrowFunctionSpecifier_VarRef(varRef: VarRef) extends ArrowFunctionSpecifier
-  final case class ArrowFunctionSpecifier_ParenthesizedExpr(expr: ParenthesizedExpr) extends ArrowFunctionSpecifier
 
   sealed trait PrimaryExpr
   final case class PrimaryExpr_Literal(literal: Literal) extends PrimaryExpr
@@ -194,10 +191,10 @@ package object nodes {
 
   final case class Literal(x: Any)
 
-  final case class VarRef(varName: VarName)
+  final case class VarRef(varName: VarName) extends ArrowFunctionSpecifier
   final case class VarName(eqName: EQName)
 
-  final case class ParenthesizedExpr(expr: Option[Expr])
+  final case class ParenthesizedExpr(expr: Option[Expr]) extends ArrowFunctionSpecifier
 
   final case class FunctionCall(name: EQName, args: ArgumentList)
 
@@ -314,7 +311,7 @@ package object nodes {
 
   final case class ParenthesizedItemType(itemType: ItemType) extends ItemType
 
-  sealed trait EQName
+  sealed trait EQName extends ArrowFunctionSpecifier
   final case class URIQualifiedName(uri: String, name: String) extends EQName
   sealed trait QName extends EQName
   final case class PrefixedName(prefix: String, local: String) extends QName

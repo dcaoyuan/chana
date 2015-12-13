@@ -752,9 +752,9 @@ final class XPathParser {
   def arrowFunctionSpecifier(node: Node): ArrowFunctionSpecifier = {
     val n = node.getNode(0)
     n.getName match {
-      case "EQName"            => ArrowFunctionSpecifier_EQName(visit(n)(eqName))
-      case "VarRef"            => ArrowFunctionSpecifier_VarRef(visit(n)(varRef))
-      case "ParenthesizedExpr" => ArrowFunctionSpecifier_ParenthesizedExpr(visit(n)(parenthesizedExpr))
+      case "EQName"            => visit(n)(eqName)
+      case "VarRef"            => visit(n)(varRef)
+      case "ParenthesizedExpr" => visit(n)(parenthesizedExpr)
     }
   }
 

@@ -610,9 +610,9 @@ class XPathEvaluator {
 
   def arrowPostfix(arrowFunction: ArrowFunctionSpecifier, args: ArgumentList, ctx: Ctx) = {
     arrowFunction match {
-      case ArrowFunctionSpecifier_EQName(name)            =>
-      case ArrowFunctionSpecifier_VarRef(varRef)          =>
-      case ArrowFunctionSpecifier_ParenthesizedExpr(expr) => parenthesizedExpr(expr.expr, ctx)
+      case name: EQName            =>
+      case VarRef(varName)         =>
+      case ParenthesizedExpr(expr) => parenthesizedExpr(expr, ctx)
     }
   }
 
