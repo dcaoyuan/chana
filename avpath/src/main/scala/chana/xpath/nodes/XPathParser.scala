@@ -632,8 +632,8 @@ final class XPathParser {
   def nameTest(node: Node): NameTest = {
     val n = node.getNode(0)
     n.getName match {
-      case "EQName"   => NameTest_Name(visit(n)(eqName))
-      case "Wildcard" => NameTest_Wildcard(visit(n)(wildcard))
+      case "EQName"   => visit(n)(eqName)
+      case "Wildcard" => visit(n)(wildcard)
     }
   }
 
@@ -772,15 +772,15 @@ final class XPathParser {
   def primaryExpr(node: Node): PrimaryExpr = {
     val n = node.getNode(0)
     n.getName match {
-      case "Literal"           => PrimaryExpr_Literal(visit(n)(literal))
-      case "VarRef"            => PrimaryExpr_VarRef(visit(n)(varRef))
-      case "ParenthesizedExpr" => PrimaryExpr_ParenthesizedExpr(visit(n)(parenthesizedExpr))
-      case "ContextItemExpr"   => PrimaryExpr_ContextItemExpr
-      case "FunctionCall"      => PrimaryExpr_FunctionCall(visit(n)(functionCall))
-      case "FunctionItemExpr"  => PrimaryExpr_FunctionItemExpr(visit(n)(functionItemExpr))
-      case "MapConstructor"    => PrimaryExpr_MapConstructor(visit(n)(mapConstructor))
-      case "ArrayConstructor"  => PrimaryExpr_ArrayConstructor(visit(n)(arrayConstructor))
-      case "UnaryLookup"       => PrimaryExpr_UnaryLookup(visit(n)(unaryLookup))
+      case "Literal"           => visit(n)(literal)
+      case "VarRef"            => visit(n)(varRef)
+      case "ParenthesizedExpr" => visit(n)(parenthesizedExpr)
+      case "ContextItemExpr"   => ContextItemExpr
+      case "FunctionCall"      => visit(n)(functionCall)
+      case "FunctionItemExpr"  => visit(n)(functionItemExpr)
+      case "MapConstructor"    => visit(n)(mapConstructor)
+      case "ArrayConstructor"  => visit(n)(arrayConstructor)
+      case "UnaryLookup"       => visit(n)(unaryLookup)
     }
   }
 
@@ -853,7 +853,7 @@ final class XPathParser {
    * DOT
    */
   def contextItemExpr(node: Node) = {
-    PrimaryExpr_ContextItemExpr
+    ContextItemExpr
   }
 
   /**
@@ -872,7 +872,7 @@ final class XPathParser {
   def argument(node: Node): Argument = {
     val n = node.getNode(0)
     n.getName match {
-      case "ExprSingle"          => Argument_ExprSingle(visit(n)(exprSingle))
+      case "ExprSingle"          => visit(n)(exprSingle)
       case "ArgumentPlaceholder" => ArgumentPlaceholder
     }
   }
@@ -1029,9 +1029,9 @@ final class XPathParser {
    */
   def occurrenceIndicator(node: Node) = {
     node.getString(0) match {
-      case "?" => OccurrenceIndicator_QUEST
-      case "*" => OccurrenceIndicator_ASTER
-      case "+" => OccurrenceIndicator_PLUS
+      case "?" => OccurrenceQuestion
+      case "*" => OccurrenceAster
+      case "+" => OccurrencePlus
     }
   }
 

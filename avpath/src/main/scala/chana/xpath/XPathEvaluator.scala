@@ -345,7 +345,7 @@ class XPathEvaluator {
         val predicates = PredicateList(preds.reverse)
 
         value0 match {
-          case PrimaryExpr_ContextItemExpr =>
+          case ContextItemExpr =>
             // ".", or, self::node()
             val step = ForwardStep(Self, AnyKindTest)
             forwardAxisStep(step, predicates, ctx)
@@ -554,8 +554,8 @@ class XPathEvaluator {
 
   def nameTest(test: NameTest, ctx: Ctx) = {
     test match {
-      case NameTest_Name(name)         => name
-      case NameTest_Wildcard(wildcard) => wildcard
+      case name: EQName       => name
+      case wildcard: Wildcard => wildcard
     }
   }
 
@@ -578,8 +578,8 @@ class XPathEvaluator {
 
   def argumentList(args: List[Argument], ctx: Ctx): Any = {
     args map {
-      case Argument_ExprSingle(expr) => exprSingle(expr, ctx)
-      case ArgumentPlaceholder       =>
+      case expr: ExprSingle    => exprSingle(expr, ctx)
+      case ArgumentPlaceholder =>
     }
   }
 
@@ -618,45 +618,24 @@ class XPathEvaluator {
 
   def primaryExpr(expr: PrimaryExpr, ctx: Ctx) = {
     expr match {
-      case PrimaryExpr_Literal(_literal) =>
-        literal(_literal, ctx)
-
-      case PrimaryExpr_VarRef(ref) =>
-        varRef(ref.varName, ctx)
-
-      case PrimaryExpr_ParenthesizedExpr(expr) =>
-        parenthesizedExpr(expr.expr, ctx)
-
-      case PrimaryExpr_ContextItemExpr =>
-        PrimaryExpr_ContextItemExpr
-
-      case PrimaryExpr_FunctionCall(call) =>
-        functionCall(call.name, call.args, ctx)
-
-      case PrimaryExpr_FunctionItemExpr(item) =>
-        item match {
-          case NamedFunctionRef(name, index) =>
-            namedFunctionRef(name, index, ctx)
-          case InlineFunctionExpr(params, asType, functionBody) =>
-            inlineFunctionExpr(params, asType, functionBody, ctx)
-        }
-
-      case PrimaryExpr_MapConstructor(constructor) =>
-        mapConstructor(constructor.entrys, ctx)
-
-      case PrimaryExpr_ArrayConstructor(constructor) =>
-        arrayConstructor(constructor, ctx)
-
-      case PrimaryExpr_UnaryLookup(lookup) =>
-        unaryLookup(lookup.key, ctx)
+      case Literal(x)                                       => literal(x, ctx)
+      case VarRef(varName)                                  => varRef(varName, ctx)
+      case ParenthesizedExpr(expr)                          => parenthesizedExpr(expr, ctx)
+      case ContextItemExpr                                  => ContextItemExpr
+      case FunctionCall(name, args)                         => functionCall(name, args, ctx)
+      case NamedFunctionRef(name, index)                    => namedFunctionRef(name, index, ctx)
+      case InlineFunctionExpr(params, asType, functionBody) => inlineFunctionExpr(params, asType, functionBody, ctx)
+      case MapConstructor(entries)                          => mapConstructor(entries, ctx)
+      case x: ArrayConstructor                              => arrayConstructor(x, ctx)
+      case UnaryLookup(key)                                 => unaryLookup(key, ctx)
     }
   }
 
   /**
    * Force Any to AnyRef to avoid AnyVal be boxed/unboxed again and again
    */
-  def literal(v: Literal, ctx: Ctx): AnyRef = {
-    v.x.asInstanceOf[AnyRef]
+  def literal(v: Any, ctx: Ctx): AnyRef = {
+    v.asInstanceOf[AnyRef]
   }
 
   def varRef(_varName: VarName, ctx: Ctx) = {
@@ -743,10 +722,10 @@ class XPathEvaluator {
       case SequenceType_ItemType(_itemType, occurrence) =>
         itemType(_itemType, ctx)
         occurrence match {
-          case None                            =>
-          case Some(OccurrenceIndicator_QUEST) =>
-          case Some(OccurrenceIndicator_ASTER) =>
-          case Some(OccurrenceIndicator_PLUS)  =>
+          case None                     =>
+          case Some(OccurrenceQuestion) =>
+          case Some(OccurrenceAster)    =>
+          case Some(OccurrencePlus)     =>
         }
     }
   }

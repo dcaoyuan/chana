@@ -17,7 +17,7 @@ package object nodes {
 
   final case class Expr(expr: ExprSingle, exprs: List[ExprSingle])
 
-  sealed trait ExprSingle
+  sealed trait ExprSingle extends Argument
   final case class ForExpr(forClause: SimpleForClause, returnExpr: ExprSingle) extends ExprSingle
   final case class SimpleForClause(binding: SimpleForBinding, bindings: List[SimpleForBinding])
   final case class SimpleForBinding(varName: VarName, inExpr: ExprSingle)
@@ -145,8 +145,6 @@ package object nodes {
   sealed trait NodeTest
 
   sealed trait NameTest extends NodeTest
-  final case class NameTest_Name(name: EQName) extends NameTest
-  final case class NameTest_Wildcard(wildcard: Wildcard) extends NameTest
 
   /**
    * generic Wildcard =
@@ -156,7 +154,7 @@ package object nodes {
    * / BracedURILiteral ASTER
    * ;
    */
-  sealed trait Wildcard
+  sealed trait Wildcard extends NameTest
   final case class NameAster(name: String) extends Wildcard
   final case class AsterName(name: String) extends Wildcard
   final case class UriAster(uri: String) extends Wildcard
@@ -179,43 +177,34 @@ package object nodes {
   sealed trait ArrowFunctionSpecifier
 
   sealed trait PrimaryExpr
-  final case class PrimaryExpr_Literal(literal: Literal) extends PrimaryExpr
-  final case class PrimaryExpr_VarRef(varRef: VarRef) extends PrimaryExpr
-  final case class PrimaryExpr_ParenthesizedExpr(expr: ParenthesizedExpr) extends PrimaryExpr
-  case object PrimaryExpr_ContextItemExpr extends PrimaryExpr { val text = "." }
-  final case class PrimaryExpr_FunctionCall(functionCall: FunctionCall) extends PrimaryExpr
-  final case class PrimaryExpr_FunctionItemExpr(functionItemExpr: FunctionItemExpr) extends PrimaryExpr
-  final case class PrimaryExpr_MapConstructor(mapConstructor: MapConstructor) extends PrimaryExpr
-  final case class PrimaryExpr_ArrayConstructor(arrayConstructor: ArrayConstructor) extends PrimaryExpr
-  final case class PrimaryExpr_UnaryLookup(unaryLoolup: UnaryLookup) extends PrimaryExpr
+  case object ContextItemExpr extends PrimaryExpr { val text = "." }
 
-  final case class Literal(x: Any)
+  final case class Literal(x: Any) extends PrimaryExpr
 
-  final case class VarRef(varName: VarName) extends ArrowFunctionSpecifier
+  final case class VarRef(varName: VarName) extends ArrowFunctionSpecifier with PrimaryExpr
   final case class VarName(eqName: EQName)
 
-  final case class ParenthesizedExpr(expr: Option[Expr]) extends ArrowFunctionSpecifier
+  final case class ParenthesizedExpr(expr: Option[Expr]) extends ArrowFunctionSpecifier with PrimaryExpr
 
-  final case class FunctionCall(name: EQName, args: ArgumentList)
+  final case class FunctionCall(name: EQName, args: ArgumentList) extends PrimaryExpr
 
   sealed trait Argument
-  final case class Argument_ExprSingle(expr: ExprSingle) extends Argument
   case object ArgumentPlaceholder extends Argument { val text = "?" }
 
-  sealed trait FunctionItemExpr
+  sealed trait FunctionItemExpr extends PrimaryExpr
   final case class NamedFunctionRef(name: EQName, index: Int) extends FunctionItemExpr
   final case class InlineFunctionExpr(params: Option[ParamList], asType: Option[SequenceType], functionBody: FunctionBody) extends FunctionItemExpr
 
-  final case class MapConstructor(entrys: List[MapConstructorEntry])
+  final case class MapConstructor(entrys: List[MapConstructorEntry]) extends PrimaryExpr
   final case class MapConstructorEntry(key: MapKeyExpr, value: MapValueExpr)
   final case class MapKeyExpr(expr: ExprSingle)
   final case class MapValueExpr(expr: ExprSingle)
 
-  sealed trait ArrayConstructor
+  sealed trait ArrayConstructor extends PrimaryExpr
   final case class SquareArrayConstructor(exprs: List[ExprSingle]) extends ArrayConstructor
   final case class BraceArrayConstructor(expr: Option[Expr]) extends ArrayConstructor
 
-  final case class UnaryLookup(key: KeySpecifier)
+  final case class UnaryLookup(key: KeySpecifier) extends PrimaryExpr
 
   final case class SingleType(name: SimpleTypeName, withQuestionMark: Boolean)
 
@@ -226,9 +215,9 @@ package object nodes {
   final case class SequenceType_ItemType(itemType: ItemType, occurrence: Option[OccurrenceIndicator]) extends SequenceType
 
   sealed abstract class OccurrenceIndicator(val text: String)
-  case object OccurrenceIndicator_QUEST extends OccurrenceIndicator("?")
-  case object OccurrenceIndicator_ASTER extends OccurrenceIndicator("*")
-  case object OccurrenceIndicator_PLUS extends OccurrenceIndicator("+")
+  case object OccurrenceQuestion extends OccurrenceIndicator("?")
+  case object OccurrenceAster extends OccurrenceIndicator("*")
+  case object OccurrencePlus extends OccurrenceIndicator("+")
 
   /**
    * generic ItemType =
@@ -311,7 +300,7 @@ package object nodes {
 
   final case class ParenthesizedItemType(itemType: ItemType) extends ItemType
 
-  sealed trait EQName extends ArrowFunctionSpecifier
+  sealed trait EQName extends NameTest with ArrowFunctionSpecifier
   final case class URIQualifiedName(uri: String, name: String) extends EQName
   sealed trait QName extends EQName
   final case class PrefixedName(prefix: String, local: String) extends QName
