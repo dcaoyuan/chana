@@ -687,7 +687,7 @@ final class XPathParser {
       case 0 => Nil
       case _ =>
         val arg0 = visit(node.getNode(0))(argument)
-        val args = visitList(node.getList(0))(argument)
+        val args = visitList(node.getList(1))(argument)
         arg0 :: args
     }
     ArgumentList(args)

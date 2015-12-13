@@ -576,10 +576,10 @@ class XPathEvaluator {
     }
   }
 
-  def argumentList(args: List[Argument], ctx: Ctx): Any = {
+  def argumentList(args: List[Argument], ctx: Ctx): List[Any] = {
     args map {
       case expr: ExprSingle    => exprSingle(expr, ctx)
-      case ArgumentPlaceholder =>
+      case ArgumentPlaceholder => ArgumentPlaceholder
     }
   }
 
@@ -660,14 +660,14 @@ class XPathEvaluator {
     val args = argumentList(_args.args, ctx)
 
     //println("target: ", ctx.target)
-    ctx.target match {
-      case arr: java.util.Collection[Any] @unchecked =>
-        fnName match {
-          case "last"     => XPathFunctions.last(arr)
-          case "position" => XPathFunctions.position(arr)
-        }
+    fnName match {
+      case "last"     => XPathFunctions.last(ctx.target.asInstanceOf[java.util.Collection[Any]])
+      case "position" => XPathFunctions.position(ctx.target.asInstanceOf[java.util.Collection[Any]])
 
-      case _ => ()
+      case "not"      => XPathFunctions.not(args.head)
+      case "true"     => true
+      case "false"    => false
+      case _          => throw new XPathRuntimeException(fnName, "is not a supported functon")
     }
   }
 

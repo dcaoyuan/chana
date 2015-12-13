@@ -190,6 +190,30 @@ class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterA
 
     }
 
+    "query fields with boolean functions" should {
+      val record = initAccount()
+      record.put("registerTime", 10000L)
+      record.put("lastLoginTime", 20000L)
+      record.put("id", "abcd")
+
+      var q = "/devApps/@*[not(numBlackApps=2)]"
+      eval(q, record).head should be(
+        List(
+          record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("a"),
+          record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("c")))
+
+      q = "/devApps/@*[not(numBlackApps=2)=true()]"
+      eval(q, record).head should be(
+        List(
+          record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("a"),
+          record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("c")))
+
+      q = "/devApps/@*[not(numBlackApps=2)=false()]"
+      eval(q, record).head should be(
+        List(
+          record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("b")))
+    }
+
   }
 
 }
