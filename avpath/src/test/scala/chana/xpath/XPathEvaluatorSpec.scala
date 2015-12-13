@@ -41,20 +41,24 @@ class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterA
       record.put("id", "abcd")
 
       var q = "/registerTime"
-      eval(q, record) should be(
-        List(10000))
+      eval(q, record).head should be(
+        10000)
 
       q = "/lastChargeRecord/time"
-      eval(q, record) should be(
-        List(2))
+      eval(q, record).head should be(
+        2)
 
       q = "/devApps/@a"
       eval(q, record).head should be(
         record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("a"))
 
       q = "/devApps/@a/numBlackApps"
-      eval(q, record) should be(
-        List(1))
+      eval(q, record).head should be(
+        1)
+
+      q = "/devApps/@*"
+      eval(q, record).head should be(
+        record.get("devApps").asInstanceOf[java.util.Map[String, _]].values.toList)
 
       q = "/chargeRecords"
       eval(q, record).head should be(
@@ -178,11 +182,7 @@ class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterA
 
       q = "/devApps/@a[numBlackApps != 1]"
       eval(q, record).head should be(
-        List())
-
-      q = "/devApps/@*"
-      eval(q, record).head should be( // TODO result is a java.util.Collection of values
-        record.get("devApps").asInstanceOf[java.util.Map[String, _]].values.toList)
+        ())
 
       q = "/devApps/@*[numBlackApps=2]"
       eval(q, record).head should be(

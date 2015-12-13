@@ -40,11 +40,12 @@ class XPathEvaluator {
     expr(_expr.expr, _expr.exprs, ctx)
   }
 
+  // TODO should we support multiple exprSingles? which brings List values
   def expr(expr: ExprSingle, exprs: List[ExprSingle], ctx: Ctx): List[Any] = {
     expr :: exprs map { exprSingle(_, ctx) }
   }
 
-  def exprSingle(expr: ExprSingle, ctx: Ctx) = {
+  def exprSingle(expr: ExprSingle, ctx: Ctx): Any = {
     expr match {
       case ForExpr(forClause, returnExpr)                         => forExpr(forClause, returnExpr, ctx)
       case LetExpr(letClause, returnExpr)                         => letExpr(letClause, returnExpr, ctx)
@@ -358,7 +359,7 @@ class XPathEvaluator {
           }
           val elemSchema = avro.getElementType(ctx.schema)
           preds.head match {
-            case List(ix: Number) =>
+            case ix: Number =>
               var elems = List[Any]()
               val idx = ix.intValue
               var i = 1
@@ -373,7 +374,7 @@ class XPathEvaluator {
 
               Ctx(ctx.schema, elems.reverse)
 
-            case List(bools: List[Boolean] @unchecked) =>
+            case bools: List[Boolean] @unchecked =>
               var elems = List[Any]()
               val conds = bools.iterator
               while (arr.hasNext && conds.hasNext) {
@@ -394,7 +395,7 @@ class XPathEvaluator {
           val map = ctx.target.asInstanceOf[java.util.Map[String, Any]]
           val valueSchema = avro.getValueType(ctx.schema)
           preds.head match {
-            case List(xs: List[Boolean] @unchecked) =>
+            case xs: List[Boolean] @unchecked =>
               var elems = List[Any]()
               val conds = xs.iterator
               //              while (arr.hasNext && conds.hasNext) {
@@ -413,11 +414,10 @@ class XPathEvaluator {
           }
 
         case tpe =>
-          //println("schema type: " + tpe + ", value: " + ctx.target)
-          //println("pred: " + preds.head)
+          //println("value: " + ctx.target + ", pred: " + preds.head)
           preds.head match {
-            case List(x: Boolean) => if (x) ctx else Ctx(ctx.schema, List())
-            case _                => ctx
+            case x: Boolean => if (x) ctx else Ctx(ctx.schema, ())
+            case _          => ctx
           }
       }
     } else ctx
@@ -594,12 +594,16 @@ class XPathEvaluator {
     }
   }
 
-  def predicateList(predicates: List[Predicate], ctx: Ctx) = {
+  def predicateList(predicates: List[Predicate], ctx: Ctx): List[Any] = {
     predicates map { x => predicate(x.expr, ctx) }
   }
 
+  /**
+   * predicate is composed by 'expr' which may have multiple values, but actually
+   * it's rare?  So we just pick the head one.
+   */
   def predicate(_expr: Expr, ctx: Ctx): Any = {
-    expr(_expr.expr, _expr.exprs, ctx)
+    expr(_expr.expr, _expr.exprs, ctx).head
   }
 
   def lookup(_keySpecifier: KeySpecifier, ctx: Ctx) = {
@@ -673,7 +677,7 @@ class XPathEvaluator {
     eqName
   }
 
-  def parenthesizedExpr(_expr: Option[Expr], ctx: Ctx): Any = {
+  def parenthesizedExpr(_expr: Option[Expr], ctx: Ctx): Option[List[Any]] = {
     _expr map { x => expr(x.expr, x.exprs, ctx) }
   }
 
