@@ -668,10 +668,10 @@ final class XPathParser {
     val expr0 = visit(node.getNode(0))(primaryExpr)
     val ns = visitList(node.getList(1)) { n =>
       n.getName match {
-        case "Predicate"    => Postfix_Predicate(visit(n)(predicate))
-        case "ArgumentList" => Postfix_Arguments(visit(n)(argumentList))
-        case "Lookup"       => Postfix_Lookup(visit(n)(lookup))
-        case "ArrowPostfix" => Postfix_ArrowPostfix(visit(n)(arrowPostfix))
+        case "Predicate"    => visit(n)(predicate)
+        case "ArgumentList" => visit(n)(argumentList)
+        case "Lookup"       => visit(n)(lookup)
+        case "ArrowPostfix" => visit(n)(arrowPostfix)
       }
 
     }

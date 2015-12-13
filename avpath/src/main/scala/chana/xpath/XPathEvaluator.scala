@@ -325,13 +325,33 @@ class XPathEvaluator {
       case Absolute =>
       case Relative =>
     }
+
     expr match {
-      case Left(PostfixExpr(expr, postfixes)) =>
-        postfixExpr(expr, postfixes, ctx)
       case Right(ReverseAxisStep(step, predicates)) =>
         reverseAxisStep(step, predicates, ctx)
       case Right(ForwardAxisStep(step, predicates)) =>
         forwardAxisStep(step, predicates, ctx)
+
+      case Left(x @ PostfixExpr(expr, postfixes)) =>
+        val value0 = primaryExpr(expr, ctx)
+
+        var preds = List[Predicate]()
+        postfixes map {
+          case x: Predicate                      => preds ::= x
+          case ArgumentList(args)                => argumentList(args, ctx)
+          case Lookup(keySpecifier)              => lookup(keySpecifier, ctx)
+          case ArrowPostfix(arrowFunction, args) => arrowPostfix(arrowFunction, args, ctx)
+        }
+        val predicates = PredicateList(preds.reverse)
+
+        value0 match {
+          case PrimaryExpr_ContextItemExpr =>
+            // ".", or, self::node()
+            val step = ForwardStep(Self, AnyKindTest)
+            forwardAxisStep(step, predicates, ctx)
+          case _ =>
+            Ctx(null, value0) // TODO
+        }
     }
   }
 
@@ -556,37 +576,6 @@ class XPathEvaluator {
     }
   }
 
-  def postfixExpr(expr: PrimaryExpr, postfixes: List[PostFix], ctx: Ctx): Ctx = {
-    val value = primaryExpr(expr, ctx)
-    postfixes map { x => postfix(x, ctx) }
-    Ctx(null, value)
-  }
-
-  def postfix(post: PostFix, ctx: Ctx) = {
-    post match {
-      case Postfix_Predicate(predicate)       => postfix_Predicate(predicate, ctx)
-      case Postfix_Arguments(args)            => postfix_Arguments(args, ctx)
-      case Postfix_Lookup(lookup)             => postfix_Lookup(lookup, ctx)
-      case Postfix_ArrowPostfix(arrowPostfix) => postfix_ArrowPostfix(arrowPostfix, ctx)
-    }
-  }
-
-  def postfix_Predicate(_predicate: Predicate, ctx: Ctx) = {
-    predicate(_predicate.expr, ctx)
-  }
-
-  def postfix_Arguments(args: ArgumentList, ctx: Ctx) = {
-    argumentList(args.args, ctx)
-  }
-
-  def postfix_Lookup(_lookup: Lookup, ctx: Ctx) = {
-    lookup(_lookup.keySpecifier, ctx)
-  }
-
-  def postfix_ArrowPostfix(_arrowPostfix: ArrowPostfix, ctx: Ctx) = {
-    arrowPostfix(_arrowPostfix.arrowFunction, _arrowPostfix.args, ctx)
-  }
-
   def argumentList(args: List[Argument], ctx: Ctx): Any = {
     args map {
       case Argument_ExprSingle(expr) => exprSingle(expr, ctx)
@@ -638,7 +627,8 @@ class XPathEvaluator {
       case PrimaryExpr_ParenthesizedExpr(expr) =>
         parenthesizedExpr(expr.expr, ctx)
 
-      case PrimaryExpr_ContextItemExpr => // TODO
+      case PrimaryExpr_ContextItemExpr =>
+        PrimaryExpr_ContextItemExpr
 
       case PrimaryExpr_FunctionCall(call) =>
         functionCall(call.name, call.args, ctx)

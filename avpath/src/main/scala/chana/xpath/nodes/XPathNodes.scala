@@ -163,15 +163,11 @@ package object nodes {
 
   final case class PostfixExpr(expr: PrimaryExpr, postfixes: List[PostFix])
   sealed trait PostFix
-  final case class Postfix_Predicate(predicate: Predicate) extends PostFix
-  final case class Postfix_Arguments(args: ArgumentList) extends PostFix
-  final case class Postfix_Lookup(lookup: Lookup) extends PostFix
-  final case class Postfix_ArrowPostfix(arrowPostfix: ArrowPostfix) extends PostFix
 
-  final case class ArgumentList(args: List[Argument])
+  final case class ArgumentList(args: List[Argument]) extends PostFix
   final case class PredicateList(predicates: List[Predicate])
-  final case class Predicate(expr: Expr)
-  final case class Lookup(keySpecifier: KeySpecifier)
+  final case class Predicate(expr: Expr) extends PostFix
+  final case class Lookup(keySpecifier: KeySpecifier) extends PostFix
 
   sealed trait KeySpecifier
   final case class KeySpecifier_NCName(ncName: String) extends KeySpecifier
@@ -179,7 +175,7 @@ package object nodes {
   final case class KeySpecifier_ParenthesizedExpr(expr: ParenthesizedExpr) extends KeySpecifier
   case object KeySpecifier_ASTER extends KeySpecifier
 
-  final case class ArrowPostfix(arrowFunction: ArrowFunctionSpecifier, args: ArgumentList)
+  final case class ArrowPostfix(arrowFunction: ArrowFunctionSpecifier, args: ArgumentList) extends PostFix
   sealed trait ArrowFunctionSpecifier
   final case class ArrowFunctionSpecifier_EQName(eqName: EQName) extends ArrowFunctionSpecifier
   final case class ArrowFunctionSpecifier_VarRef(varRef: VarRef) extends ArrowFunctionSpecifier
