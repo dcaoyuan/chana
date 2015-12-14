@@ -13,7 +13,35 @@ case class XPathRuntimeException(value: Any, message: String)
       case _         => "primary type."
     }))
 
-final case class Ctx(schema: Schema, target: Any)
+final case class Ctx(schema: Schema, target: Any, container: Container)
+
+sealed trait Container
+sealed trait CollectionContainer[T] extends Container { self =>
+  private var _keys = List[T]()
+  def keys: List[T] = _keys
+  def keys_=(xs: List[_]): this.type = {
+    _keys = xs.asInstanceOf[List[T]]
+    this
+  }
+}
+
+object RecordContainer {
+  def apply(record: IndexedRecord, field: Schema.Field) = new RecordContainer(record, field)
+  def unapply(x: RecordContainer): Option[(IndexedRecord, Schema.Field)] = Some((x.record, x.field))
+}
+final class RecordContainer(val record: IndexedRecord, var field: Schema.Field) extends Container
+
+object ArrayContainer {
+  def apply(array: java.util.Collection[_], arraySchema: Schema, idxes: List[Int]) = new ArrayContainer(array, arraySchema).keys = idxes
+  def unapply(x: ArrayContainer): Option[(java.util.Collection[_], Schema, List[Int])] = Some((x.array, x.arraySchema, x.keys))
+}
+final class ArrayContainer(val array: java.util.Collection[_], val arraySchema: Schema) extends CollectionContainer[Int]
+
+object MapContainer {
+  def apply(map: java.util.Map[String, _], mapSchema: Schema, keys: List[String]) = new MapContainer(map, mapSchema).keys = keys
+  def unapply(x: MapContainer): Option[(java.util.Map[String, _], Schema, List[String])] = Some((x.map, x.mapSchema, x.keys))
+}
+final class MapContainer(val map: java.util.Map[String, _], val mapSchema: Schema) extends CollectionContainer[String]
 
 class XPathEvaluator {
 
@@ -350,7 +378,7 @@ class XPathEvaluator {
             val step = ForwardStep(Self, AnyKindTest)
             forwardAxisStep(step, predicates, ctx)
           case _ =>
-            Ctx(null, value0) // TODO
+            Ctx(null, value0, null) // TODO
         }
     }
   }
@@ -372,40 +400,56 @@ class XPathEvaluator {
     if (preds.nonEmpty) {
       ctx.schema.getType match {
         case Schema.Type.ARRAY =>
-          import scala.collection.JavaConversions._
-          val arr = ctx.target match {
-            case xs: java.util.Collection[Any] @unchecked => xs.iterator.toIterator
-            case xs: List[Any] @unchecked                 => xs.iterator
-          }
-          val elemSchema = avro.getElementType(ctx.schema)
           preds.head match {
             case ix: Number =>
+              val container = internal_checkIfFilterOnCollectionField(ctx)
+              val origKeys = container.keys.iterator
+
+              val arr = ctx.target.asInstanceOf[java.util.Collection[Any]].iterator
+
               var elems = List[Any]()
+              var keys = List[Any]()
               val idx = ix.intValue
               var i = 1
               while (arr.hasNext && i <= idx) {
+                val elem = arr.next
+                val key = origKeys.next
                 if (i == idx) {
-                  elems ::= arr.next
-                } else {
-                  arr.next
+                  elems ::= elem
+                  keys ::= key
                 }
                 i += 1
               }
 
-              Ctx(ctx.schema, elems.reverse)
+              //println(ctx.target + ", " + container.keys + ", ix:" + ix + ", elems: " + elems)
+              Ctx(ctx.schema, elems.reverse, container.keys = keys.reverse)
 
             case bools: List[Boolean] @unchecked =>
+              import scala.collection.JavaConversions._
+
+              val container = internal_checkIfFilterOnCollectionField(ctx)
+              val origKeys = container.keys.iterator
+
+              val arr = ctx.target match {
+                case xs: java.util.Collection[Any] @unchecked => xs.iterator.toIterator
+                case xs: List[Any] @unchecked                 => xs.iterator
+              }
+
               var elems = List[Any]()
+              var keys = List[Any]()
               val conds = bools.iterator
               while (arr.hasNext && conds.hasNext) {
-                if (conds.next) {
-                  elems ::= arr.next
-                } else {
-                  arr.next
+                val elem = arr.next
+                val key = origKeys.next
+                val cond = conds.next
+                if (cond) {
+                  elems ::= elem
+                  keys ::= key
                 }
               }
 
-              Ctx(ctx.schema, elems.reverse)
+              //println(ctx.target + ", " + container.keys + ", ix:" + ix + ", elems: " + elems)
+              Ctx(ctx.schema, elems.reverse, container.keys = keys.reverse)
 
             case _ =>
               ctx // TODO
@@ -436,11 +480,31 @@ class XPathEvaluator {
         case tpe =>
           //println("value: " + ctx.target + ", pred: " + preds.head)
           preds.head match {
-            case x: Boolean => if (x) ctx else Ctx(ctx.schema, ())
+            case x: Boolean => if (x) ctx else Ctx(ctx.schema, (), ctx.container)
             case _          => ctx
           }
       }
     } else ctx
+  }
+
+  /**
+   * When apply filtering on record's field on array target, we know that the
+   * Container should be transfered to a CollectionContainer now.
+   */
+  def internal_checkIfFilterOnCollectionField(ctx: Ctx): CollectionContainer[_] = {
+    ctx.container match {
+      case x: RecordContainer =>
+        val xs = ctx.target.asInstanceOf[java.util.Collection[Any]]
+        val n = xs.size
+        var keys = List[Int]()
+        var i = 1
+        while (i <= n) {
+          keys ::= i
+          i += 1
+        }
+        ArrayContainer(xs, ctx.schema, keys.reverse)
+      case x: CollectionContainer[_] => x
+    }
   }
 
   def nodeTest(axis: Axis, test: NodeTest, ctx: Ctx): Ctx = {
@@ -472,28 +536,45 @@ class XPathEvaluator {
               case rec: IndexedRecord =>
                 val field = schema.getField(local)
                 val fieldSchema = avro.getNonNull(field.schema)
-                Ctx(fieldSchema, rec.get(field.pos))
+                Ctx(fieldSchema, rec.get(field.pos), RecordContainer(rec, field))
 
               case arr: java.util.Collection[IndexedRecord] @unchecked =>
                 var elems = List[Any]()
+                var idxes = List[Int]()
                 val elemSchema = avro.getElementType(schema)
                 val field = elemSchema.getField(local)
                 val fieldSchema = avro.getNonNull(field.schema)
                 val itr = arr.iterator
+                var i = 1
                 while (itr.hasNext) {
                   val elem = itr.next
                   elems ::= elem.get(field.pos)
+                  idxes ::= i
+                  i += 1
                 }
-                Ctx(schema, elems.reverse)
+                Ctx(schema, elems.reverse, ArrayContainer(arr, schema, idxes.reverse))
+
+              //              case map: java.util.Map[String, IndexedRecord] @unchecked =>
+              //                var elems = List[Any]()
+              //                var keys = List[String]()
+              //                val valueSchema = avro.getValueType(schema)
+              //                val field = valueSchema.getField(local)
+              //                val fieldSchema = avro.getNonNull(field.schema)
+              //                val itr = map.entrySet.iterator
+              //                while (itr.hasNext) {
+              //                  val elem = itr.next
+              //                  elems ::= elem.getValue.get(field.pos)
+              //                  keys ::= elem.getKey
+              //                }
+              //                Ctx(Schema.createArray(valueSchema), elems.reverse, MapContainer(map, schema, keys.reverse))
 
               case xs: List[IndexedRecord] @unchecked =>
                 //println("local: " + local + ", schema: " + schema)
                 val elemSchema = avro.getElementType(schema)
                 val field = elemSchema.getField(local)
                 val fieldSchema = avro.getNonNull(field.schema)
-
                 val elems = xs map (_.get(field.pos))
-                Ctx(schema, elems)
+                Ctx(schema, elems, ctx.container)
 
               case x => // what happens?
                 throw new XPathRuntimeException(x, "try to get child of: " + local)
@@ -504,7 +585,7 @@ class XPathEvaluator {
               case map: java.util.Map[String, Any] @unchecked =>
                 // ok we're fetching a map value via key
                 val valueSchema = avro.getValueType(schema)
-                Ctx(valueSchema, map.get(local))
+                Ctx(valueSchema, map.get(local), MapContainer(map, schema, List(local)))
 
               case x => // what happens?
                 throw new XPathRuntimeException(x, "try to get attribute of: " + local)
@@ -524,14 +605,17 @@ class XPathEvaluator {
             target match {
               case map: java.util.Map[String, Any] @unchecked =>
                 var elems = List[Any]()
+                var keys = List[String]()
                 // ok we're fetching all map values
                 val valueSchema = avro.getValueType(schema)
                 val itr = map.entrySet.iterator
                 while (itr.hasNext) {
-                  elems ::= itr.next.getValue
+                  val entry = itr.next
+                  elems ::= entry.getValue
+                  keys ::= entry.getKey
                 }
                 // we convert values to a scala List, since it's selected result
-                Ctx(Schema.createArray(valueSchema), elems.reverse)
+                Ctx(Schema.createArray(valueSchema), elems.reverse, MapContainer(map, schema, keys))
 
               case x => // what happens?
                 throw new XPathRuntimeException(x, "try to get attribute of: " + Aster)

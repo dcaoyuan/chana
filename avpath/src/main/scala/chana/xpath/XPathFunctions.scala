@@ -339,7 +339,7 @@ object XPathFunctions {
   def currentDate() = LocalDate.now()
   def currentDateTime() = LocalDateTime.now()
 
-  // ----- functions application on valus
+  // ----- functions applicable on arrays
 
   def last(xs: java.util.Collection[Any]): Int = {
     xs.size
