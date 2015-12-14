@@ -48,6 +48,10 @@ class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterA
       eval(q, record).head should be(
         2)
 
+      q = "/devApps"
+      eval(q, record).head should be(
+        record.get("devApps").asInstanceOf[java.util.Map[String, _]])
+
       q = "/devApps/@a"
       eval(q, record).head should be(
         record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("a"))
@@ -184,9 +188,26 @@ class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterA
       eval(q, record).head should be(
         ())
 
+      // select map values that meet predicates 
       q = "/devApps/@*[numBlackApps=2]"
       eval(q, record).head should be(
         List(record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("b")))
+
+      // select map entries that meet predicates
+      q = "/devApps[numBlackApps=2]"
+      val expected = {
+        val itr = record.get("devApps").asInstanceOf[java.util.Map[String, _]].entrySet.iterator
+        var entry: java.util.Map.Entry[String, _] = null
+        while (itr.hasNext && entry == null) {
+          val x = itr.next
+          if (x.getKey == "b") {
+            entry = x
+          }
+        }
+        entry
+      }
+      eval(q, record).head should be(
+        List(expected))
 
     }
 
@@ -212,6 +233,7 @@ class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterA
       eval(q, record).head should be(
         List(
           record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("b")))
+
     }
 
   }

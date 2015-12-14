@@ -386,23 +386,23 @@ class XPathEvaluator {
   def reverseAxisStep(step: ReverseStep, predicates: PredicateList, ctx: Ctx): Ctx = {
     val newCtx = nodeTest(step.axis, step.nodeTest, ctx)
     val preds = predicateList(predicates.predicates, ctx)
-    internal_filterByPredicateList(preds, newCtx)
+    _filterByPredicateList(preds, newCtx)
   }
 
   def forwardAxisStep(step: ForwardStep, predicates: PredicateList, ctx: Ctx): Ctx = {
     val newCtx = nodeTest(step.axis, step.nodeTest, ctx)
     val preds = predicateList(predicates.predicates, newCtx)
-    internal_filterByPredicateList(preds, newCtx)
+    _filterByPredicateList(preds, newCtx)
   }
 
-  def internal_filterByPredicateList(preds: List[Any], ctx: Ctx): Ctx = {
+  private def _filterByPredicateList(preds: List[Any], ctx: Ctx): Ctx = {
     //println("ctx: " + ctx + " in predicates: " + preds)
     if (preds.nonEmpty) {
       ctx.schema.getType match {
         case Schema.Type.ARRAY =>
           preds.head match {
             case ix: Number =>
-              val container = internal_checkIfFilterOnCollectionField(ctx)
+              val container = _checkIfFilterOnCollectionField(ctx)
               val origKeys = container.keys.iterator
 
               val arr = ctx.target.asInstanceOf[java.util.Collection[Any]].iterator
@@ -425,11 +425,10 @@ class XPathEvaluator {
               Ctx(ctx.schema, elems.reverse, container.keys = keys.reverse)
 
             case bools: List[Boolean] @unchecked =>
-              import scala.collection.JavaConversions._
-
-              val container = internal_checkIfFilterOnCollectionField(ctx)
+              val container = _checkIfFilterOnCollectionField(ctx)
               val origKeys = container.keys.iterator
 
+              import scala.collection.JavaConversions._
               val arr = ctx.target match {
                 case xs: java.util.Collection[Any] @unchecked => xs.iterator.toIterator
                 case xs: List[Any] @unchecked                 => xs.iterator
@@ -456,22 +455,28 @@ class XPathEvaluator {
           }
 
         case Schema.Type.MAP => // TODO
-          val map = ctx.target.asInstanceOf[java.util.Map[String, Any]]
-          val valueSchema = avro.getValueType(ctx.schema)
           preds.head match {
-            case xs: List[Boolean] @unchecked =>
-              var elems = List[Any]()
-              val conds = xs.iterator
-              //              while (arr.hasNext && conds.hasNext) {
-              //                if (conds.next) {
-              //                  elems ::= arr.next
-              //                } else {
-              //                  arr.next
-              //                }
-              //              }
+            case bools: List[Boolean] @unchecked =>
+              val container = _checkIfFilterOnCollectionField(ctx)
+              val origKeys = container.keys.iterator
 
-              //Ctx(valueSchema, elems.reverse)
-              ctx // TODO
+              val map = ctx.target.asInstanceOf[java.util.Map[String, Any]].entrySet.iterator
+
+              var entries = List[Any]()
+              var keys = List[Any]()
+              val conds = bools.iterator
+              while (map.hasNext && conds.hasNext) {
+                val entry = map.next
+                val key = origKeys.next
+                val cond = conds.next
+                if (cond) {
+                  entries ::= entry
+                  keys ::= key
+                }
+              }
+
+              //println(ctx.target + ", " + container.keys + ", ix:" + ix + ", elems: " + elems)
+              Ctx(ctx.schema, entries.reverse, container.keys = keys.reverse)
 
             case _ =>
               ctx // TODO
@@ -488,21 +493,33 @@ class XPathEvaluator {
   }
 
   /**
-   * When apply filtering on record's field on array target, we know that the
-   * Container should be transfered to a CollectionContainer now.
+   * When apply filtering on record's collection field, we know that the
+   * container should be transfered to a CollectionContainer now.
    */
-  def internal_checkIfFilterOnCollectionField(ctx: Ctx): CollectionContainer[_] = {
+  private def _checkIfFilterOnCollectionField(ctx: Ctx): CollectionContainer[_] = {
     ctx.container match {
       case x: RecordContainer =>
-        val xs = ctx.target.asInstanceOf[java.util.Collection[Any]]
-        val n = xs.size
-        var keys = List[Int]()
-        var i = 1
-        while (i <= n) {
-          keys ::= i
-          i += 1
+        ctx.target match {
+          case xs: java.util.Collection[Any] @unchecked =>
+            val n = xs.size
+            var keys = List[Int]()
+            var i = 1
+            while (i <= n) {
+              keys ::= i
+              i += 1
+            }
+
+            ArrayContainer(xs, ctx.schema, keys.reverse)
+
+          case xs: java.util.Map[String, Any] @unchecked =>
+            var keys = List[String]()
+            val itr = xs.keySet.iterator
+            while (itr.hasNext) {
+              keys ::= itr.next
+            }
+
+            MapContainer(xs, ctx.schema, keys.reverse)
         }
-        ArrayContainer(xs, ctx.schema, keys.reverse)
       case x: CollectionContainer[_] => x
     }
   }
@@ -511,7 +528,7 @@ class XPathEvaluator {
     test match {
       case x: NameTest =>
         val res = nameTest(x, ctx)
-        internal_ctxOfNameTest(axis, res, ctx)
+        _ctxOfNameTest(axis, res, ctx)
       case x: KindTest =>
         kindTest(x, ctx) // TODO
         ctx
@@ -522,7 +539,7 @@ class XPathEvaluator {
    * Node: Always convert selected collection result to scala list except which
    * is selected by exactly the field name.
    */
-  def internal_ctxOfNameTest(axis: Axis, testResult: Any, ctx: Ctx): Ctx = {
+  private def _ctxOfNameTest(axis: Axis, testResult: Any, ctx: Ctx): Ctx = {
     testResult match {
       case URIQualifiedName(uri, name) => ctx
       case PrefixedName(prefix, local) => ctx
@@ -554,19 +571,19 @@ class XPathEvaluator {
                 }
                 Ctx(schema, elems.reverse, ArrayContainer(arr, schema, idxes.reverse))
 
-              //              case map: java.util.Map[String, IndexedRecord] @unchecked =>
-              //                var elems = List[Any]()
-              //                var keys = List[String]()
-              //                val valueSchema = avro.getValueType(schema)
-              //                val field = valueSchema.getField(local)
-              //                val fieldSchema = avro.getNonNull(field.schema)
-              //                val itr = map.entrySet.iterator
-              //                while (itr.hasNext) {
-              //                  val elem = itr.next
-              //                  elems ::= elem.getValue.get(field.pos)
-              //                  keys ::= elem.getKey
-              //                }
-              //                Ctx(Schema.createArray(valueSchema), elems.reverse, MapContainer(map, schema, keys.reverse))
+              case map: java.util.Map[String, IndexedRecord] @unchecked =>
+                var entries = List[Any]()
+                var keys = List[String]()
+                val valueSchema = avro.getValueType(schema)
+                val field = valueSchema.getField(local)
+                val fieldSchema = avro.getNonNull(field.schema)
+                val itr = map.entrySet.iterator
+                while (itr.hasNext) {
+                  val entry = itr.next
+                  entries ::= entry.getValue.get(field.pos)
+                  keys ::= entry.getKey
+                }
+                Ctx(Schema.createArray(fieldSchema), entries.reverse, MapContainer(map, schema, keys.reverse))
 
               case xs: List[IndexedRecord] @unchecked =>
                 //println("local: " + local + ", schema: " + schema)
@@ -577,7 +594,7 @@ class XPathEvaluator {
                 Ctx(schema, elems, ctx.container)
 
               case x => // what happens?
-                throw new XPathRuntimeException(x, "try to get child of: " + local)
+                throw new XPathRuntimeException(x, "try to get child: " + local)
             }
 
           case Attribute =>
@@ -615,7 +632,7 @@ class XPathEvaluator {
                   keys ::= entry.getKey
                 }
                 // we convert values to a scala List, since it's selected result
-                Ctx(Schema.createArray(valueSchema), elems.reverse, MapContainer(map, schema, keys))
+                Ctx(Schema.createArray(valueSchema), elems.reverse, MapContainer(map, schema, keys.reverse))
 
               case x => // what happens?
                 throw new XPathRuntimeException(x, "try to get attribute of: " + Aster)
