@@ -14,7 +14,7 @@ import xtc.tree.Node
 class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
   import chana.avro.AvroRecords._
 
-  def eval(query: String, record: Record) = {
+  def parse(query: String) = {
     val reader = new StringReader(query)
     val grammar = new XPathGrammar(reader, "")
     val r = grammar.pXPath(0)
@@ -25,14 +25,18 @@ class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterA
     val parser = new XPathParser()
     val stmt = parser.parse(query)
     info("\nParsed:\n" + stmt)
+    stmt
+  }
 
+  def select(query: String, record: Record) = {
     val e = new XPathEvaluator()
-    val res = e.simpleEval(stmt, Ctx(record.getSchema, record, RecordContainer(record, null), null))
+    val stmt = parse(query)
+    val res = e.select(record, stmt)
     info("\nResult:\n" + res)
     res
   }
 
-  "XPathEvaluator" when {
+  "XPathEvaluator select" when {
 
     "query fields" should {
       val record = initAccount()
@@ -41,43 +45,43 @@ class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterA
       record.put("id", "abcd")
 
       var q = "/registerTime"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         10000)
 
       q = "/lastChargeRecord/time"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         2)
 
       q = "/devApps"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         record.get("devApps").asInstanceOf[java.util.Map[String, _]])
 
       q = "/devApps/@a"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("a"))
 
       q = "/devApps/@a/numBlackApps"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         1)
 
       q = "/devApps/@*"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         record.get("devApps").asInstanceOf[java.util.Map[String, _]].values.toList)
 
       q = "/chargeRecords"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         record.get("chargeRecords"))
 
       q = "/chargeRecords[1]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
 
       q = "/chargeRecords[last()]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
       q = "/chargeRecords[last()-1]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
 
     }
@@ -89,71 +93,71 @@ class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterA
       record.put("id", "abcd")
 
       var q = "/chargeRecords[position() = 2]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
       q = "/chargeRecords[position() != 1]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
       q = "/chargeRecords[position() >= 2]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
       q = "/chargeRecords[position() > 1]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
       q = "/chargeRecords[position() < 2]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
 
       q = "/chargeRecords[position() <= 1]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
 
       q = "/chargeRecords[position() <= 2]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].toList)
 
       q = "/chargeRecords[position() > 0]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].toList)
 
       q = "/chargeRecords[position() + 1 > 1]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].toList)
 
       q = "/chargeRecords[position() - 1 + 1 > 1]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
       q = "/chargeRecords[-position() >= -1]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
 
       q = "/chargeRecords[-position() -1 + 1 >= -1]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
 
       q = "/chargeRecords[1-position() <= -1]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
       q = "/chargeRecords[2 <= position()]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
       q = "/chargeRecords[1 <= position() - 1]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
       q = "/chargeRecords[position() > 1 and position() <= 2]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
       q = "/chargeRecords[position() = 1 or position() = 2]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].toList)
 
     }
@@ -165,32 +169,32 @@ class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterA
       record.put("id", "abcd")
 
       var q = "/chargeRecords[time = 2]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
       q = "/chargeRecords[time=2 or amount=100.0]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].toList)
 
       q = "/chargeRecords[time*100 = amount]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
 
       q = "/chargeRecords[time=1]/time"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(1))
 
       q = "/devApps/@a[numBlackApps = 1]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("a"))
 
       q = "/devApps/@a[numBlackApps != 1]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         ())
 
       // select map values that meet predicates 
       q = "/devApps/@*[numBlackApps=2]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("b")))
 
       // select map entries that meet predicates
@@ -206,7 +210,7 @@ class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterA
         }
         entry
       }
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(expected))
 
     }
@@ -218,19 +222,19 @@ class XPathEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterA
       record.put("id", "abcd")
 
       var q = "/devApps/@*[not(numBlackApps=2)]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(
           record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("a"),
           record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("c")))
 
       q = "/devApps/@*[not(numBlackApps=2)=true()]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(
           record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("a"),
           record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("c")))
 
       q = "/devApps/@*[not(numBlackApps=2)=false()]"
-      eval(q, record).head should be(
+      select(q, record).head should be(
         List(
           record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("b")))
 

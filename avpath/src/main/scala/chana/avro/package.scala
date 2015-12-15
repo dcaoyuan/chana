@@ -386,4 +386,128 @@ package object avro {
       case _ => null
     }
   }
+
+  def arrayUpdate(arr: java.util.Collection[Any], idx: Int, value: Any) {
+    if (idx >= 0) {
+      arr match {
+        case xs: java.util.List[Any] @unchecked =>
+          if (idx < xs.size) {
+            xs.set(idx, value)
+          }
+        case _ =>
+          val values = arr.iterator
+          var i = 0
+          val xs = new java.util.ArrayList[Any]()
+          xs.add(value)
+          while (values.hasNext) {
+            val value = values.next
+            if (i == idx) {
+              arr.remove(value)
+            } else if (i > idx) {
+              arr.remove(value)
+              xs.add(value)
+            }
+            i += 1
+          }
+          arr.addAll(xs)
+      }
+    }
+  }
+
+  def arraySelect(arr: java.util.Collection[Any], idx: Int): Any = {
+    if (idx >= 0) {
+      arr match {
+        case xs: java.util.List[Any] @unchecked =>
+          if (idx < xs.size) {
+            xs.get(idx)
+          } else {
+            ()
+          }
+        case _ =>
+          var res: Any = ()
+          val values = arr.iterator
+          var i = 0
+          var break = false
+          while (values.hasNext && !break) {
+            if (i == idx) {
+              res = values.next
+              break = true
+            } else if (i > idx) {
+              values.next
+            }
+            i += 1
+          }
+          res
+      }
+    } else ()
+  }
+
+  def arrayInsert[T](arr: java.util.Collection[Any], idxToValue: List[(Int, Any)]) {
+    arr match {
+      case xs: java.util.List[Any] @unchecked =>
+        var toInsert = idxToValue
+        while (toInsert.nonEmpty) {
+          val (idx, value) = toInsert.head
+          toInsert = toInsert.tail
+          xs.add(idx, value)
+        }
+
+      case _ =>
+        val xs = new java.util.ArrayList[Any](arr)
+        arr.clear
+
+        var toInsert = idxToValue
+        while (toInsert.nonEmpty) {
+          val (idx, value) = toInsert.head
+          toInsert = toInsert.tail
+          xs.add(idx, value)
+        }
+
+        arr.addAll(xs)
+    }
+  }
+
+  def arrayRemove(arr: java.util.Collection[Any], idxsRemove: List[Int]) {
+    arr match {
+      case xs: java.util.List[Any] @unchecked =>
+        var toRemove = idxsRemove
+        while (toRemove.nonEmpty) {
+          val idx = toRemove.head
+          toRemove = toRemove.tail
+          xs.remove(idx)
+        }
+
+      case _ =>
+        val arrItr = arr.iterator
+        var toRemove = idxsRemove
+        var i = 0
+        while (toRemove.nonEmpty) {
+          val idx = toRemove.head
+          toRemove = toRemove.tail
+          while (arrItr.hasNext && i <= idx) {
+            if (i == idx) {
+              arrItr.remove
+            } else {
+              arrItr.next
+            }
+            i += 1
+          }
+        }
+    }
+  }
+
+  def replace(dst: IndexedRecord, src: IndexedRecord) {
+    if (dst.getSchema == src.getSchema) {
+      val fields = dst.getSchema.getFields.iterator
+      while (fields.hasNext) {
+        val field = fields.next
+        val value = src.get(field.pos)
+        val tpe = field.schema.getType
+        if (value != null && (tpe != Type.ARRAY || !value.asInstanceOf[java.util.Collection[_]].isEmpty) && (tpe != Type.MAP || !value.asInstanceOf[java.util.Map[_, _]].isEmpty)) {
+          dst.put(field.pos, value)
+        }
+      }
+    }
+  }
+
 }

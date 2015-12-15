@@ -8,7 +8,6 @@ import chana.avro.Deletelog
 import chana.avro.Insertlog
 import chana.avro.UpdateAction
 import org.apache.avro.Schema
-import org.apache.avro.Schema.Type
 import org.apache.avro.generic.GenericData
 import org.apache.avro.generic.IndexedRecord
 import scala.collection.mutable
@@ -105,8 +104,8 @@ object Evaluator {
         }
       }
 
-      val rlback = { () => arrayInsert(arr, toRlback) }
-      val commit = { () => arrayRemove(arr, toRemove) }
+      val rlback = { () => avro.arrayInsert(arr, toRlback) }
+      val commit = { () => avro.arrayRemove(arr, toRemove) }
       actions ::= UpdateAction(commit, rlback, Deletelog("", toRemove, arrSchema))
     }
 
@@ -153,8 +152,8 @@ object Evaluator {
         value1 match {
           case v: IndexedRecord =>
             val prev = new GenericData.Record(rec.asInstanceOf[GenericData.Record], true)
-            val rlback = { () => replace(rec, prev) }
-            val commit = { () => replace(rec, v) }
+            val rlback = { () => avro.replace(rec, prev) }
+            val commit = { () => avro.replace(rec, v) }
             actions ::= UpdateAction(commit, rlback, Changelog("/", v, rec.getSchema))
           case _ => // log.error 
         }
@@ -171,9 +170,9 @@ object Evaluator {
         val elemSchema = avro.getElementType(arrSchema)
         val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
 
-        val prev = arraySelect(arr, idx)
-        val rlback = { () => arrayUpdate(arr, idx, prev) }
-        val commit = { () => arrayUpdate(arr, idx, value1) }
+        val prev = avro.arraySelect(arr, idx)
+        val rlback = { () => avro.arrayUpdate(arr, idx, prev) }
+        val commit = { () => avro.arrayUpdate(arr, idx, value1) }
         actions ::= UpdateAction(commit, rlback, Changelog("", (idx, value1), arrSchema))
 
       case TargetMap(map, key, mapSchema) =>
@@ -298,129 +297,6 @@ object Evaluator {
     }
 
     actions.reverse
-  }
-
-  private def arrayUpdate(arr: java.util.Collection[Any], idx: Int, value: Any) {
-    if (idx >= 0) {
-      arr match {
-        case xs: java.util.List[Any] @unchecked =>
-          if (idx < xs.size) {
-            xs.set(idx, value)
-          }
-        case _ =>
-          val values = arr.iterator
-          var i = 0
-          val xs = new java.util.ArrayList[Any]()
-          xs.add(value)
-          while (values.hasNext) {
-            val value = values.next
-            if (i == idx) {
-              arr.remove(value)
-            } else if (i > idx) {
-              arr.remove(value)
-              xs.add(value)
-            }
-            i += 1
-          }
-          arr.addAll(xs)
-      }
-    }
-  }
-
-  private def arraySelect(arr: java.util.Collection[Any], idx: Int): Any = {
-    if (idx >= 0) {
-      arr match {
-        case xs: java.util.List[Any] @unchecked =>
-          if (idx < xs.size) {
-            xs.get(idx)
-          } else {
-            ()
-          }
-        case _ =>
-          var res: Any = ()
-          val values = arr.iterator
-          var i = 0
-          var break = false
-          while (values.hasNext && !break) {
-            if (i == idx) {
-              res = values.next
-              break = true
-            } else if (i > idx) {
-              values.next
-            }
-            i += 1
-          }
-          res
-      }
-    } else ()
-  }
-
-  private def arrayInsert[T](arr: java.util.Collection[Any], idxToValue: List[(Int, Any)]) {
-    arr match {
-      case xs: java.util.List[Any] @unchecked =>
-        var toInsert = idxToValue
-        while (toInsert.nonEmpty) {
-          val (idx, value) = toInsert.head
-          toInsert = toInsert.tail
-          xs.add(idx, value)
-        }
-
-      case _ =>
-        val xs = new java.util.ArrayList[Any](arr)
-        arr.clear
-
-        var toInsert = idxToValue
-        while (toInsert.nonEmpty) {
-          val (idx, value) = toInsert.head
-          toInsert = toInsert.tail
-          xs.add(idx, value)
-        }
-
-        arr.addAll(xs)
-    }
-  }
-
-  private def arrayRemove(arr: java.util.Collection[Any], idxsRemove: List[Int]) {
-    arr match {
-      case xs: java.util.List[Any] @unchecked =>
-        var toRemove = idxsRemove
-        while (toRemove.nonEmpty) {
-          val idx = toRemove.head
-          toRemove = toRemove.tail
-          xs.remove(idx)
-        }
-
-      case _ =>
-        val arrItr = arr.iterator
-        var toRemove = idxsRemove
-        var i = 0
-        while (toRemove.nonEmpty) {
-          val idx = toRemove.head
-          toRemove = toRemove.tail
-          while (arrItr.hasNext && i <= idx) {
-            if (i == idx) {
-              arrItr.remove
-            } else {
-              arrItr.next
-            }
-            i += 1
-          }
-        }
-    }
-  }
-
-  private def replace(dst: IndexedRecord, src: IndexedRecord) {
-    if (dst.getSchema == src.getSchema) {
-      val fields = dst.getSchema.getFields.iterator
-      while (fields.hasNext) {
-        val field = fields.next
-        val value = src.get(field.pos)
-        val tpe = field.schema.getType
-        if (value != null && (tpe != Type.ARRAY || !value.asInstanceOf[java.util.Collection[_]].isEmpty) && (tpe != Type.MAP || !value.asInstanceOf[java.util.Map[_, _]].isEmpty)) {
-          dst.put(field.pos, value)
-        }
-      }
-    }
   }
 
   private def evaluatePath(path: PathSyntax, _ctxs: List[Ctx], isTopLevel: Boolean): List[Ctx] = {

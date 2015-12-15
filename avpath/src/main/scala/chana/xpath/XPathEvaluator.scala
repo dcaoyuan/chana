@@ -1,6 +1,7 @@
 package chana.xpath
 
 import chana.avro
+import chana.avro.UpdateAction
 import chana.xpath.nodes._
 import org.apache.avro.Schema
 import org.apache.avro.generic.IndexedRecord
@@ -69,8 +70,57 @@ final class MapContainer(val map: java.util.Map[String, _], val mapSchema: Schem
 
 class XPathEvaluator {
 
-  def simpleEval(xpath: Expr, ctx: Ctx) = {
+  def select(record: IndexedRecord, xpath: Expr) = {
+    val ctx = Ctx(record.getSchema, record, RecordContainer(record, null), null)
     expr(xpath.expr, xpath.exprs, ctx) map (_.value)
+  }
+
+  def update(record: IndexedRecord, xpath: Expr, value: Any): List[UpdateAction] = {
+    val ctxs = select(record, xpath)
+    //opUpdate(ctxs, value, false)
+    Nil
+  }
+
+  def updateJson(record: IndexedRecord, xpath: Expr, value: String): List[UpdateAction] = {
+    val ctxs = select(record, xpath)
+    //opUpdate(ctxs, value, true)
+    Nil
+  }
+
+  def insert(record: IndexedRecord, xpath: Expr, value: Any): List[UpdateAction] = {
+    val ctxs = select(record, xpath)
+    //opInsert(ctxs, value, false)
+    Nil
+  }
+
+  def insertJson(record: IndexedRecord, xpath: Expr, value: String): List[UpdateAction] = {
+    val ctxs = select(record, xpath)
+    //opInsert(ctxs, value, true)
+    Nil
+  }
+
+  def insertAll(record: IndexedRecord, xpath: Expr, values: java.util.Collection[_]): List[UpdateAction] = {
+    val ctxs = select(record, xpath)
+    //opInsertAll(ctxs, values, false)
+    Nil
+  }
+
+  def insertAllJson(record: IndexedRecord, xpath: Expr, values: String): List[UpdateAction] = {
+    val ctxs = select(record, xpath)
+    //opInsertAll(ctxs, values, true)
+    Nil
+  }
+
+  def delete(record: IndexedRecord, xpath: Expr): List[UpdateAction] = {
+    val ctxs = select(record, xpath)
+    //opDelete(ctxs)
+    Nil
+  }
+
+  def clear(record: IndexedRecord, xpath: Expr): List[UpdateAction] = {
+    val ctxs = select(record, xpath)
+    //opClear(ctxs)
+    Nil
   }
 
   // -------------------------------------------------------------------------
@@ -834,13 +884,15 @@ class XPathEvaluator {
       case PrefixedName(prefix, local) => local
       case URIQualifiedName(uri, name) => name
     }
-    val args = argumentList(_args.args, ctx)
+    // args will be evaluated to value previously 
+    val args = argumentList(_args.args, ctx) map (_.value)
 
+    // functions are always applied on ctx.target
     fnName match {
       case "last"     => XPathFunctions.last(ctx.target.asInstanceOf[java.util.Collection[Any]])
       case "position" => XPathFunctions.position(ctx.target.asInstanceOf[java.util.Collection[Any]])
 
-      case "not"      => XPathFunctions.not(args.head.value)
+      case "not"      => XPathFunctions.not(args.head)
       case "true"     => true
       case "false"    => false
       case _          => throw new XPathRuntimeException(fnName, "is not a supported functon")
