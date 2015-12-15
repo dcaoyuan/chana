@@ -5,6 +5,9 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.temporal.Temporal
 
+/**
+ * http://www.w3.org/TR/xpath-functions/
+ */
 object XPathFunctions {
 
   def plus(left: Any, right: Any) = (left, right) match {
@@ -314,6 +317,10 @@ object XPathFunctions {
       case x: java.lang.Boolean => !x
       case x                    => throw XPathRuntimeException(x, "can not be applied NOT")
     }
+  }
+
+  def strConcat(strs: List[Any]) = {
+    strs.mkString
   }
 
   def strLike(str: String, expr: String, escape: Option[String]): Boolean = {

@@ -129,18 +129,21 @@ class XPathEvaluator {
 
   def orExpr(_andExpr: AndExpr, andExprs: List[AndExpr], ctx: Ctx) = {
     val value0 = andExpr(_andExpr.compExpr, _andExpr.compExprs, ctx)
+
     val values = andExprs map { x => andExpr(x.compExpr, x.compExprs, ctx) }
     values.foldLeft(value0) { (acc, x) => XPathFunctions.or(acc, x) }
   }
 
   def andExpr(compExpr: ComparisonExpr, compExprs: List[ComparisonExpr], ctx: Ctx) = {
     val value0 = comparisonExpr(compExpr.concExpr, compExpr.compExprPostfix, ctx)
+
     val values = compExprs map { x => comparisonExpr(x.concExpr, x.compExprPostfix, ctx) }
     values.foldLeft(value0) { (acc, x) => XPathFunctions.and(acc, x) }
   }
 
   def comparisonExpr(concExpr: StringConcatExpr, compExprPostfix: Option[ComparisonExprPostfix], ctx: Ctx) = {
     val value0 = stringConcatExpr(concExpr.rangeExpr, concExpr.rangeExprs, ctx)
+
     compExprPostfix match {
       case None => value0
       case Some(ComparisonExprPostfix(compOp, concExpr)) =>
@@ -179,14 +182,23 @@ class XPathEvaluator {
   }
 
   def stringConcatExpr(_rangeExpr: RangeExpr, rangeExprs: List[RangeExpr], ctx: Ctx) = {
-    val res = _rangeExpr :: rangeExprs map { x => rangeExpr(x.addExpr, x.toExpr, ctx) }
-    res.head // TODO
+    val value0 = rangeExpr(_rangeExpr.addExpr, _rangeExpr.toExpr, ctx)
+
+    val values = rangeExprs map { x => rangeExpr(x.addExpr, x.toExpr, ctx) }
+    if (values.nonEmpty) {
+      XPathFunctions.strConcat(value0 :: values)
+    } else {
+      value0
+    }
   }
 
   def rangeExpr(addExpr: AdditiveExpr, toExpr: Option[AdditiveExpr], ctx: Ctx) = {
-    val value = additiveExpr(addExpr.multiExpr, addExpr.prefixedMultiExprs, ctx)
-    toExpr map { x => additiveExpr(x.multiExpr, x.prefixedMultiExprs, ctx) }
-    value
+    val value0 = additiveExpr(addExpr.multiExpr, addExpr.prefixedMultiExprs, ctx)
+
+    toExpr match {
+      case None    => value0
+      case Some(x) => (value0, additiveExpr(x.multiExpr, x.prefixedMultiExprs, ctx))
+    }
   }
 
   def additiveExpr(multiExpr: MultiplicativeExpr, prefixedMultiExprs: List[MultiplicativeExpr], ctx: Ctx) = {
@@ -229,13 +241,12 @@ class XPathEvaluator {
     val values = prefixedIntersectExceptExprs map { x => (x.prefix, intersectExceptExpr(x.prefix, x.instanceOfExpr, x.prefixedInstanceOfExprs, ctx)) }
     values.foldLeft(value0) {
       case (acc, (Union, x)) => value0 // TODO
-      case (acc, (Pipe, x))  => value0 // TODO
       case _                 => value0
     }
   }
 
   /**
-   * prefix is "", or "union", "|"
+   * prefix is "", or "union", "|". The union and | operators are equivalent
    */
   def intersectExceptExpr(prefix: Prefix, _instanceOfExpr: InstanceofExpr, prefixedInstanceOfExprs: List[InstanceofExpr], ctx: Ctx) = {
     val value0 = instanceofExpr(_instanceOfExpr.prefix, _instanceOfExpr.treatExpr, _instanceOfExpr.ofType, ctx)
@@ -310,8 +321,8 @@ class XPathEvaluator {
    * TODO, fetch value here or later?
    */
   def valueExpr(_simpleMapExpr: SimpleMapExpr, ctx: Ctx) = {
-    val newCtxs = simpleMapExpr(_simpleMapExpr.pathExpr, _simpleMapExpr.exclamExprs, ctx)
-    newCtxs.target
+    val newCtx = simpleMapExpr(_simpleMapExpr.pathExpr, _simpleMapExpr.exclamExprs, ctx)
+    newCtx.target
   }
 
   def simpleMapExpr(_pathExpr: PathExpr, exclamExprs: List[PathExpr], ctx: Ctx) = {

@@ -138,15 +138,11 @@ generic UnionExprMod =
 
 
 generic UnionExpr =
-  IntersectExceptExpr ( IntersectExceptExprUnion / IntersectExceptExprList )*
+  IntersectExceptExpr IntersectExceptExprUnion*
 ;
 
 generic IntersectExceptExprUnion =
-  UNION IntersectExceptExpr  
-;
-
-generic IntersectExceptExprList =
-  PIPE IntersectExceptExpr  
+  ( PIPE / UNION ) IntersectExceptExpr  
 ;
 
 generic IntersectExceptExpr =

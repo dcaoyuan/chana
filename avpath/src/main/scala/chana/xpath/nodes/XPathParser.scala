@@ -338,33 +338,20 @@ final class XPathParser {
   }
 
   /**
-   * IntersectExceptExpr (IntersectExceptExprUnion / IntersectExceptExprList)*
+   * IntersectExceptExpr IntersectExceptExprUnion*
    */
   def unionExpr(node: Node) = {
     val expr0 = visit(node.getNode(0))(intersectExceptExpr)
-    val exprs = visitList(node.getList(1)) { n =>
-      n.getName match {
-        case "IntersectExceptExprUnion" => visit(n)(intersectExceptExprUnion)
-        case "IntersectExceptExprList"  => visit(n)(intersectExceptExprList)
-      }
-    }
+    val exprs = visitList(node.getList(1))(intersectExceptExprUnion)
     UnionExpr(Nop, expr0, exprs)
   }
 
   /**
-   * UNION IntersectExceptExpr
+   * ( PIPE / UNION ) IntersectExceptExpr
    */
   def intersectExceptExprUnion(node: Node) = {
     val x = visit(node.getNode(0))(intersectExceptExpr)
     IntersectExceptExpr(Union, x.instanceOfExpr, x.prefixedInstanceOfExprs)
-  }
-
-  /**
-   * PIPE IntersectExceptExpr
-   */
-  def intersectExceptExprList(node: Node) = {
-    val x = visit(node.getNode(0))(intersectExceptExpr)
-    IntersectExceptExpr(Pipe, x.instanceOfExpr, x.prefixedInstanceOfExprs)
   }
 
   /**

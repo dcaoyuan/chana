@@ -53,10 +53,9 @@ package object nodes {
   final case class UnionExpr(prefix: Prefix, intersectExceptExpr: IntersectExceptExpr, prefixedIntersectExceptExprs: List[IntersectExceptExpr]) // ( IntersectExceptExprUnion / IntersectExceptExprList )*
 
   /**
-   * prefix is "", or "union", "|"
+   * prefix is "", or "union", "|". The union and | operators are equivalent.
    */
   case object Union extends Prefix("union")
-  case object Pipe extends Prefix("|")
   final case class IntersectExceptExpr(prefix: Prefix, instanceOfExpr: InstanceofExpr, prefixedInstanceOfExprs: List[InstanceofExpr]) // ( InstanceofExprIntersect / InstanceofExprExcept )*
 
   /**
