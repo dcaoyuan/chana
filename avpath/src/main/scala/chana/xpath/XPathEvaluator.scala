@@ -434,128 +434,136 @@ class XPathEvaluator {
   def reverseAxisStep(step: ReverseStep, predicates: PredicateList, ctx: Ctx): Ctx = {
     val nodeTestCtx = nodeTest(step.axis, step.nodeTest, ctx)
     // We should separate the node test ctx and predicate ctx, the node test ctx will
-    // be used to filter by predicates, and predicate ctx will use it as the beginning
+    // be applied by predicates, and predicate ctx will use it as the beginning
     // ctx. So, we'll rely on predicateList to make a new copy for each predicate 
     // evaluating
     val preds = predicateList(predicates.predicates, nodeTestCtx)
-    _filterByPredicateList(preds, nodeTestCtx)
+    _applyPredicateList(preds, nodeTestCtx)
   }
 
   def forwardAxisStep(step: ForwardStep, predicates: PredicateList, ctx: Ctx): Ctx = {
     val nodeTestCtx = nodeTest(step.axis, step.nodeTest, ctx)
     // We should separate the node test ctx and predicate ctx, the node test ctx will
-    // be used to filter by predicates, and predicate ctx will use it as the beginning
+    // be applied by predicates, and predicate ctx will use it as the beginning
     // ctx. So, we'll rely on predicateList to make a new copy for each predicate 
     // evaluating
     val preds = predicateList(predicates.predicates, nodeTestCtx)
-    _filterByPredicateList(preds, nodeTestCtx)
+    _applyPredicateList(preds, nodeTestCtx)
   }
 
-  private def _filterByPredicateList(preds: List[Ctx], ctx: Ctx): Ctx = {
+  private def _applyPredicateList(preds: List[Ctx], targetCtx: Ctx): Ctx = {
     //println("ctx: " + ctx + " in predicates: " + preds)
     if (preds.nonEmpty) {
-      ctx.schema.getType match {
-        case Schema.Type.ARRAY =>
-          preds.head.value match {
-            case ix: Number =>
-              val container = _checkIfFilterOnCollectionField(ctx)
-              val origKeys = container.keys.iterator
+      val predicateds = preds map { pred => _applyPredicate(pred, targetCtx) }
+      predicateds.head // TODO process multiple predicates
+    } else {
+      targetCtx
+    }
+  }
 
-              val arr = ctx.target.asInstanceOf[java.util.Collection[Any]].iterator
+  private def _applyPredicate(pred: Ctx, targetCtx: Ctx): Ctx = {
+    targetCtx.schema.getType match {
+      case Schema.Type.ARRAY =>
+        pred.value match {
+          case ix: Number =>
+            val container = _checkIfApplyOnCollectionField(targetCtx)
+            val origKeys = container.keys.iterator
 
-              var elems = List[Any]()
-              var keys = List[Any]()
-              val idx = ix.intValue
-              var i = 1
-              while (arr.hasNext && i <= idx) {
-                val elem = arr.next
-                val key = origKeys.next
-                if (i == idx) {
-                  elems ::= elem
-                  keys ::= key
-                }
-                i += 1
+            val arr = targetCtx.target.asInstanceOf[java.util.Collection[Any]].iterator
+
+            var elems = List[Any]()
+            var keys = List[Any]()
+            val idx = ix.intValue
+            var i = 1
+            while (arr.hasNext && i <= idx) {
+              val elem = arr.next
+              val key = origKeys.next
+              if (i == idx) {
+                elems ::= elem
+                keys ::= key
               }
+              i += 1
+            }
 
-              //println(ctx.target + ", " + container.keys + ", ix:" + ix + ", elems: " + elems)
-              val got = elems.reverse
-              Ctx(ctx.schema, got, container.keys(keys.reverse), got)
+            //println(ctx.target + ", " + container.keys + ", ix:" + ix + ", elems: " + elems)
+            val got = elems.reverse
+            Ctx(targetCtx.schema, got, container.keys(keys.reverse), got)
 
-            case bools: List[Boolean] @unchecked =>
-              val container = _checkIfFilterOnCollectionField(ctx)
-              val origKeys = container.keys.iterator
+          case bools: List[Boolean] @unchecked =>
+            val container = _checkIfApplyOnCollectionField(targetCtx)
+            val origKeys = container.keys.iterator
 
-              import scala.collection.JavaConversions._
-              val arr = ctx.target match {
-                case xs: java.util.Collection[Any] @unchecked => xs.iterator.toIterator
-                case xs: List[Any] @unchecked                 => xs.iterator
+            import scala.collection.JavaConversions._
+            val arr = targetCtx.target match {
+              case xs: java.util.Collection[Any] @unchecked => xs.iterator.toIterator
+              case xs: List[Any] @unchecked                 => xs.iterator
+            }
+
+            var elems = List[Any]()
+            var keys = List[Any]()
+            val conds = bools.iterator
+            while (arr.hasNext && conds.hasNext) {
+              val elem = arr.next
+              val key = origKeys.next
+              val cond = conds.next
+              if (cond) {
+                elems ::= elem
+                keys ::= key
               }
+            }
 
-              var elems = List[Any]()
-              var keys = List[Any]()
-              val conds = bools.iterator
-              while (arr.hasNext && conds.hasNext) {
-                val elem = arr.next
-                val key = origKeys.next
-                val cond = conds.next
-                if (cond) {
-                  elems ::= elem
-                  keys ::= key
-                }
+            //println(ctx.target + ", " + container.keys + ", elems: " + elems)
+            val got = elems.reverse
+            Ctx(targetCtx.schema, got, container.keys(keys.reverse), got)
+
+          case _ =>
+            targetCtx // TODO
+        }
+
+      case Schema.Type.MAP => // TODO
+        pred.value match {
+          case bools: List[Boolean] @unchecked =>
+            val container = _checkIfApplyOnCollectionField(targetCtx)
+            val origKeys = container.keys.iterator
+
+            val map = targetCtx.target.asInstanceOf[java.util.Map[String, Any]].entrySet.iterator
+
+            var entries = List[Any]()
+            var keys = List[Any]()
+            val conds = bools.iterator
+            while (map.hasNext && conds.hasNext) {
+              val entry = map.next
+              val key = origKeys.next
+              val cond = conds.next
+              if (cond) {
+                entries ::= entry
+                keys ::= key
               }
+            }
 
-              //println(ctx.target + ", " + container.keys + ", elems: " + elems)
-              val got = elems.reverse
-              Ctx(ctx.schema, got, container.keys(keys.reverse), got)
+            //println(ctx.target + ", " + container.keys + ", entries: " + entries)
+            val got = entries.reverse
+            Ctx(targetCtx.schema, got, container.keys(keys.reverse), got)
 
-            case _ =>
-              ctx // TODO
-          }
+          case _ =>
+            targetCtx // TODO
+        }
 
-        case Schema.Type.MAP => // TODO
-          preds.head.value match {
-            case bools: List[Boolean] @unchecked =>
-              val container = _checkIfFilterOnCollectionField(ctx)
-              val origKeys = container.keys.iterator
+      case tpe =>
+        //println("value: " + ctx.target + ", pred: " + pred)
+        pred.value match {
+          case x: Boolean => if (x) targetCtx else Ctx(targetCtx.schema, (), targetCtx.container, ())
+          case _          => targetCtx
+        }
+    }
 
-              val map = ctx.target.asInstanceOf[java.util.Map[String, Any]].entrySet.iterator
-
-              var entries = List[Any]()
-              var keys = List[Any]()
-              val conds = bools.iterator
-              while (map.hasNext && conds.hasNext) {
-                val entry = map.next
-                val key = origKeys.next
-                val cond = conds.next
-                if (cond) {
-                  entries ::= entry
-                  keys ::= key
-                }
-              }
-
-              //println(ctx.target + ", " + container.keys + ", entries: " + entries)
-              val got = entries.reverse
-              Ctx(ctx.schema, got, container.keys(keys.reverse), got)
-
-            case _ =>
-              ctx // TODO
-          }
-
-        case tpe =>
-          //println("value: " + ctx.target + ", pred: " + preds.head)
-          preds.head.value match {
-            case x: Boolean => if (x) ctx else Ctx(ctx.schema, (), ctx.container, ())
-            case _          => ctx
-          }
-      }
-    } else ctx
   }
 
   /**
    * When apply filtering on record's collection field, we know that the
    * container should be transfered to a CollectionContainer now.
    */
-  private def _checkIfFilterOnCollectionField(ctx: Ctx): CollectionContainer[_] = {
+  private def _checkIfApplyOnCollectionField(ctx: Ctx): CollectionContainer[_] = {
     ctx.container match {
       case x: RecordContainer =>
         ctx.target match {
