@@ -11,16 +11,39 @@ case class XPathRuntimeException(value: Any, message: String)
       case null      => null
       case x: AnyRef => x.getClass.getName
       case _         => "primary type."
-    })
-  )
+    }))
 
-final case class Ctx(schema: Schema, target: Any, container: Container)
+object Ctx {
+  def apply(schema: Schema, target: Any, container: Container, value: Any) = new Ctx(schema, target, container, value)
+  def unapply(x: Ctx): Option[(Schema, Any, Container)] = Some((x.schema, x.target, x.container))
+}
+final class Ctx(val schema: Schema, val target: Any, val container: Container, private var _value: Any) {
+  /**
+   * value during evaluating
+   */
+  def value = _value
+  def value(x: Any) = {
+    _value = x
+    this
+  }
+
+  def copy = Ctx(schema, target, container, value)
+
+  override def toString() = {
+    new StringBuilder().append("Ctx(")
+      .append(schema).append(",")
+      .append(target).append(",")
+      .append(container).append(",")
+      .append(value).append(")")
+      .toString
+  }
+}
 
 sealed trait Container
 sealed trait CollectionContainer[T] extends Container { self =>
   private var _keys = List[T]()
   def keys: List[T] = _keys
-  def keys_=(xs: List[_]): this.type = {
+  def keys(xs: List[_]): this.type = {
     _keys = xs.asInstanceOf[List[T]]
     this
   }
@@ -33,13 +56,13 @@ object RecordContainer {
 final class RecordContainer(val record: IndexedRecord, var field: Schema.Field) extends Container
 
 object ArrayContainer {
-  def apply(array: java.util.Collection[_], arraySchema: Schema, idxes: List[Int]) = new ArrayContainer(array, arraySchema).keys = idxes
+  def apply(array: java.util.Collection[_], arraySchema: Schema, idxes: List[Int]) = new ArrayContainer(array, arraySchema).keys(idxes)
   def unapply(x: ArrayContainer): Option[(java.util.Collection[_], Schema, List[Int])] = Some((x.array, x.arraySchema, x.keys))
 }
 final class ArrayContainer(val array: java.util.Collection[_], val arraySchema: Schema) extends CollectionContainer[Int]
 
 object MapContainer {
-  def apply(map: java.util.Map[String, _], mapSchema: Schema, keys: List[String]) = new MapContainer(map, mapSchema).keys = keys
+  def apply(map: java.util.Map[String, _], mapSchema: Schema, keys: List[String]) = new MapContainer(map, mapSchema).keys(keys)
   def unapply(x: MapContainer): Option[(java.util.Map[String, _], Schema, List[String])] = Some((x.map, x.mapSchema, x.keys))
 }
 final class MapContainer(val map: java.util.Map[String, _], val mapSchema: Schema) extends CollectionContainer[String]
@@ -47,7 +70,7 @@ final class MapContainer(val map: java.util.Map[String, _], val mapSchema: Schem
 class XPathEvaluator {
 
   def simpleEval(xpath: Expr, ctx: Ctx) = {
-    expr(xpath.expr, xpath.exprs, ctx)
+    expr(xpath.expr, xpath.exprs, ctx) map (_.value)
   }
 
   // -------------------------------------------------------------------------
@@ -65,16 +88,16 @@ class XPathEvaluator {
     enclosedExpr(expr.expr, ctx)
   }
 
-  def enclosedExpr(_expr: Expr, ctx: Ctx): Any = {
+  def enclosedExpr(_expr: Expr, ctx: Ctx) = {
     expr(_expr.expr, _expr.exprs, ctx)
   }
 
   // TODO should we support multiple exprSingles? which brings List values
-  def expr(expr: ExprSingle, exprs: List[ExprSingle], ctx: Ctx): List[Any] = {
+  def expr(expr: ExprSingle, exprs: List[ExprSingle], ctx: Ctx): List[Ctx] = {
     expr :: exprs map { exprSingle(_, ctx) }
   }
 
-  def exprSingle(expr: ExprSingle, ctx: Ctx): Any = {
+  def exprSingle(expr: ExprSingle, ctx: Ctx): Ctx = {
     expr match {
       case ForExpr(forClause, returnExpr)                         => forExpr(forClause, returnExpr, ctx)
       case LetExpr(letClause, returnExpr)                         => letExpr(letClause, returnExpr, ctx)
@@ -84,7 +107,7 @@ class XPathEvaluator {
     }
   }
 
-  def forExpr(forClause: SimpleForClause, returnExpr: ExprSingle, ctx: Ctx): Any = {
+  def forExpr(forClause: SimpleForClause, returnExpr: ExprSingle, ctx: Ctx) = {
     simpleForClause(forClause.binding, forClause.bindings, ctx)
     exprSingle(returnExpr, ctx)
   }
@@ -98,7 +121,7 @@ class XPathEvaluator {
     exprSingle(inExpr, ctx)
   }
 
-  def letExpr(letClause: SimpleLetClause, returnExpr: ExprSingle, ctx: Ctx): Any = {
+  def letExpr(letClause: SimpleLetClause, returnExpr: ExprSingle, ctx: Ctx) = {
     simpleLetClause(letClause.binding, letClause.bindings, ctx)
     exprSingle(returnExpr, ctx)
   }
@@ -112,7 +135,7 @@ class XPathEvaluator {
     exprSingle(boundTo, ctx)
   }
 
-  def quantifiedExpr(isEvery: Boolean, varExpr: VarInExprSingle, varExprs: List[VarInExprSingle], statisExpr: ExprSingle, ctx: Ctx): Any = {
+  def quantifiedExpr(isEvery: Boolean, varExpr: VarInExprSingle, varExprs: List[VarInExprSingle], statisExpr: ExprSingle, ctx: Ctx) = {
     varExpr :: varExprs map { x => varInExprSingle(x.varName, x.inExpr, ctx) }
     exprSingle(statisExpr, ctx)
   }
@@ -122,33 +145,35 @@ class XPathEvaluator {
     exprSingle(inExpr, ctx)
   }
 
-  def ifExpr(ifExpr: Expr, thenExpr: ExprSingle, elseExpr: ExprSingle, ctx: Ctx): Any = {
+  def ifExpr(ifExpr: Expr, thenExpr: ExprSingle, elseExpr: ExprSingle, ctx: Ctx) = {
     expr(ifExpr.expr, ifExpr.exprs, ctx)
     exprSingle(thenExpr, ctx)
     exprSingle(elseExpr, ctx)
   }
 
-  def orExpr(_andExpr: AndExpr, andExprs: List[AndExpr], ctx: Ctx) = {
-    val value0 = andExpr(_andExpr.compExpr, _andExpr.compExprs, ctx)
+  def orExpr(_andExpr: AndExpr, andExprs: List[AndExpr], ctx: Ctx): Ctx = {
+    val value0 = andExpr(_andExpr.compExpr, _andExpr.compExprs, ctx).value
 
-    val values = andExprs map { x => andExpr(x.compExpr, x.compExprs, ctx) }
-    values.foldLeft(value0) { (acc, x) => XPathFunctions.or(acc, x) }
+    val values = andExprs map { x => andExpr(x.compExpr, x.compExprs, ctx).value }
+    val value1 = values.foldLeft(value0) { (acc, x) => XPathFunctions.or(acc, x) }
+    ctx.value(value1)
   }
 
-  def andExpr(compExpr: ComparisonExpr, compExprs: List[ComparisonExpr], ctx: Ctx) = {
-    val value0 = comparisonExpr(compExpr.concExpr, compExpr.compExprPostfix, ctx)
+  def andExpr(compExpr: ComparisonExpr, compExprs: List[ComparisonExpr], ctx: Ctx): Ctx = {
+    val value0 = comparisonExpr(compExpr.concExpr, compExpr.compExprPostfix, ctx).value
 
-    val values = compExprs map { x => comparisonExpr(x.concExpr, x.compExprPostfix, ctx) }
-    values.foldLeft(value0) { (acc, x) => XPathFunctions.and(acc, x) }
+    val values = compExprs map { x => comparisonExpr(x.concExpr, x.compExprPostfix, ctx).value }
+    val value1 = values.foldLeft(value0) { (acc, x) => XPathFunctions.and(acc, x) }
+    ctx.value(value1)
   }
 
-  def comparisonExpr(concExpr: StringConcatExpr, compExprPostfix: Option[ComparisonExprPostfix], ctx: Ctx) = {
-    val value0 = stringConcatExpr(concExpr.rangeExpr, concExpr.rangeExprs, ctx)
+  def comparisonExpr(concExpr: StringConcatExpr, compExprPostfix: Option[ComparisonExprPostfix], ctx: Ctx): Ctx = {
+    val value0 = stringConcatExpr(concExpr.rangeExpr, concExpr.rangeExprs, ctx).value
 
-    compExprPostfix match {
+    val value1 = compExprPostfix match {
       case None => value0
       case Some(ComparisonExprPostfix(compOp, concExpr)) =>
-        val right = comparisonExprPostfix(compOp, concExpr, ctx)
+        val right = comparisonExprPostfix(compOp, concExpr, ctx).value
         compOp match {
           case GeneralComp(op) =>
             op match {
@@ -171,6 +196,7 @@ class XPathEvaluator {
           case NodeComp(op) => value0 // TODO
         }
     }
+    ctx.value(value1)
   }
 
   /**
@@ -183,133 +209,142 @@ class XPathEvaluator {
   }
 
   def stringConcatExpr(_rangeExpr: RangeExpr, rangeExprs: List[RangeExpr], ctx: Ctx) = {
-    val value0 = rangeExpr(_rangeExpr.addExpr, _rangeExpr.toExpr, ctx)
+    val value0 = rangeExpr(_rangeExpr.addExpr, _rangeExpr.toExpr, ctx).value
 
-    val values = rangeExprs map { x => rangeExpr(x.addExpr, x.toExpr, ctx) }
-    if (values.nonEmpty) {
+    val values = rangeExprs map { x => rangeExpr(x.addExpr, x.toExpr, ctx).value }
+    val value1 = if (values.nonEmpty) {
       XPathFunctions.strConcat(value0 :: values)
     } else {
       value0
     }
+    ctx.value(value1)
   }
 
-  def rangeExpr(addExpr: AdditiveExpr, toExpr: Option[AdditiveExpr], ctx: Ctx) = {
-    val value0 = additiveExpr(addExpr.multiExpr, addExpr.prefixedMultiExprs, ctx)
+  def rangeExpr(addExpr: AdditiveExpr, toExpr: Option[AdditiveExpr], ctx: Ctx): Ctx = {
+    val value0 = additiveExpr(addExpr.multiExpr, addExpr.prefixedMultiExprs, ctx).value
 
-    toExpr map { x => additiveExpr(x.multiExpr, x.prefixedMultiExprs, ctx) } match {
+    val value1 = toExpr map { x => additiveExpr(x.multiExpr, x.prefixedMultiExprs, ctx).value } match {
       case None    => value0
       case Some(x) => XPathFunctions.range(value0, x)
     }
+    ctx.value(value1)
   }
 
-  def additiveExpr(multiExpr: MultiplicativeExpr, prefixedMultiExprs: List[MultiplicativeExpr], ctx: Ctx) = {
-    val v0 = multiplicativeExpr(multiExpr.prefix, multiExpr.unionExpr, multiExpr.prefixedUnionExprs, ctx)
+  def additiveExpr(multiExpr: MultiplicativeExpr, prefixedMultiExprs: List[MultiplicativeExpr], ctx: Ctx): Ctx = {
+    val v0 = multiplicativeExpr(multiExpr.prefix, multiExpr.unionExpr, multiExpr.prefixedUnionExprs, ctx).value
     val value0 = multiExpr.prefix match {
       case Nop | Plus => v0
       case Minus      => XPathFunctions.neg(v0)
     }
 
-    val values = prefixedMultiExprs map { x => (x.prefix, multiplicativeExpr(x.prefix, x.unionExpr, x.prefixedUnionExprs, ctx)) }
-    values.foldLeft(value0) {
+    val values = prefixedMultiExprs map { x => (x.prefix, multiplicativeExpr(x.prefix, x.unionExpr, x.prefixedUnionExprs, ctx).value) }
+    val value1 = values.foldLeft(value0) {
       case (acc, (Plus, x))  => XPathFunctions.plus(acc, x)
       case (acc, (Minus, x)) => XPathFunctions.minus(acc, x)
       case _                 => value0
     }
+    ctx.value(value1)
   }
 
   /**
    * prefix is "", or "+", "-"
    */
-  def multiplicativeExpr(prefix: Prefix, _unionExpr: UnionExpr, prefixedUnionExprs: List[UnionExpr], ctx: Ctx) = {
-    val value0 = unionExpr(_unionExpr.prefix, _unionExpr.intersectExceptExpr, _unionExpr.prefixedIntersectExceptExprs, ctx)
+  def multiplicativeExpr(prefix: Prefix, _unionExpr: UnionExpr, prefixedUnionExprs: List[UnionExpr], ctx: Ctx): Ctx = {
+    val value0 = unionExpr(_unionExpr.prefix, _unionExpr.intersectExceptExpr, _unionExpr.prefixedIntersectExceptExprs, ctx).value
 
-    val values = prefixedUnionExprs map { x => (x.prefix, unionExpr(x.prefix, x.intersectExceptExpr, x.prefixedIntersectExceptExprs, ctx)) }
-    values.foldLeft(value0) {
+    val values = prefixedUnionExprs map { x => (x.prefix, unionExpr(x.prefix, x.intersectExceptExpr, x.prefixedIntersectExceptExprs, ctx).value) }
+    val value1 = values.foldLeft(value0) {
       case (acc, (Aster, x)) => XPathFunctions.multiply(acc, x)
       case (acc, (Div, x))   => XPathFunctions.divide(acc, x)
       case (acc, (IDiv, x))  => XPathFunctions.idivide(acc, x)
       case (acc, (Mod, x))   => XPathFunctions.mod(acc, x)
       case _                 => value0
     }
+    ctx.value(value1)
   }
 
   /**
    * prefix is "", or "*", "div", "idiv", "mod"
    */
-  def unionExpr(prefix: Prefix, _intersectExceptExpr: IntersectExceptExpr, prefixedIntersectExceptExprs: List[IntersectExceptExpr], ctx: Ctx) = {
-    val value0 = intersectExceptExpr(_intersectExceptExpr.prefix, _intersectExceptExpr.instanceOfExpr, _intersectExceptExpr.prefixedInstanceOfExprs, ctx)
+  def unionExpr(prefix: Prefix, _intersectExceptExpr: IntersectExceptExpr, prefixedIntersectExceptExprs: List[IntersectExceptExpr], ctx: Ctx): Ctx = {
+    val value0 = intersectExceptExpr(_intersectExceptExpr.prefix, _intersectExceptExpr.instanceOfExpr, _intersectExceptExpr.prefixedInstanceOfExprs, ctx).value
 
-    val values = prefixedIntersectExceptExprs map { x => (x.prefix, intersectExceptExpr(x.prefix, x.instanceOfExpr, x.prefixedInstanceOfExprs, ctx)) }
-    values.foldLeft(value0) {
+    val values = prefixedIntersectExceptExprs map { x => (x.prefix, intersectExceptExpr(x.prefix, x.instanceOfExpr, x.prefixedInstanceOfExprs, ctx).value) }
+    val value1 = values.foldLeft(value0) {
       case (acc, (Union, x)) => value0 // TODO
       case _                 => value0
     }
+    ctx.value(value1)
   }
 
   /**
    * prefix is "", or "union", "|". The union and | operators are equivalent
    */
-  def intersectExceptExpr(prefix: Prefix, _instanceOfExpr: InstanceofExpr, prefixedInstanceOfExprs: List[InstanceofExpr], ctx: Ctx) = {
-    val value0 = instanceofExpr(_instanceOfExpr.prefix, _instanceOfExpr.treatExpr, _instanceOfExpr.ofType, ctx)
+  def intersectExceptExpr(prefix: Prefix, _instanceOfExpr: InstanceofExpr, prefixedInstanceOfExprs: List[InstanceofExpr], ctx: Ctx): Ctx = {
+    val value0 = instanceofExpr(_instanceOfExpr.prefix, _instanceOfExpr.treatExpr, _instanceOfExpr.ofType, ctx).value
 
-    val values = prefixedInstanceOfExprs map { x => (x.prefix, instanceofExpr(x.prefix, x.treatExpr, x.ofType, ctx)) }
-    values.foldLeft(value0) {
+    val values = prefixedInstanceOfExprs map { x => (x.prefix, instanceofExpr(x.prefix, x.treatExpr, x.ofType, ctx).value) }
+    val value1 = values.foldLeft(value0) {
       case (acc, (Intersect, x)) => value0 // TODO
       case (acc, (Except, x))    => value0 // TODO
       case _                     => value0
     }
+    ctx.value(value1)
   }
 
   /**
    * prefix is "", or "intersect", "except"
    */
-  def instanceofExpr(prefix: Prefix, _treatExpr: TreatExpr, ofType: Option[SequenceType], ctx: Ctx) = {
-    val value = treatExpr(_treatExpr.castableExpr, _treatExpr.asType, ctx)
+  def instanceofExpr(prefix: Prefix, _treatExpr: TreatExpr, ofType: Option[SequenceType], ctx: Ctx): Ctx = {
+    val value = treatExpr(_treatExpr.castableExpr, _treatExpr.asType, ctx).value
 
-    ofType match {
+    val value1 = ofType match {
       case Some(x) =>
         val tpe = sequenceType(x, ctx)
         value // TODO
       case None => value
     }
+    ctx.value(value1)
   }
 
-  def treatExpr(_castableExpr: CastableExpr, asType: Option[SequenceType], ctx: Ctx) = {
-    val value = castableExpr(_castableExpr.castExpr, _castableExpr.asType, ctx)
+  def treatExpr(_castableExpr: CastableExpr, asType: Option[SequenceType], ctx: Ctx): Ctx = {
+    val value = castableExpr(_castableExpr.castExpr, _castableExpr.asType, ctx).value
 
-    asType match {
+    val value1 = asType match {
       case Some(x) =>
         val tpe = sequenceType(x, ctx)
         value // TODO
       case None => value
     }
+    ctx.value(value1)
   }
 
-  def castableExpr(_castExpr: CastExpr, asType: Option[SingleType], ctx: Ctx) = {
-    val value = castExpr(_castExpr.unaryExpr, _castExpr.asType, ctx)
+  def castableExpr(_castExpr: CastExpr, asType: Option[SingleType], ctx: Ctx): Ctx = {
+    val value = castExpr(_castExpr.unaryExpr, _castExpr.asType, ctx).value
 
-    asType match {
+    val value1 = asType match {
       case Some(x) =>
         val tpe = singleType(x.name, x.withQuestionMark, ctx)
         value // TODO
       case None => value
     }
+    ctx.value(value1)
   }
 
-  def castExpr(_unaryExpr: UnaryExpr, asType: Option[SingleType], ctx: Ctx) = {
-    val v0 = unaryExpr(_unaryExpr.prefix, _unaryExpr.valueExpr, ctx)
+  def castExpr(_unaryExpr: UnaryExpr, asType: Option[SingleType], ctx: Ctx): Ctx = {
+    val v = unaryExpr(_unaryExpr.prefix, _unaryExpr.valueExpr, ctx).value
     val value = _unaryExpr.prefix match {
-      case Nop   => v0
-      case Plus  => v0
-      case Minus => XPathFunctions.neg(v0)
+      case Nop | Plus => v
+      case Minus      => XPathFunctions.neg(v)
     }
 
-    asType match {
+    val value1 = asType match {
       case Some(x) =>
         val tpe = singleType(x.name, x.withQuestionMark, ctx)
         value // TODO
       case None => value
     }
+    ctx.value(value1)
   }
 
   /**
@@ -324,7 +359,7 @@ class XPathEvaluator {
    */
   def valueExpr(_simpleMapExpr: SimpleMapExpr, ctx: Ctx) = {
     val newCtx = simpleMapExpr(_simpleMapExpr.pathExpr, _simpleMapExpr.exclamExprs, ctx)
-    newCtx.target
+    newCtx
   }
 
   def simpleMapExpr(_pathExpr: PathExpr, exclamExprs: List[PathExpr], ctx: Ctx): Ctx = {
@@ -391,29 +426,37 @@ class XPathEvaluator {
             val step = ForwardStep(Self, AnyKindTest)
             forwardAxisStep(step, predicates, ctx)
           case _ =>
-            Ctx(null, value0, null) // TODO
+            Ctx(null, value0, null, value0) // TODO
         }
     }
   }
 
   def reverseAxisStep(step: ReverseStep, predicates: PredicateList, ctx: Ctx): Ctx = {
-    val newCtx = nodeTest(step.axis, step.nodeTest, ctx)
-    val preds = predicateList(predicates.predicates, ctx)
-    _filterByPredicateList(preds, newCtx)
+    val nodeTestCtx = nodeTest(step.axis, step.nodeTest, ctx)
+    // We should separate the node test ctx and predicate ctx, the node test ctx will
+    // be used to filter by predicates, and predicate ctx will use it as the beginning
+    // ctx. So, we'll rely on predicateList to make a new copy for each predicate 
+    // evaluating
+    val preds = predicateList(predicates.predicates, nodeTestCtx)
+    _filterByPredicateList(preds, nodeTestCtx)
   }
 
   def forwardAxisStep(step: ForwardStep, predicates: PredicateList, ctx: Ctx): Ctx = {
-    val newCtx = nodeTest(step.axis, step.nodeTest, ctx)
-    val preds = predicateList(predicates.predicates, newCtx)
-    _filterByPredicateList(preds, newCtx)
+    val nodeTestCtx = nodeTest(step.axis, step.nodeTest, ctx)
+    // We should separate the node test ctx and predicate ctx, the node test ctx will
+    // be used to filter by predicates, and predicate ctx will use it as the beginning
+    // ctx. So, we'll rely on predicateList to make a new copy for each predicate 
+    // evaluating
+    val preds = predicateList(predicates.predicates, nodeTestCtx)
+    _filterByPredicateList(preds, nodeTestCtx)
   }
 
-  private def _filterByPredicateList(preds: List[Any], ctx: Ctx): Ctx = {
+  private def _filterByPredicateList(preds: List[Ctx], ctx: Ctx): Ctx = {
     //println("ctx: " + ctx + " in predicates: " + preds)
     if (preds.nonEmpty) {
       ctx.schema.getType match {
         case Schema.Type.ARRAY =>
-          preds.head match {
+          preds.head.value match {
             case ix: Number =>
               val container = _checkIfFilterOnCollectionField(ctx)
               val origKeys = container.keys.iterator
@@ -435,7 +478,8 @@ class XPathEvaluator {
               }
 
               //println(ctx.target + ", " + container.keys + ", ix:" + ix + ", elems: " + elems)
-              Ctx(ctx.schema, elems.reverse, container.keys = keys.reverse)
+              val got = elems.reverse
+              Ctx(ctx.schema, got, container.keys(keys.reverse), got)
 
             case bools: List[Boolean] @unchecked =>
               val container = _checkIfFilterOnCollectionField(ctx)
@@ -460,15 +504,16 @@ class XPathEvaluator {
                 }
               }
 
-              //println(ctx.target + ", " + container.keys + ", ix:" + ix + ", elems: " + elems)
-              Ctx(ctx.schema, elems.reverse, container.keys = keys.reverse)
+              //println(ctx.target + ", " + container.keys + ", elems: " + elems)
+              val got = elems.reverse
+              Ctx(ctx.schema, got, container.keys(keys.reverse), got)
 
             case _ =>
               ctx // TODO
           }
 
         case Schema.Type.MAP => // TODO
-          preds.head match {
+          preds.head.value match {
             case bools: List[Boolean] @unchecked =>
               val container = _checkIfFilterOnCollectionField(ctx)
               val origKeys = container.keys.iterator
@@ -488,8 +533,9 @@ class XPathEvaluator {
                 }
               }
 
-              //println(ctx.target + ", " + container.keys + ", ix:" + ix + ", elems: " + elems)
-              Ctx(ctx.schema, entries.reverse, container.keys = keys.reverse)
+              //println(ctx.target + ", " + container.keys + ", entries: " + entries)
+              val got = entries.reverse
+              Ctx(ctx.schema, got, container.keys(keys.reverse), got)
 
             case _ =>
               ctx // TODO
@@ -497,8 +543,8 @@ class XPathEvaluator {
 
         case tpe =>
           //println("value: " + ctx.target + ", pred: " + preds.head)
-          preds.head match {
-            case x: Boolean => if (x) ctx else Ctx(ctx.schema, (), ctx.container)
+          preds.head.value match {
+            case x: Boolean => if (x) ctx else Ctx(ctx.schema, (), ctx.container, ())
             case _          => ctx
           }
       }
@@ -566,7 +612,8 @@ class XPathEvaluator {
               case rec: IndexedRecord =>
                 val field = schema.getField(local)
                 val fieldSchema = avro.getNonNull(field.schema)
-                Ctx(fieldSchema, rec.get(field.pos), RecordContainer(rec, field))
+                val got = rec.get(field.pos)
+                Ctx(fieldSchema, got, RecordContainer(rec, field), got)
 
               case arr: java.util.Collection[IndexedRecord] @unchecked =>
                 var elems = List[Any]()
@@ -582,7 +629,8 @@ class XPathEvaluator {
                   idxes ::= i
                   i += 1
                 }
-                Ctx(schema, elems.reverse, ArrayContainer(arr, schema, idxes.reverse))
+                val got = elems.reverse
+                Ctx(schema, got, ArrayContainer(arr, schema, idxes.reverse), got)
 
               case map: java.util.Map[String, IndexedRecord] @unchecked =>
                 var entries = List[Any]()
@@ -596,15 +644,16 @@ class XPathEvaluator {
                   entries ::= entry.getValue.get(field.pos)
                   keys ::= entry.getKey
                 }
-                Ctx(Schema.createArray(fieldSchema), entries.reverse, MapContainer(map, schema, keys.reverse))
+                val got = entries.reverse
+                Ctx(Schema.createArray(fieldSchema), got, MapContainer(map, schema, keys.reverse), got)
 
               case xs: List[IndexedRecord] @unchecked =>
                 //println("local: " + local + ", schema: " + schema)
                 val elemSchema = avro.getElementType(schema)
                 val field = elemSchema.getField(local)
                 val fieldSchema = avro.getNonNull(field.schema)
-                val elems = xs map (_.get(field.pos))
-                Ctx(schema, elems, ctx.container)
+                val got = xs map (_.get(field.pos))
+                Ctx(schema, got, ctx.container, got)
 
               case x => // what happens?
                 throw new XPathRuntimeException(x, "try to get child: " + local)
@@ -615,7 +664,8 @@ class XPathEvaluator {
               case map: java.util.Map[String, Any] @unchecked =>
                 // ok we're fetching a map value via key
                 val valueSchema = avro.getValueType(schema)
-                Ctx(valueSchema, map.get(local), MapContainer(map, schema, List(local)))
+                val got = map.get(local)
+                Ctx(valueSchema, got, MapContainer(map, schema, List(local)), got)
 
               case x => // what happens?
                 throw new XPathRuntimeException(x, "try to get attribute of: " + local)
@@ -644,8 +694,9 @@ class XPathEvaluator {
                   elems ::= entry.getValue
                   keys ::= entry.getKey
                 }
+                val got = elems.reverse
                 // we convert values to a scala List, since it's selected result
-                Ctx(Schema.createArray(valueSchema), elems.reverse, MapContainer(map, schema, keys.reverse))
+                Ctx(Schema.createArray(valueSchema), got, MapContainer(map, schema, keys.reverse), got)
 
               case x => // what happens?
                 throw new XPathRuntimeException(x, "try to get attribute of: " + Aster)
@@ -690,22 +741,26 @@ class XPathEvaluator {
     }
   }
 
-  def argumentList(args: List[Argument], ctx: Ctx): List[Any] = {
+  def argumentList(args: List[Argument], ctx: Ctx): List[Ctx] = {
     args map {
       case expr: ExprSingle    => exprSingle(expr, ctx)
-      case ArgumentPlaceholder => ArgumentPlaceholder
+      case ArgumentPlaceholder => ctx.value(ArgumentPlaceholder)
     }
   }
 
-  def predicateList(predicates: List[Predicate], ctx: Ctx): List[Any] = {
-    predicates map { x => predicate(x.expr, ctx) }
+  /**
+   * Should make a new copy of ctx for each predicate, since we are in new ctx
+   * during each predicate evaluating.
+   */
+  def predicateList(predicates: List[Predicate], ctx: Ctx): List[Ctx] = {
+    predicates map { x => predicate(x.expr, ctx.copy) }
   }
 
   /**
    * predicate is composed by 'expr' which may have multiple values, but actually
    * it's rare?  So we just pick the head one.
    */
-  def predicate(_expr: Expr, ctx: Ctx): Any = {
+  def predicate(_expr: Expr, ctx: Ctx): Ctx = {
     expr(_expr.expr, _expr.exprs, ctx).head
   }
 
@@ -731,7 +786,7 @@ class XPathEvaluator {
     }
   }
 
-  def primaryExpr(expr: PrimaryExpr, ctx: Ctx) = {
+  def primaryExpr(expr: PrimaryExpr, ctx: Ctx): Any = {
     expr match {
       case Literal(x)                                       => literal(x, ctx)
       case VarRef(varName)                                  => varRef(varName, ctx)
@@ -761,11 +816,11 @@ class XPathEvaluator {
     eqName
   }
 
-  def parenthesizedExpr(_expr: Option[Expr], ctx: Ctx): Option[List[Any]] = {
+  def parenthesizedExpr(_expr: Option[Expr], ctx: Ctx): Option[List[Ctx]] = {
     _expr map { x => expr(x.expr, x.exprs, ctx) }
   }
 
-  def functionCall(name: EQName, _args: ArgumentList, ctx: Ctx) = {
+  def functionCall(name: EQName, _args: ArgumentList, ctx: Ctx): Any = {
     val fnName = name match {
       case UnprefixedName(local)       => local
       case PrefixedName(prefix, local) => local
@@ -773,12 +828,11 @@ class XPathEvaluator {
     }
     val args = argumentList(_args.args, ctx)
 
-    //println("target: ", ctx.target)
     fnName match {
       case "last"     => XPathFunctions.last(ctx.target.asInstanceOf[java.util.Collection[Any]])
       case "position" => XPathFunctions.position(ctx.target.asInstanceOf[java.util.Collection[Any]])
 
-      case "not"      => XPathFunctions.not(args.head)
+      case "not"      => XPathFunctions.not(args.head.value)
       case "true"     => true
       case "false"    => false
       case _          => throw new XPathRuntimeException(fnName, "is not a supported functon")
