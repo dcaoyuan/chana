@@ -319,6 +319,11 @@ object XPathFunctions {
     }
   }
 
+  def range(left: Any, right: Any): Range = (left, right) match {
+    case (x: Number, y: Number) => Range.inclusive(x.intValue, y.intValue)
+    case x                      => throw XPathRuntimeException(x, "can not be applied RANGE")
+  }
+
   def strConcat(strs: List[Any]) = {
     strs.mkString
   }

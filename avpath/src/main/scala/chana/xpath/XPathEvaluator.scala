@@ -11,7 +11,8 @@ case class XPathRuntimeException(value: Any, message: String)
       case null      => null
       case x: AnyRef => x.getClass.getName
       case _         => "primary type."
-    }))
+    })
+  )
 
 final case class Ctx(schema: Schema, target: Any, container: Container)
 
@@ -195,9 +196,9 @@ class XPathEvaluator {
   def rangeExpr(addExpr: AdditiveExpr, toExpr: Option[AdditiveExpr], ctx: Ctx) = {
     val value0 = additiveExpr(addExpr.multiExpr, addExpr.prefixedMultiExprs, ctx)
 
-    toExpr match {
+    toExpr map { x => additiveExpr(x.multiExpr, x.prefixedMultiExprs, ctx) } match {
       case None    => value0
-      case Some(x) => (value0, additiveExpr(x.multiExpr, x.prefixedMultiExprs, ctx))
+      case Some(x) => XPathFunctions.range(value0, x)
     }
   }
 
@@ -298,8 +299,9 @@ class XPathEvaluator {
   def castExpr(_unaryExpr: UnaryExpr, asType: Option[SingleType], ctx: Ctx) = {
     val v0 = unaryExpr(_unaryExpr.prefix, _unaryExpr.valueExpr, ctx)
     val value = _unaryExpr.prefix match {
-      case Nop | Plus => v0
-      case Minus      => XPathFunctions.neg(v0)
+      case Nop   => v0
+      case Plus  => v0
+      case Minus => XPathFunctions.neg(v0)
     }
 
     asType match {
@@ -325,7 +327,7 @@ class XPathEvaluator {
     newCtx.target
   }
 
-  def simpleMapExpr(_pathExpr: PathExpr, exclamExprs: List[PathExpr], ctx: Ctx) = {
+  def simpleMapExpr(_pathExpr: PathExpr, exclamExprs: List[PathExpr], ctx: Ctx): Ctx = {
     val path = pathExpr(_pathExpr.prefix, _pathExpr.relativeExpr, ctx)
     exclamExprs map { x => pathExpr(x.prefix, x.relativeExpr, ctx) }
     path
