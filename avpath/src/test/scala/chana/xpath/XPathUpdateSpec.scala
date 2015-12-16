@@ -1,5 +1,6 @@
 package chana.xpath
 
+import chana.avro
 import chana.xpath.nodes.XPathParser
 import chana.xpath.rats.XPathGrammar
 import java.io.StringReader
@@ -41,51 +42,116 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
     val stmt = parse(query)
     val res = e.update(record, stmt, value)
     info("\nUpdate:\n" + res)
-    res
+    res foreach { _.commit() }
+  }
+
+  def insertJson(record: Record, query: String, value: String) = {
+    val e = new XPathEvaluator()
+    val stmt = parse(query)
+    val res = e.insertJson(record, stmt, value)
+    info("\nUpdate:\n" + res)
+    res foreach { _.commit() }
+  }
+
+  def insertAllJson(record: Record, query: String, value: String) = {
+    val e = new XPathEvaluator()
+    val stmt = parse(query)
+    val res = e.insertAllJson(record, stmt, value)
+    info("\nUpdate:\n" + res)
+    res foreach { _.commit() }
   }
 
   "XPath Update" when {
 
-    "query fields" should {
+    "update fields" should {
       val record = initAccount()
       record.put("registerTime", 10000L)
       record.put("lastLoginTime", 20000L)
       record.put("id", "abcd")
 
       var q = "/registerTime"
-      update(record, q, 8) foreach { _.commit() }
+      update(record, q, 8)
       select(record, q).head should be(
         8)
 
       q = "/lastChargeRecord/time"
-      update(record, q, 8) foreach { _.commit() }
+      update(record, q, 8)
       select(record, q).head should be(
         8)
 
       q = "/devApps/numBlackApps"
-      update(record, q, 88) foreach { _.commit() }
+      update(record, q, 88)
       select(record, q).head should be(
         List(88, 88, 88))
 
       q = "/devApps/@*/numBlackApps"
-      update(record, q, 888) foreach { _.commit() }
+      update(record, q, 888)
       select(record, q).head should be(
         List(888, 888, 888))
 
       q = "/devApps/@a/numBlackApps"
-      update(record, q, 8) foreach { _.commit() }
+      update(record, q, 8)
       select(record, q).head should be(
         8)
 
       q = "/chargeRecords[2]/time"
-      update(record, q, 88) foreach { _.commit() }
+      update(record, q, 88)
       select(record, q).head should be(
         List(88))
 
-      q = "/chargeRecords/time"
-      update(record, q, 888) foreach { _.commit() }
+      q = "/chargeRecords[position()>0]/time"
+      update(record, q, 888)
       select(record, q).head should be(
         List(888, 888))
+
+      q = "/chargeRecords/time"
+      update(record, q, 8888)
+      select(record, q).head should be(
+        List(8888, 8888))
+
+    }
+
+    "insert fields" should {
+      val record = initAccount()
+      record.put("registerTime", 10000L)
+      record.put("lastLoginTime", 20000L)
+      record.put("id", "abcd")
+
+      var q = "/devApps"
+      var json = "{'e' : {}}"
+      var value = avro.FromJson.fromJsonString("{}", appInfoSchema, false)
+      insertJson(record, q, json)
+      select(record, q).head.asInstanceOf[java.util.Map[String, _]].get("e") should be(
+        value)
+
+      q = "/chargeRecords"
+      json = "{'time': 4, 'amount': -4.0}"
+      value = avro.FromJson.fromJsonString(json, chargeRecordSchema, false)
+      insertJson(record, q, json)
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].contains(value) should be(
+        true)
+
+    }
+
+    "insertAll fields" should {
+      val record = initAccount()
+      record.put("registerTime", 10000L)
+      record.put("lastLoginTime", 20000L)
+      record.put("id", "abcd")
+
+      var q = "/devApps"
+      var json = "{'g' : {}, 'h' : {'numBlackApps': 10}}"
+      var value = avro.FromJson.fromJsonString("{'numBlackApps': 10}", appInfoSchema, false)
+      insertAllJson(record, q, json)
+      select(record, q).head.asInstanceOf[java.util.Map[String, _]].get("h") should be(
+        value)
+
+      q = "/chargeRecords"
+      json = "[{'time': 3, 'amount': -5.0}, {'time': 4, 'amount': -6.0}]"
+      value = avro.FromJson.fromJsonString(json, chargeRecordsSchema, false)
+      insertAllJson(record, q, json)
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].containsAll(value.asInstanceOf[java.util.Collection[_]]) should be(
+        true)
 
     }
   }

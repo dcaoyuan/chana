@@ -3,6 +3,7 @@ package chana.xpath
 import chana.avro
 import chana.avro.Changelog
 import chana.avro.UpdateAction
+import chana.avro.Insertlog
 import chana.xpath.nodes._
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData
@@ -121,26 +122,22 @@ class XPathEvaluator {
 
   def insert(record: IndexedRecord, xpath: Expr, value: Any): List[UpdateAction] = {
     val ctxs = select(record, xpath)
-    //opInsert(ctxs, value, false)
-    Nil
+    opInsert(ctxs.head, value, isJsonValue = false)
   }
 
   def insertJson(record: IndexedRecord, xpath: Expr, value: String): List[UpdateAction] = {
     val ctxs = select(record, xpath)
-    //opInsert(ctxs, value, true)
-    Nil
+    opInsert(ctxs.head, value, isJsonValue = true)
   }
 
   def insertAll(record: IndexedRecord, xpath: Expr, values: java.util.Collection[_]): List[UpdateAction] = {
     val ctxs = select(record, xpath)
-    //opInsertAll(ctxs, values, false)
-    Nil
+    opInsertAll(ctxs.head, values, isJsonValue = false)
   }
 
   def insertAllJson(record: IndexedRecord, xpath: Expr, values: String): List[UpdateAction] = {
     val ctxs = select(record, xpath)
-    //opInsertAll(ctxs, values, true)
-    Nil
+    opInsertAll(ctxs.head, values, isJsonValue = true)
   }
 
   def delete(record: IndexedRecord, xpath: Expr): List[UpdateAction] = {
@@ -222,6 +219,118 @@ class XPathEvaluator {
           }
         }
     }
+    actions.reverse
+  }
+
+  private def opInsert(ctx: Ctx, value: Any, isJsonValue: Boolean): List[UpdateAction] = {
+    var actions = List[UpdateAction]()
+
+    ctx.container match {
+      case RecordContainer(rec, field) =>
+        rec.get(field.pos) match {
+          case arr: java.util.Collection[Any] @unchecked =>
+            val elemSchema = avro.getElementType(field.schema)
+            val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
+
+            val rlback = { () => arr.remove(value1) }
+            val commit = { () => arr.add(value1) }
+            actions ::= UpdateAction(commit, rlback, Insertlog("", value1, field.schema))
+
+          case map: java.util.Map[String, Any] @unchecked =>
+            val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
+            value1 match {
+              case (k: String, v) =>
+                val prev = map.get(k)
+                val rlback = { () => map.put(k, prev) }
+                val commit = { () => map.put(k, v) }
+                actions ::= UpdateAction(commit, rlback, Insertlog("", (k, v), field.schema))
+
+              case kvs: java.util.Map[String, _] @unchecked =>
+                val entries = kvs.entrySet.iterator
+                // should contains only one entry
+                if (entries.hasNext) {
+                  val entry = entries.next
+
+                  val prev = map.get(entry.getKey)
+                  val rlback = { () => map.put(entry.getKey, prev) }
+                  val commit = { () => map.put(entry.getKey, entry.getValue) }
+                  actions ::= UpdateAction(commit, rlback, Insertlog("", (entry.getKey, entry.getValue), field.schema))
+                }
+
+              case _ =>
+            }
+
+          case _ => // can only insert to array/map field
+        }
+
+      case _: ArrayContainer =>
+      // why are you here, for Insert, you should op on record's arr field directly
+
+      case _: MapContainer   =>
+      // why are you here, for Insert, you should op on record's map field directly
+    }
+
+    actions.reverse
+  }
+
+  private def opInsertAll(ctx: Ctx, value: Any, isJsonValue: Boolean): List[UpdateAction] = {
+    var actions = List[UpdateAction]()
+
+    ctx.container match {
+      case RecordContainer(rec, field) =>
+        rec.get(field.pos) match {
+          case arr: java.util.Collection[Any] @unchecked =>
+            val elemSchema = avro.getElementType(field.schema)
+            val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
+            value1 match {
+              case xs: java.util.Collection[Any] @unchecked =>
+                val rlback = { () => arr.removeAll(xs) }
+                val commit = { () => arr.addAll(xs) }
+                actions ::= UpdateAction(commit, rlback, Insertlog("", xs, field.schema))
+
+              case _ => // ?
+            }
+
+          case map: java.util.Map[String, Any] @unchecked =>
+            val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
+            value1 match {
+              case xs: java.util.Collection[(String, Any)] @unchecked =>
+                val prev = new java.util.HashMap[String, Any]()
+                val toPut = new java.util.HashMap[String, Any]()
+                val itr = xs.iterator
+                while (itr.hasNext) {
+                  val entry = itr.next
+                  val (k, v) = entry
+                  prev.put(k, map.get(k))
+                  toPut.put(k, v)
+                }
+                val rlback = { () => map.putAll(prev) }
+                val commit = { () => map.putAll(toPut) }
+                actions ::= UpdateAction(commit, rlback, Insertlog("", toPut, field.schema))
+
+              case xs: java.util.Map[String, Any] @unchecked =>
+                val prev = new java.util.HashMap[String, Any]()
+                val itr = xs.entrySet.iterator
+                while (itr.hasNext) {
+                  val entry = itr.next
+                  val k = entry.getKey
+                  prev.put(k, map.get(k))
+                }
+                val rlback = { () => map.putAll(prev) }
+                val commit = { () => map.putAll(xs) }
+                actions ::= UpdateAction(commit, rlback, Insertlog("", xs, field.schema))
+
+              case _ => // ?
+            }
+        }
+
+      case _: ArrayContainer =>
+      // why are you here, for Insert, you should op on record's arr field directly
+
+      case _: MapContainer   =>
+      // why are you here, for Insert, you should op on record's map field directly
+    }
+
     actions.reverse
   }
 
