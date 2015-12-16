@@ -4,7 +4,6 @@ import akka.actor.ActorSystem
 import akka.contrib.pattern.ClusterSharding
 import akka.pattern.ask
 import akka.util.Timeout
-import chana.avpath
 import chana.jpql.DistributedJPQLBoard
 import chana.schema.DistributedSchemaBoard
 import chana.script.DistributedScriptBoard
@@ -163,7 +162,7 @@ trait RestRoute extends Directives {
             splitPathAndValue(body) match {
               case List(avpathExpr, _*) =>
                 complete {
-                  resolver(entityName).ask(avpath.SelectJson(id, avpathExpr))(readTimeout).collect {
+                  resolver(entityName).ask(chana.SelectJson(id, avpathExpr))(readTimeout).collect {
                     case Success(jsons: List[Array[Byte]] @unchecked) => jsons.map(new String(_)).mkString("[", ",", "]")
                     case Failure(ex)                                  => "[]"
                   }
@@ -180,7 +179,7 @@ trait RestRoute extends Directives {
               case List(avpathExpr, valueJson) =>
                 complete {
                   withStatusCode {
-                    resolver(entityName).ask(avpath.UpdateJson(id, avpathExpr, valueJson))(writeTimeout)
+                    resolver(entityName).ask(chana.UpdateJson(id, avpathExpr, valueJson))(writeTimeout)
                   }
                 }
               case _ =>
@@ -195,7 +194,7 @@ trait RestRoute extends Directives {
               case List(avpathExpr, json) =>
                 complete {
                   withStatusCode {
-                    resolver(entityName).ask(avpath.InsertJson(id, avpathExpr, json))(writeTimeout)
+                    resolver(entityName).ask(chana.InsertJson(id, avpathExpr, json))(writeTimeout)
                   }
                 }
               case _ =>
@@ -210,7 +209,7 @@ trait RestRoute extends Directives {
               case List(avpathExpr, json) =>
                 complete {
                   withStatusCode {
-                    resolver(entityName).ask(avpath.InsertAllJson(id, avpathExpr, json))(writeTimeout)
+                    resolver(entityName).ask(chana.InsertAllJson(id, avpathExpr, json))(writeTimeout)
                   }
                 }
               case _ =>
@@ -225,7 +224,7 @@ trait RestRoute extends Directives {
               case List(avpathExpr, _*) =>
                 complete {
                   withStatusCode {
-                    resolver(entityName).ask(avpath.Delete(id, avpathExpr))(writeTimeout)
+                    resolver(entityName).ask(chana.Delete(id, avpathExpr))(writeTimeout)
                   }
                 }
               case _ =>
@@ -240,7 +239,7 @@ trait RestRoute extends Directives {
               case List(avpathExpr, _*) =>
                 complete {
                   withStatusCode {
-                    resolver(entityName).ask(avpath.Clear(id, avpathExpr))(writeTimeout)
+                    resolver(entityName).ask(chana.Clear(id, avpathExpr))(writeTimeout)
                   }
                 }
               case _ =>

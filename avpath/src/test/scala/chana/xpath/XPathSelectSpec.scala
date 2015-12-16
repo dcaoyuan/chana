@@ -14,6 +14,8 @@ import xtc.tree.Node
 class XPathSelectSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
   import chana.avro.AvroRecords._
 
+  def evulator() = XPathEvaluator
+
   def parse(query: String) = {
     val reader = new StringReader(query)
     val grammar = new XPathGrammar(reader, "")
@@ -29,7 +31,7 @@ class XPathSelectSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
   }
 
   def select(record: Record, query: String) = {
-    val e = new XPathEvaluator()
+    val e = evulator()
     val stmt = parse(query)
     val res = e.select(record, stmt) map (_.value)
     info("\nSelect:\n" + res)

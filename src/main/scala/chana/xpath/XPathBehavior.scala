@@ -12,25 +12,22 @@ import chana.SelectAvro
 import chana.SelectJson
 import chana.Update
 import chana.UpdateJson
-import chana.avpath
-import chana.avpath.Evaluator.Ctx
-import org.apache.avro.generic.GenericData
+import chana.xpath
+import chana.xpath.Ctx
+//import org.apache.avro.generic.GenericData
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
 
-trait AVPathBehavior extends Entity {
-  //protected def parser = new avpath.Parser()
+trait XPathBehavior extends Entity {
 
   def avpathBehavior: Receive = {
     case Select(_, path) =>
       resetIdleTimeout()
       val commander = sender()
-      avpath.select(record, path) match {
+      xpath.select(record, path) match {
         case Success(ctxList: List[Ctx]) =>
-          commander ! Success(ctxList.map { ctx =>
-            Ctx(GenericData.get().deepCopy(ctx.schema, ctx.value), ctx.schema, ctx.topLevelField, ctx.target)
-          })
+          commander ! Success(ctxList)
         case x @ Failure(ex) =>
           log.error(ex, ex.getMessage)
           commander ! x
@@ -39,7 +36,7 @@ trait AVPathBehavior extends Entity {
     case SelectAvro(_, path) =>
       resetIdleTimeout()
       val commander = sender()
-      avpath.select(record, path) match {
+      xpath.select(record, path) match {
         case x @ Success(ctxs) =>
           Try {
             ctxs.map { ctx => encoderDecoder.avroEncode(ctx.value, ctx.schema).get }
@@ -58,7 +55,7 @@ trait AVPathBehavior extends Entity {
     case SelectJson(_, path) =>
       resetIdleTimeout()
       val commander = sender()
-      avpath.select(record, path) match {
+      xpath.select(record, path) match {
         case Success(ctxs) =>
           Try {
             ctxs.map { ctx => encoderDecoder.jsonEncode(ctx.value, ctx.schema).get }
@@ -77,7 +74,7 @@ trait AVPathBehavior extends Entity {
     case Update(_, path, value) =>
       resetIdleTimeout()
       val commander = sender()
-      avpath.update(record, path, value) match {
+      xpath.update(record, path, value) match {
         case Success(actions) =>
           commit(id, actions, commander)
         case x @ Failure(ex) =>
@@ -88,7 +85,7 @@ trait AVPathBehavior extends Entity {
     case UpdateJson(_, path, value) =>
       resetIdleTimeout()
       val commander = sender()
-      avpath.updateJson(record, path, value) match {
+      xpath.updateJson(record, path, value) match {
         case Success(actions) =>
           commit(id, actions, commander)
         case x @ Failure(ex) =>
@@ -99,7 +96,7 @@ trait AVPathBehavior extends Entity {
     case Insert(_, path, value) =>
       resetIdleTimeout()
       val commander = sender()
-      avpath.insert(record, path, value) match {
+      xpath.insert(record, path, value) match {
         case Success(actions) =>
           commit(id, actions, commander)
         case x @ Failure(ex) =>
@@ -110,7 +107,7 @@ trait AVPathBehavior extends Entity {
     case InsertJson(_, path, value) =>
       resetIdleTimeout()
       val commander = sender()
-      avpath.insertJson(record, path, value) match {
+      xpath.insertJson(record, path, value) match {
         case Success(actions) =>
           commit(id, actions, commander)
         case x @ Failure(ex) =>
@@ -121,7 +118,7 @@ trait AVPathBehavior extends Entity {
     case InsertAll(_, path, values) =>
       resetIdleTimeout()
       val commander = sender()
-      avpath.insertAll(record, path, values) match {
+      xpath.insertAll(record, path, values) match {
         case Success(actions) =>
           commit(id, actions, commander)
         case x @ Failure(ex) =>
@@ -132,7 +129,7 @@ trait AVPathBehavior extends Entity {
     case InsertAllJson(_, path, values) =>
       resetIdleTimeout()
       val commander = sender()
-      avpath.insertAllJson(record, path, values) match {
+      xpath.insertAllJson(record, path, values) match {
         case Success(actions) =>
           commit(id, actions, commander)
         case x @ Failure(ex) =>
@@ -143,7 +140,7 @@ trait AVPathBehavior extends Entity {
     case Delete(_, path) =>
       resetIdleTimeout()
       val commander = sender()
-      avpath.delete(record, path) match {
+      xpath.delete(record, path) match {
         case Success(actions) =>
           commit(id, actions, commander)
         case x @ Failure(ex) =>
@@ -154,7 +151,7 @@ trait AVPathBehavior extends Entity {
     case Clear(_, path) =>
       resetIdleTimeout()
       val commander = sender()
-      avpath.clear(record, path) match {
+      xpath.clear(record, path) match {
         case Success(actions) =>
           commit(id, actions, commander)
         case x @ Failure(ex) =>

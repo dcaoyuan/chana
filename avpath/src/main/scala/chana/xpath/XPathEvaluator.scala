@@ -105,7 +105,7 @@ final class MapContainer(val map: java.util.Map[String, _], val mapSchema: Schem
   }
 }
 
-class XPathEvaluator {
+object XPathEvaluator {
 
   def select(record: IndexedRecord, xpath: Expr): List[Ctx] = {
     val ctx = Ctx(record.getSchema, record, RecordContainer(record, null), null)

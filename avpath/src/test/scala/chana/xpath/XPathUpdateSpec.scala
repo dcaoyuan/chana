@@ -15,6 +15,8 @@ import xtc.tree.Node
 class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
   import chana.avro.AvroRecords._
 
+  def evaluator() = XPathEvaluator
+
   def parse(query: String) = {
     val reader = new StringReader(query)
     val grammar = new XPathGrammar(reader, "")
@@ -30,7 +32,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
   }
 
   def select(record: Record, query: String) = {
-    val e = new XPathEvaluator()
+    val e = evaluator()
     val stmt = parse(query)
     val res = e.select(record, stmt) map (_.value)
     info("\nSelect:\n" + res)
@@ -38,7 +40,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
   }
 
   def update(record: Record, query: String, value: Any) = {
-    val e = new XPathEvaluator()
+    val e = evaluator()
     val stmt = parse(query)
     val res = e.update(record, stmt, value)
     info("\nUpdate:\n" + res)
@@ -46,7 +48,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
   }
 
   def insertJson(record: Record, query: String, value: String) = {
-    val e = new XPathEvaluator()
+    val e = evaluator()
     val stmt = parse(query)
     val res = e.insertJson(record, stmt, value)
     info("\nUpdate:\n" + res)
@@ -54,7 +56,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
   }
 
   def insertAllJson(record: Record, query: String, value: String) = {
-    val e = new XPathEvaluator()
+    val e = evaluator()
     val stmt = parse(query)
     val res = e.insertAllJson(record, stmt, value)
     info("\nUpdate:\n" + res)
@@ -62,7 +64,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
   }
 
   def delete(record: Record, query: String) = {
-    val e = new XPathEvaluator()
+    val e = evaluator()
     val stmt = parse(query)
     val res = e.delete(record, stmt)
     info("\nUpdate:\n" + res)
@@ -70,7 +72,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
   }
 
   def clear(record: Record, query: String) = {
-    val e = new XPathEvaluator()
+    val e = evaluator()
     val stmt = parse(query)
     val res = e.clear(record, stmt)
     info("\nUpdate:\n" + res)

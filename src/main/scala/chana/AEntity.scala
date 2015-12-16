@@ -9,7 +9,6 @@ import chana.avro.UpdateEvent
 import chana.jpql.JPQLBehavior
 import chana.script.ScriptBehavior
 import org.apache.avro.Schema
-import org.apache.avro.generic.GenericData.Record
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
 
