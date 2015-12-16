@@ -2,12 +2,14 @@ package chana.xpath
 
 import chana.avro
 import chana.avro.Changelog
-import chana.avro.UpdateAction
+import chana.avro.Deletelog
 import chana.avro.Insertlog
+import chana.avro.UpdateAction
 import chana.xpath.nodes._
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData
 import org.apache.avro.generic.IndexedRecord
+import scala.collection.mutable
 
 case class XPathRuntimeException(value: Any, message: String)
   extends RuntimeException(
@@ -142,14 +144,12 @@ class XPathEvaluator {
 
   def delete(record: IndexedRecord, xpath: Expr): List[UpdateAction] = {
     val ctxs = select(record, xpath)
-    //opDelete(ctxs)
-    Nil
+    opDelete(ctxs.head)
   }
 
   def clear(record: IndexedRecord, xpath: Expr): List[UpdateAction] = {
     val ctxs = select(record, xpath)
-    //opClear(ctxs)
-    Nil
+    opClear(ctxs.head)
   }
 
   private def opUpdate(ctx: Ctx, value: Any, isJsonValue: Boolean): List[UpdateAction] = {
@@ -180,8 +180,7 @@ class XPathEvaluator {
         val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
 
         //println(ctx.container)
-        idxes foreach { idx =>
-          val ix = idx - 1
+        for (idx <- idxes; ix = idx - 1) {
           val target = avro.arraySelect(arr, ix)
           field match {
             case Some(x) =>
@@ -202,7 +201,7 @@ class XPathEvaluator {
         val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], valueSchema, false) else value
 
         //println(ctx.container)
-        keys foreach { key =>
+        for (key <- keys) {
           val target = map.get(key)
           field match {
             case Some(x) =>
@@ -322,6 +321,88 @@ class XPathEvaluator {
 
               case _ => // ?
             }
+        }
+
+      case _: ArrayContainer =>
+      // why are you here, for Insert, you should op on record's arr field directly
+
+      case _: MapContainer   =>
+      // why are you here, for Insert, you should op on record's map field directly
+    }
+
+    actions.reverse
+  }
+
+  private def opDelete(ctx: Ctx): List[UpdateAction] = {
+    var actions = List[UpdateAction]()
+
+    val processingArrs = new mutable.HashMap[java.util.Collection[Any], (Schema, List[Int])]()
+    ctx.container match {
+      case _: RecordContainer => // cannot apply delete on record
+
+      case ArrayContainer(arr: java.util.Collection[Any], arrSchema, idxes, field) =>
+        //println(ctx.container)
+        for (idx <- idxes; ix = idx - 1) {
+          processingArrs += arr -> (arrSchema, ix :: processingArrs.getOrElse(arr, (arrSchema, List[Int]()))._2)
+        }
+
+      case MapContainer(map: java.util.Map[String, Any], mapSchema, keys, field) =>
+        for (key <- keys) {
+          val prev = map.get(key)
+          val rlback = { () => map.put(key, prev) }
+          val commit = { () => map.remove(key) }
+          actions ::= UpdateAction(commit, rlback, Deletelog("", (key, prev), mapSchema))
+        }
+    }
+
+    for ((arr, (arrSchema, _toRemove)) <- processingArrs) {
+      val toRemove = _toRemove.sortBy(-_)
+
+      // toRlback will be asc sorted
+      var prev = toRemove
+      var toRlback = List[(Int, Any)]()
+      var i = 0
+      var arrItr = arr.iterator
+      while (prev.nonEmpty) {
+        val idx = prev.head
+        prev = prev.tail
+        while (arrItr.hasNext && i <= idx) {
+          if (i == idx) {
+            toRlback ::= (i, arrItr.next)
+          } else {
+            arrItr.next
+          }
+          i += 1
+        }
+      }
+
+      val rlback = { () => avro.arrayInsert(arr, toRlback) }
+      val commit = { () => avro.arrayRemove(arr, toRemove) }
+      actions ::= UpdateAction(commit, rlback, Deletelog("", toRemove, arrSchema))
+    }
+
+    actions.reverse
+  }
+
+  private def opClear(ctx: Ctx): List[UpdateAction] = {
+    var actions = List[UpdateAction]()
+
+    ctx.container match {
+      case RecordContainer(rec, field) =>
+        rec.get(field.pos) match {
+          case arr: java.util.Collection[_] =>
+            val prev = new java.util.ArrayList(arr)
+            val commit = { () => arr.clear }
+            val rlback = { () => arr.addAll(prev) }
+            actions ::= UpdateAction(commit, rlback, Deletelog("", prev, field.schema))
+
+          case map: java.util.Map[String, Any] @unchecked =>
+            val prev = new java.util.HashMap[String, Any](map)
+            val rlback = { () => map.putAll(prev) }
+            val commit = { () => map.clear }
+            actions ::= UpdateAction(commit, rlback, Deletelog("", prev, field.schema))
+
+          case _ => // ?
         }
 
       case _: ArrayContainer =>

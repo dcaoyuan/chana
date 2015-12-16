@@ -61,9 +61,25 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
     res foreach { _.commit() }
   }
 
+  def delete(record: Record, query: String) = {
+    val e = new XPathEvaluator()
+    val stmt = parse(query)
+    val res = e.delete(record, stmt)
+    info("\nUpdate:\n" + res)
+    res foreach { _.commit() }
+  }
+
+  def clear(record: Record, query: String) = {
+    val e = new XPathEvaluator()
+    val stmt = parse(query)
+    val res = e.clear(record, stmt)
+    info("\nUpdate:\n" + res)
+    res foreach { _.commit() }
+  }
+
   "XPath Update" when {
 
-    "update fields" should {
+    "update field" should {
       val record = initAccount()
       record.put("registerTime", 10000L)
       record.put("lastLoginTime", 20000L)
@@ -111,7 +127,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
 
     }
 
-    "insert fields" should {
+    "insert field" should {
       val record = initAccount()
       record.put("registerTime", 10000L)
       record.put("lastLoginTime", 20000L)
@@ -133,7 +149,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
 
     }
 
-    "insertAll fields" should {
+    "insertAll field" should {
       val record = initAccount()
       record.put("registerTime", 10000L)
       record.put("lastLoginTime", 20000L)
@@ -152,6 +168,42 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
       insertAllJson(record, q, json)
       select(record, q).head.asInstanceOf[java.util.Collection[_]].containsAll(value.asInstanceOf[java.util.Collection[_]]) should be(
         true)
+
+    }
+
+    "delete field" should {
+      val record = initAccount()
+      record.put("registerTime", 10000L)
+      record.put("lastLoginTime", 20000L)
+      record.put("id", "abcd")
+
+      var q = "/devApps/@a"
+      delete(record, q)
+      select(record, q).head.asInstanceOf[AnyRef] should be(
+        null)
+
+      q = "/chargeRecords[2]"
+      delete(record, q)
+      select(record, q).head should be(
+        List())
+
+    }
+
+    "clear field" should {
+      val record = initAccount()
+      record.put("registerTime", 10000L)
+      record.put("lastLoginTime", 20000L)
+      record.put("id", "abcd")
+
+      var q = "/devApps"
+      clear(record, q)
+      select(record, q).head.asInstanceOf[java.util.Map[String, _]].size should be(
+        0)
+
+      q = "/chargeRecords"
+      clear(record, q)
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].size should be(
+        0)
 
     }
   }
