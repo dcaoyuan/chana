@@ -3,7 +3,7 @@ package chana
 import akka.actor.Actor
 import akka.actor.ActorLogging
 import akka.actor.Props
-import chana.avpath.AVPathBehavior
+import chana.avpath.XPathBehavior
 import chana.avro.DefaultRecordBuilder
 import chana.avro.UpdateEvent
 import chana.jpql.JPQLBehavior
@@ -23,7 +23,7 @@ object AEntity {
  */
 class AEntity(val entityName: String, val schema: Schema, val builder: DefaultRecordBuilder, idleTimeout: Duration)
     extends Entity
-    with AVPathBehavior
+    with XPathBehavior
     with ScriptBehavior
     with JPQLBehavior
     with Actor

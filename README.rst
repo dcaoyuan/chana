@@ -35,7 +35,7 @@ Or
 
     $ sbt clean compile dist
     $ ls target/universal/
-    tmp  chana-0.2.0-SNAPSHOT.zip 
+    chana-0.2.0-SNAPSHOT.zip 
 
 Then, copy chana-0.2.0-SNAPSHOT.zip to somewhere and unzip it
 

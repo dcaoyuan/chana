@@ -292,7 +292,7 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
         IO(Http) ! Get(baseUrl2 + "/personinfo/get/1/age")
         expectMsgType[HttpResponse](5.seconds).entity.asString should be("60")
 
-        IO(Http) ! Post(baseUrl1 + "/personinfo/select/1", ".name")
+        IO(Http) ! Post(baseUrl1 + "/personinfo/select/1", "/name")
         expectMsgType[HttpResponse](5.seconds).entity.asString should be("[\"James Bond\"]")
 
       }

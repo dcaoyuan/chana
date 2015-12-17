@@ -14,7 +14,6 @@ import chana.Update
 import chana.UpdateJson
 import chana.xpath
 import chana.xpath.Ctx
-//import org.apache.avro.generic.GenericData
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try

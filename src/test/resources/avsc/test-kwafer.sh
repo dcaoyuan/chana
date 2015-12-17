@@ -16,7 +16,7 @@ curl 'http://localhost:8080/kwafer/get/1'
 #
 printf "\n"
 
-curl --data '.accountRecords[0].action.type' 'http://localhost:8080/kwafer/select/1'
+curl --data '/accountRecords[1]/action/type' 'http://localhost:8080/kwafer/select/1'
 # 
 printf "\n"
 

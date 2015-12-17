@@ -982,7 +982,7 @@ object XPathEvaluator {
           case Child =>
             target match {
               case rec: IndexedRecord =>
-                val field = schema.getField(local)
+                val field = avro.getNonNull(schema).getField(local)
                 val fieldSchema = avro.getNonNull(field.schema)
                 val got = rec.get(field.pos)
                 Ctx(fieldSchema, got, RecordContainer(rec, field), got)
@@ -1002,7 +1002,7 @@ object XPathEvaluator {
                   i += 1
                 }
                 val got = elems.reverse
-                Ctx(schema, got, ArrayContainer(arr, schema, idxes.reverse, Some(field)), got)
+                Ctx(Schema.createArray(fieldSchema), got, ArrayContainer(arr, schema, idxes.reverse, Some(field)), got)
 
               case map: java.util.Map[String, IndexedRecord] @unchecked =>
                 //println("local: " + local + ", schema: " + schema)
@@ -1021,17 +1021,22 @@ object XPathEvaluator {
                 Ctx(Schema.createArray(fieldSchema), got, MapContainer(map, schema, keys.reverse, Some(field)), got)
 
               case xs: List[IndexedRecord] @unchecked =>
-                //println("local: " + local + ", schema: " + schema)
+                var elems = List[Any]()
                 val elemSchema = avro.getElementType(schema)
                 val field = elemSchema.getField(local)
                 val fieldSchema = avro.getNonNull(field.schema)
-                val got = xs map (_.get(field.pos))
+                val itr = xs.iterator
+                while (itr.hasNext) {
+                  val elem = itr.next
+                  elems ::= elem.get(field.pos)
+                }
+                val got = elems.reverse
                 val container = ctx.container match {
                   case c: ArrayContainer => c.field(Some(field))
                   case c: MapContainer   => c.field(Some(field))
                   case c                 => c
                 }
-                Ctx(schema, got, container, got)
+                Ctx(Schema.createArray(fieldSchema), got, container, got)
 
               case x => // what happens?
                 throw new XPathRuntimeException(x, "try to get child: " + local)

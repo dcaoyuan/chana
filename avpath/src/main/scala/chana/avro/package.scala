@@ -338,7 +338,7 @@ package object avro {
           schema
         }
       } else {
-        schema
+        getNonNullOfUnion(schema) // types > 2, should avoid, but how can I do here?
       }
     } else {
       schema
@@ -351,14 +351,14 @@ package object avro {
   def getElementType(arrSchema: Schema): Schema = {
     arrSchema.getType match {
       case Type.ARRAY =>
-        arrSchema.getElementType
+        getNonNull(arrSchema.getElementType)
       case Type.UNION =>
         val unions = arrSchema.getTypes.iterator
         var res: Schema = null
         while (unions.hasNext && res == null) {
           val union = unions.next
           if (union.getType == Type.ARRAY) {
-            res = union.getElementType
+            res = getNonNull(union.getElementType)
           }
         }
         res
@@ -379,7 +379,7 @@ package object avro {
         while (unions.hasNext && res == null) {
           val union = unions.next
           if (union.getType == Type.MAP) {
-            res = union.getValueType
+            res = getNonNull(union.getValueType)
           }
         }
         res
