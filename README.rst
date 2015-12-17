@@ -15,12 +15,11 @@ Core Design
 
 -  Each record is an actor (non-blocking)
 -  Akka sharding cluster (easy to scale-out)
--  Locate field/value via
-   `avpath <https://github.com/wandoulabs/avpath>`__
+-  Locate field/value via XPath (since version 0.2.0)
 -  Scripting triggered by field updating events (JDK 8 JavaScript engine
    -
    `Nashorn <http://docs.oracle.com/javase/8/docs/technotes/guides/scripting/nashorn/>`__)
--  JPQL query on cluster (under heavy developing)
+-  JPQL query on cluster
 
 Run chana
 ^^^^^^^^^^
@@ -142,19 +141,20 @@ PersionInfo.name was updated: on\_name.js:
         what_is(age);
 
         what_is(http_get);
-        var http_get_result = http_get.apply("http://localhost:8080/ping");
+        var http_get_result = http_get.apply("http://localhost:8080/ping", 5);
         java.lang.Thread.sleep(1000);
         what_is(http_get_result.value());
 
         what_is(http_post);
-        var http_post_result = http_post.apply("http://localhost:8080/personinfo/put/2/age", "888");
+        var http_post_result = http_post.apply("http://localhost:8080/personinfo/put/2/age", "888", 5);
         java.lang.Thread.sleep(1000);
         what_is(http_post_result.value());
 
-        for (i = 0; i < fields.length; i++) {
-            var field = fields[i];
-            what_is(field._1);
-            what_is(field._2);
+        for (i = 0; i < binlogs.length; i++) {
+            var binlog = binglogs[i];
+            what_is(binlog.type());
+            what_is(binlog.xpath());
+            what_is(binlog.value());
         }
     }
 
@@ -290,8 +290,8 @@ chana stores Avro record, with two groups of APIs:
 Primitive API (Scala / Java)
 ----------------------------
 
-use **avpath** expression to locate. see
-`avpath <https://github.com/wandoulabs/avpath>`__
+use **xpath** expression to locate. see
+`xpath <http://www.w3.org/TR/xpath-31>`__
 
 1. Schema
 ~~~~~~~~~
@@ -433,7 +433,7 @@ Select
     Content-Length: NNN
 
     BODY:
-    $avpath
+    $xpath
 
 Update
 ~~~~~~
@@ -447,7 +447,7 @@ Update
     Content-Length: NNN
 
     BODY:
-    $avpath
+    $xpath
     <JSON_STRING>
 
 Example (update array field -> record’s number field):
@@ -456,7 +456,7 @@ Example (update array field -> record’s number field):
 
     POST /account/update/12345/
     BODY: 
-    .chargeRecords[0].time
+    /chargeRecords[1].time
     1234
 
 Example (update map field -> record’s number field):
@@ -465,7 +465,7 @@ Example (update map field -> record’s number field):
 
     POST /account/update/12345/
     BODY:
-    .devApps("a"|"b").numBlackApps
+    /devApps/@a/numBlackApps
     1234
 
 Insert (applicable for Array / Map only)
@@ -480,7 +480,7 @@ Insert (applicable for Array / Map only)
     Content-Length: NNN
 
     BODY:
-    $avpath
+    $xpath
     <JSON_STRING>
 
 Example (insert to array field):
@@ -489,7 +489,7 @@ Example (insert to array field):
 
     POST /account/insert/12345/
     BODY: 
-    .chargeRecords
+    /chargeRecords
     {"time": 4, "amount": -4.0}
 
 Example (insert to map field):
@@ -498,7 +498,7 @@ Example (insert to map field):
 
     POST /account/insert/12345/
     BODY: 
-    .devApps
+    /devApps
     {"h" : {"numBlackApps": 10}}
 
 InsertAll (applicable for Array / Map only)
@@ -513,7 +513,7 @@ InsertAll (applicable for Array / Map only)
     Content-Length: NNN
 
     BODY:
-    $avpath
+    $xpath
     <JSON_STRING>
 
 Example (insert to array field):
@@ -522,7 +522,7 @@ Example (insert to array field):
 
     POST /account/insertall/12345/
     BODY: 
-    .chargeRecords
+    /chargeRecords
     [{"time": -1, "amount": -5.0}, {"time": -2, "amount": -6.0}]
 
 Example (insert to map field):
@@ -531,7 +531,7 @@ Example (insert to map field):
 
     POST /account/insertall/12345/
     BODY: 
-    .devApps
+    /devApps
     {"g" : {}, "h" : {"numBlackApps": 10}}
 
 Delete (applicable for Array / Map only)
@@ -546,7 +546,7 @@ Delete (applicable for Array / Map only)
     Content-Length: NNN
 
     BODY:
-    $avpath
+    $xpath
 
 Clear (applicable for Array / Map only)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -560,7 +560,7 @@ Clear (applicable for Array / Map only)
     Content-Length: NNN
 
     BODY:
-    $avpath
+    $xpath
 
 Put Script (apply on all instances of this entity)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -589,9 +589,9 @@ Note:
 
 -  Replace ``$entity`` with the object/table/entity name
 -  Replace ``$id`` with object id
--  Replace ``$avpath`` with actual avpath expression
--  Put the ``$avpath`` and JSON format value(s) for **update / insert /
-   insertall** in **POST** body, separate ``$avpath`` and JSON value(s) with
+-  Replace ``$xpath`` with actual xpath expression
+-  Put the ``$xpath`` and JSON format value(s) for **update / insert /
+   insertall** in **POST** body, separate ``$xpath`` and JSON value(s) with
    **\\n**, and make sure it’s encoded as binary, set **Content-Type:
    application/octet-stream**
 
@@ -607,20 +607,21 @@ The bindings that could be accessed in script:
         bindings.put("http_get", http_get)
         bindings.put("http_post", http_post)
         bindings.put("id", onUpdated.id)
-        bindings.put("record", onUpdated.recordAfter)
-        bindings.put("fields", onUpdated.fieldsBefore)
+        bindings.put("record", record)
+        bindings.put("binglogs", binlogs)
         bindings
       }
 
 Where, 
 
--  ``http_get``: a function could be invoked via ``http_get.apply(url: CharSequence)``, returns `scala.concurrent.Future[Any] <http://www.scala-lang.org/api/2.11.4/index.html#scala.concurrent.Future>`_
--  ``http_post``: a function could be invoked via ``http_post.apply(url: CharSequence, body: CharSequence)`` returns `scala.concurrent.Future[Any] <http://www.scala-lang.org/api/2.11.4/index.html#scala.concurrent.Future>`_
+-  ``http_get``: a function could be invoked via ``http_get.apply(url: CharSequence, timeoutInSeconds: Int)``, returns `scala.concurrent.Future[Any] <http://www.scala-lang.org/api/2.11.4/index.html#scala.concurrent.Future>`_
+-  ``http_post``: a function could be invoked via ``http_post.apply(url: CharSequence, body: CharSequence, timeoutInSeconds: Int)`` returns `scala.concurrent.Future[Any] <http://www.scala-lang.org/api/2.11.4/index.html#scala.concurrent.Future>`_
 -  ``id``: the id of this entity 
 -  ``record``: the entity record after updated 
--  ``fields``: array of tuple (Schema.Field, valueBeforeUpdated) during this updating action 
--  ``fields[i]._1``: `org.apache.avro.Schema.Field <https://avro.apache.org/docs/1.7.7/api/java/org/apache/avro/Schema.Field.html>`_
--  ``fields[i]._2``: value
+-  ``binlogs``: array of Binlog(s) during this updating action 
+-  ``fields[i].type()``: -1 - Delete, 0 - Change, 1 - Insert
+-  ``fields[i].xpath()``: Locate of changed value
+-  ``fields[i].value()``: value
 
 -  The JavaScript code should do what ever operation via function only.
    You can define local variables in function, and transfer these local
@@ -629,6 +630,6 @@ Where,
 Reference
 =========
 
--  `avpath <https://github.com/wandoulabs/avpath>`__
+-  `xpath <http://www.w3.org/TR/xpath-31>`__
 -  `Nashorn <https://wiki.openjdk.java.net/display/Nashorn/Main>`__
 
