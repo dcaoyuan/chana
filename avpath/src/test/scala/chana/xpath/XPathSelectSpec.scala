@@ -67,40 +67,40 @@ class XPathSelectSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
         1)
 
       q = "/devApps/@*"
-      select(record, q).head should be(
-        record.get("devApps").asInstanceOf[java.util.Map[String, _]].values.toList)
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        record.get("devApps").asInstanceOf[java.util.Map[String, _]].values.toArray)
 
       q = "/devApps/numBlackApps"
-      select(record, q).head should be(
-        List(1, 2, 3))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(1, 2, 3))
 
       q = "/devApps/@*/numBlackApps"
-      select(record, q).head should be(
-        List(1, 2, 3))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(1, 2, 3))
 
       q = "/chargeRecords"
       select(record, q).head should be(
         record.get("chargeRecords"))
 
       q = "/chargeRecords/time"
-      select(record, q).head should be(
-        List(1, 2))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(1, 2))
 
       q = "/chargeRecords[1]"
-      select(record, q).head should be(
-        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
 
       q = "/chargeRecords[1]/time"
-      select(record, q).head should be(
-        List(1))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(1))
 
       q = "/chargeRecords[last()]"
-      select(record, q).head should be(
-        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
       q = "/chargeRecords[last()-1]"
-      select(record, q).head should be(
-        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
 
     }
 
@@ -111,72 +111,72 @@ class XPathSelectSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
       record.put("id", "abcd")
 
       var q = "/chargeRecords[position() = 2]"
-      select(record, q).head should be(
-        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
       q = "/chargeRecords[position() != 1]"
-      select(record, q).head should be(
-        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
       q = "/chargeRecords[position() >= 2]"
-      select(record, q).head should be(
-        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
       q = "/chargeRecords[position() > 1]"
-      select(record, q).head should be(
-        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
       q = "/chargeRecords[position() < 2]"
-      select(record, q).head should be(
-        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
 
       q = "/chargeRecords[position() <= 1]"
-      select(record, q).head should be(
-        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
 
       q = "/chargeRecords[position() <= 2]"
-      select(record, q).head should be(
-        record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].toList)
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].toArray)
 
       q = "/chargeRecords[position() > 0]"
-      select(record, q).head should be(
-        record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].toList)
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].toArray)
 
       q = "/chargeRecords[position() + 1 > 1]"
-      select(record, q).head should be(
-        record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].toList)
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].toArray)
 
       q = "/chargeRecords[position() - 1 + 1 > 1]"
-      select(record, q).head should be(
-        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
       q = "/chargeRecords[-position() >= -1]"
-      select(record, q).head should be(
-        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
 
       q = "/chargeRecords[-position() -1 + 1 >= -1]"
-      select(record, q).head should be(
-        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
 
       q = "/chargeRecords[1-position() <= -1]"
-      select(record, q).head should be(
-        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
       q = "/chargeRecords[2 <= position()]"
-      select(record, q).head should be(
-        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
       q = "/chargeRecords[1 <= position() - 1]"
-      select(record, q).head should be(
-        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
       q = "/chargeRecords[position() > 1 and position() <= 2]"
-      select(record, q).head should be(
-        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
       q = "/chargeRecords[position() = 1 or position() = 2]"
-      select(record, q).head should be(
-        record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].toList)
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].toArray)
 
     }
 
@@ -187,20 +187,20 @@ class XPathSelectSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
       record.put("id", "abcd")
 
       var q = "/chargeRecords[time = 2]"
-      select(record, q).head should be(
-        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(1)))
 
       q = "/chargeRecords[time=2 or amount=100.0]"
-      select(record, q).head should be(
-        record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].toList)
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].toArray)
 
       q = "/chargeRecords[time*100 = amount]"
-      select(record, q).head should be(
-        List(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].get(0)))
 
       q = "/chargeRecords[time=1]/time"
-      select(record, q).head should be(
-        List(1))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(1))
 
       q = "/devApps/@a[numBlackApps = 1]"
       select(record, q).head should be(
@@ -212,8 +212,8 @@ class XPathSelectSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
 
       // select map values that meet predicates 
       q = "/devApps/@*[numBlackApps=2]"
-      select(record, q).head should be(
-        List(record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("b")))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("b")))
 
       // select map entries that meet predicates
       q = "/devApps[numBlackApps=2]"
@@ -228,8 +228,8 @@ class XPathSelectSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
         }
         entry
       }
-      select(record, q).head should be(
-        List(expected))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(expected))
 
     }
 
@@ -240,20 +240,20 @@ class XPathSelectSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
       record.put("id", "abcd")
 
       var q = "/devApps/@*[not(numBlackApps=2)]"
-      select(record, q).head should be(
-        List(
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(
           record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("a"),
           record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("c")))
 
       q = "/devApps/@*[not(numBlackApps=2)=true()]"
-      select(record, q).head should be(
-        List(
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(
           record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("a"),
           record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("c")))
 
       q = "/devApps/@*[not(numBlackApps=2)=false()]"
-      select(record, q).head should be(
-        List(
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(
           record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("b")))
 
     }

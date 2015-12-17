@@ -99,13 +99,13 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
 
       q = "/devApps/numBlackApps"
       update(record, q, 88)
-      select(record, q).head should be(
-        List(88, 88, 88))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(88, 88, 88))
 
       q = "/devApps/@*/numBlackApps"
       update(record, q, 888)
-      select(record, q).head should be(
-        List(888, 888, 888))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(888, 888, 888))
 
       q = "/devApps/@a/numBlackApps"
       update(record, q, 8)
@@ -114,18 +114,18 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
 
       q = "/chargeRecords[2]/time"
       update(record, q, 88)
-      select(record, q).head should be(
-        List(88))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(88))
 
       q = "/chargeRecords[position()>0]/time"
       update(record, q, 888)
-      select(record, q).head should be(
-        List(888, 888))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(888, 888))
 
       q = "/chargeRecords/time"
       update(record, q, 8888)
-      select(record, q).head should be(
-        List(8888, 8888))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(8888, 8888))
 
     }
 
@@ -186,8 +186,8 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
 
       q = "/chargeRecords[2]"
       delete(record, q)
-      select(record, q).head should be(
-        List())
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array())
 
     }
 

@@ -20,7 +20,7 @@ sleep 5s
 curl 'http://localhost:8080/a/putscript/steps/steps_on_update'\
 	--data 'print("SSM", unescape(id), record.get("steps"));'
 curl 'http://localhost:8080/b/putscript/status/status_on_update'\
-	--data 'var ff=unescape(id), f=ff.split(":"); print("TSM", ff); http_post.apply("http://localhost:8080/a/insert/"+f[0], ".steps\n{\""+f[1]+"\":1}");'
+	--data 'var ff=unescape(id), f=ff.split(":"); print("TSM", ff); http_post.apply("http://localhost:8080/a/insert/"+f[0], "/steps\n{\""+f[1]+"\":1}", 5);'
 sleep 5s
 
 echo
@@ -29,7 +29,7 @@ echo ":: test ::"
 # test start
 let max=$NUM-1
 for i in `seq 0 $max`; do
-	echo -e -n '.status\n"Ok"' | curl --data-binary @- "http://localhost:8080/b/update/$ITEM:$i"&
+	echo -e -n '/status\n"Ok"' | curl --data-binary @- "http://localhost:8080/b/update/$ITEM:$i"&
 done
 sleep 5s
 
