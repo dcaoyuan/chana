@@ -290,7 +290,7 @@ chana stores Avro record, with two groups of APIs:
 Primitive API (Scala / Java)
 ----------------------------
 
-use **xpath** expression to locate. see
+use **xpath** expression to locate avro field. See
 `xpath <http://www.w3.org/TR/xpath-31>`__
 
 1. Schema
@@ -608,7 +608,7 @@ The bindings that could be accessed in script:
         bindings.put("http_post", http_post)
         bindings.put("id", onUpdated.id)
         bindings.put("record", record)
-        bindings.put("binglogs", binlogs)
+        bindings.put("binlogs", binlogs)
         bindings
       }
 
@@ -619,9 +619,9 @@ Where,
 -  ``id``: the id of this entity 
 -  ``record``: the entity record after updated 
 -  ``binlogs``: array of Binlog(s) during this updating action 
--  ``fields[i].type()``: -1 - Delete, 0 - Change, 1 - Insert
--  ``fields[i].xpath()``: Locate of changed value
--  ``fields[i].value()``: value
+-  ``binlogs[i].type()``: -1 - Delete, 0 - Change, 1 - Insert
+-  ``binlogs[i].xpath()``: XPath Location of changed value
+-  ``binlogs[i].value()``: value
 
 -  The JavaScript code should do what ever operation via function only.
    You can define local variables in function, and transfer these local

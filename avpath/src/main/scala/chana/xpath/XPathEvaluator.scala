@@ -1024,25 +1024,6 @@ object XPathEvaluator {
                 val got = new GenericData.Array(resultSchema, entries)
                 Ctx(resultSchema, got, MapContainer(map, schema, keys, Some(field)), got)
 
-              //              case xs: List[IndexedRecord] @unchecked =>
-              //                val elems = new java.util.LinkedList[Any]()
-              //                val elemSchema = avro.getElementType(schema)
-              //                val field = elemSchema.getField(local)
-              //                val fieldSchema = avro.getNonNull(field.schema)
-              //                val itr = xs.iterator
-              //                while (itr.hasNext) {
-              //                  val elem = itr.next
-              //                  elems.add(elem.get(field.pos))
-              //                }
-              //                val got = elems.reverse
-              //                val container = ctx.container match {
-              //                  case c: ArrayContainer => c.field(Some(field))
-              //                  case c: MapContainer   => c.field(Some(field))
-              //                  case c                 => c
-              //                }
-              //                val resultSchema = Schema.createArray(fieldSchema)
-              //                Ctx(resultSchema, got, container, got)
-
               case x => // what happens?
                 throw new XPathRuntimeException(x, "try to get child: " + local)
             }
