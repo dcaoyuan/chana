@@ -83,9 +83,6 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
 
     "update field" should {
       val record = initAccount()
-      record.put("registerTime", 10000L)
-      record.put("lastLoginTime", 20000L)
-      record.put("id", "abcd")
 
       var q = "/registerTime"
       update(record, q, 8)
@@ -131,9 +128,6 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
 
     "insert field" should {
       val record = initAccount()
-      record.put("registerTime", 10000L)
-      record.put("lastLoginTime", 20000L)
-      record.put("id", "abcd")
 
       var q = "/devApps"
       var json = "{'e' : {}}"
@@ -175,9 +169,6 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
 
     "delete field" should {
       val record = initAccount()
-      record.put("registerTime", 10000L)
-      record.put("lastLoginTime", 20000L)
-      record.put("id", "abcd")
 
       var q = "/devApps/@a"
       delete(record, q)
@@ -193,9 +184,6 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
 
     "clear field" should {
       val record = initAccount()
-      record.put("registerTime", 10000L)
-      record.put("lastLoginTime", 20000L)
-      record.put("id", "abcd")
 
       var q = "/devApps"
       clear(record, q)

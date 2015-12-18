@@ -12,7 +12,7 @@ class FromToJsonSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
       account.setId("1")
       account.setRegisterTime(System.currentTimeMillis())
       val jsonStr = ToJson.toJsonString(account, schema)
-      assertResult(account.toString)(FromJson.fromJsonString(jsonStr, schema).toString)
+      FromJson.fromJsonString(jsonStr, schema).toString should be(account.toString)
     }
   }
 }

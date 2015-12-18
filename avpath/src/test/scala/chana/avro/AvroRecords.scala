@@ -45,6 +45,11 @@ object AvroRecords {
     account.put("chargeRecords", chargeRecords)
     account.put("lastChargeRecord", chargeRecord2)
     account.put("devApps", devApps)
+
+    account.put("id", "abCd")
+    account.put("registerTime", 10000L)
+    account.put("lastLoginTime", 20000L)
+    account.put("balance", 100.0)
     account
   }
 

@@ -1,6 +1,5 @@
 package chana.avpath
 
-import chana.avro.FromJson
 import chana.avro.ToJson
 import chana.avpath.Evaluator.Ctx
 import chana.avro.Schemas
@@ -13,64 +12,7 @@ import org.scalatest.WordSpecLike
 class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
   import chana.avro.AvroRecords._
 
-  val jsonAccountDefault = """
-{"id": "-1", "registerTime": 0, "lastLoginTime": 0, "loginRecords": [], "chargeRecords": [], "activityRecords": [], "balance": 0.0, "numFriends": 0, "numContacts": 0, "numPlayedGames": 0, "score": 0.0, "scoreActives": 0.0, "scoreFaithful": 0.0, "scoreLogins": 0.0, "scorePayments": 0.0, "scoreApps": 0.0, "scoreActions": 0.0, "devApps": {}, "devActions": {}}
-""".trim
-
-  val jsonAccountUncomplete = """
-{"registerTime":1,"lastLoginTime":1}
-""".trim
-  val jsonAccountFilled = """
-{"id": "-1", "registerTime": 1, "lastLoginTime": 1, "loginRecords": [], "chargeRecords": [], "activityRecords": [], "balance": 0.0, "numFriends": 0, "numContacts": 0, "numPlayedGames": 0, "score": 0.0, "scoreActives": 0.0, "scoreFaithful": 0.0, "scoreLogins": 0.0, "scorePayments": 0.0, "scoreApps": 0.0, "scoreActions": 0.0, "devApps": {}, "devActions": {}}
-""".trim
-
-  val jsonAccountReal = """
-{"id":"12","registerTime":687557347200000,"lastLoginTime":688421347200000,"loginRecords":[{"time":688421347200000,"kind":"WDJ"},{"time":1401248164983,"kind":"GAME"},{"time":1401248164993,"kind":"GAME"}],"chargeRecords":[{"time":-17188358400000,"amount":20.0}],"activityRecords":null,"balance":100.0,"devApps":null,"devActions":{"udid121":{"actionRecords":[{"time":1401248186700,"kind":"DOWNLOAD"},{"time":1401248186700,"kind":"CLICK"},{"time":1401248186700,"kind":"QUERY"}]},"udid122":{"actionRecords":[{"time":1401248186701,"kind":"CLICK"},{"time":1401248186701,"kind":"QUERY"}]}}}
-""".trim
-
   "AvPath" when {
-
-    s"using GenericRecordBuilder to create new record:" should {
-      val account = accountBuilder.build()
-      info("Account: \n" + account)
-      val fromJsonAccountDefault = FromJson.fromJsonString(jsonAccountDefault, schema)
-      s"be filled with default value as:\n ${fromJsonAccountDefault}" in {
-        assertResult(fromJsonAccountDefault)(account)
-      }
-    }
-
-    s"an uncomplete json:\n ${jsonAccountUncomplete} \n its uncompleted fields" should {
-      val fromJsonAccount1 = FromJson.fromJsonString(jsonAccountUncomplete, schema).asInstanceOf[GenericData.Record]
-      val fromJsonAccountFilled1 = FromJson.fromJsonString(jsonAccountFilled, schema)
-      s"be filled with default value by FromJson.fromJsonString (generic) as:\n ${fromJsonAccountFilled1}" in {
-        assertResult(fromJsonAccountFilled1)(fromJsonAccount1)
-      }
-
-      val fromJsonAccount2 = FromJson.fromJsonString(jsonAccountUncomplete, schema, true)
-      val fromJsonAccountFilled2 = FromJson.fromJsonString(jsonAccountFilled, schema, true)
-      s"be filled with default value by FromJson.fromJsonString (specified) as:\n ${fromJsonAccountFilled2}" in {
-        assertResult(fromJsonAccountFilled2)(fromJsonAccount2)
-      }
-
-      val jsonAccountUncomplete1 = ToJson.toJsonString(fromJsonAccount1, schema)
-      s"be compacted to concise json string which drops all default values vice versa as:\n ${jsonAccountUncomplete1}" in {
-        assertResult(jsonAccountUncomplete)(jsonAccountUncomplete1)
-      }
-    }
-
-    s"a real world json:\n ${jsonAccountReal} \n " should {
-      val fromJsonAccount1 = FromJson.fromJsonString(jsonAccountReal, schema)
-      val fromJsonAccountReal1 = FromJson.fromJsonString(ToJson.toJsonString(fromJsonAccount1, schema), schema)
-      s"be exactly the same as the one decoded from FromJson.fromJsonString (generic) as:\n ${fromJsonAccountReal1}" in {
-        assertResult(fromJsonAccount1)(fromJsonAccountReal1)
-      }
-
-      val fromJsonAccount2 = FromJson.fromJsonString(jsonAccountReal, schema, true)
-      val fromJspnAccountReal2 = FromJson.fromJsonString(ToJson.toJsonString(fromJsonAccount2, schema), schema, true)
-      s"be exactly the same as the one decoded from FromJson.fromJsonString (specified)as:\n ${fromJspnAccountReal2}" in {
-        assertResult(fromJsonAccount2)(fromJspnAccountReal2)
-      }
-    }
 
     "select/update record itself" should {
       val record = initAccount()
@@ -82,8 +24,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res0.map(_.value).mkString("\n"))
 
-        assertResult(Set(null))(res0.map(_.topLevelField).toSet)
-        assertResult(List(record))(res0.map(_.value))
+        res0.map(_.topLevelField).toSet should be(Set(null))
+        res0.map(_.value) should be(List(record))
       }
 
       val record2 = initAccount()
@@ -94,7 +36,7 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res1.map(_.value).mkString("\n"))
 
-        assertResult(List(record2))(res1.map(_.value))
+        res1.map(_.value) should be(List(record2))
       }
 
       Evaluator.updateJson(record, ast, ToJson.toJsonString(record2)) foreach { _.commit() }
@@ -103,7 +45,7 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res2.map(_.value).mkString("\n"))
 
-        assertResult(List(record2))(res2.map(_.value))
+        res2.map(_.value) should be(List(record2))
       }
     }
 
@@ -118,8 +60,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res0.map(_.value).mkString("\n"))
 
-        assertResult(Set("registerTime"))(res0.map(_.topLevelField).map(_.name).toSet)
-        assertResult(List(1234))(res0.map(_.value))
+        res0.map(_.topLevelField).map(_.name).toSet should be(Set("registerTime"))
+        res0.map(_.value) should be(List(1234))
       }
     }
 
@@ -134,8 +76,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res0.map(_.value).mkString("\n"))
 
-        assertResult(Set("registerTime", "lastLoginTime"))(res0.map(_.topLevelField).map(_.name).toSet)
-        assertResult(List(1234, 1234))(res0.map(_.value))
+        res0.map(_.topLevelField).map(_.name).toSet should be(Set("registerTime", "lastLoginTime"))
+        res0.map(_.value) should be(List(1234, 1234))
       }
     }
 
@@ -150,8 +92,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res0.map(_.value).mkString("\n"))
 
-        assertResult(Set("registerTime"))(res0.map(_.topLevelField).map(_.name).toSet)
-        assertResult(List(1234))(res0.map(_.value))
+        res0.map(_.topLevelField).map(_.name).toSet should be(Set("registerTime"))
+        res0.map(_.value) should be(List(1234))
       }
     }
 
@@ -165,8 +107,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res0.map(_.value).mkString("\n"))
 
-        assertResult(Set("chargeRecords"))(res0.map(_.topLevelField.name).toSet)
-        assertResult(List(1))(res0.map(_.value))
+        res0.map(_.topLevelField.name).toSet should be(Set("chargeRecords"))
+        res0.map(_.value) should be(List(1))
       }
 
       Evaluator.update(record, ast, 1000L) foreach { _.commit() }
@@ -175,8 +117,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res1.map(_.value).mkString("\n"))
 
-        assertResult(Set("chargeRecords"))(res1.map(_.topLevelField.name).toSet)
-        assertResult(List(1000))(res1.map(_.value))
+        res1.map(_.topLevelField.name).toSet should be(Set("chargeRecords"))
+        res1.map(_.value) should be(List(1000))
       }
 
       Evaluator.updateJson(record, ast, "1234") foreach { _.commit() }
@@ -185,8 +127,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res2.map(_.value).mkString("\n"))
 
-        assertResult(Set("chargeRecords"))(res2.map(_.topLevelField.name).toSet)
-        assertResult(List(1234))(res2.map(_.value))
+        res2.map(_.topLevelField.name).toSet should be(Set("chargeRecords"))
+        res2.map(_.value) should be(List(1234))
       }
     }
 
@@ -200,8 +142,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res0.map(_.value).mkString("\n"))
 
-        assertResult(Set("chargeRecords"))(res0.map(_.topLevelField.name).toSet)
-        assertResult(List(2))(res0.map(_.value))
+        res0.map(_.topLevelField.name).toSet should be(Set("chargeRecords"))
+        res0.map(_.value) should be(List(2))
       }
 
       Evaluator.update(record, ast, 100L) foreach { _.commit() }
@@ -210,8 +152,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res1.map(_.value).mkString("\n"))
 
-        assertResult(Set("chargeRecords"))(res1.map(_.topLevelField.name).toSet)
-        assertResult(List(100))(res1.map(_.value))
+        res1.map(_.topLevelField.name).toSet should be(Set("chargeRecords"))
+        res1.map(_.value) should be(List(100))
       }
 
       Evaluator.updateJson(record, ast, "1234") foreach { _.commit() }
@@ -220,8 +162,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res2.map(_.value).mkString("\n"))
 
-        assertResult(Set("chargeRecords"))(res2.map(_.topLevelField.name).toSet)
-        assertResult(List(1234))(res2.map(_.value))
+        res2.map(_.topLevelField.name).toSet should be(Set("chargeRecords"))
+        res2.map(_.value) should be(List(1234))
       }
     }
 
@@ -235,8 +177,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res0.map(_.value).mkString("\n"))
 
-        assertResult(Set("chargeRecords"))(res0.map(_.topLevelField.name).toSet)
-        assertResult(List(1, 2))(res0.map(_.value))
+        res0.map(_.topLevelField.name).toSet should be(Set("chargeRecords"))
+        res0.map(_.value) should be(List(1, 2))
       }
     }
 
@@ -250,8 +192,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res0.map(_.value).mkString("\n"))
 
-        assertResult(Set("chargeRecords"))(res0.map(_.topLevelField.name).toSet)
-        assertResult(List(1, 2))(res0.map(_.value))
+        res0.map(_.topLevelField.name).toSet should be(Set("chargeRecords"))
+        res0.map(_.value) should be(List(1, 2))
       }
     }
 
@@ -265,14 +207,14 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res0.map(_.value).mkString("\n"))
 
-        assertResult(Set("chargeRecords"))(res0.map(_.topLevelField.name).toSet)
-        assertResult(List(1, 2))(res0.map(_.value))
+        res0.map(_.topLevelField.name).toSet should be(Set("chargeRecords"))
+        res0.map(_.value) should be(List(1, 2))
       }
     }
 
     "select with logic AND" should {
       val record = initAccount()
-      val path = ".{ .registerTime == 0 && .chargeRecords[0].time == 1 }"
+      val path = ".{ .registerTime == 10000 && .chargeRecords[0].time == 1 }"
       val ast = new Parser().parse(path)
 
       val res0 = Evaluator.select(record, ast)
@@ -280,7 +222,7 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res0.map(_.value).mkString("\n"))
 
-        assertResult(List(0))(res0.map(_.value.asInstanceOf[GenericRecord].get("registerTime")))
+        res0.map(_.value.asInstanceOf[GenericRecord].get("registerTime")) should be(List(10000))
       }
     }
 
@@ -294,7 +236,7 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res0.map(_.value).mkString("\n"))
 
-        assertResult(List(0))(res0.map(_.value.asInstanceOf[GenericRecord].get("registerTime")))
+        res0.map(_.value.asInstanceOf[GenericRecord].get("registerTime")) should be(List(10000))
       }
     }
 
@@ -315,8 +257,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res0.map(_.value).mkString("\n"))
 
-        assertResult(Set("chargeRecords"))(res0.map(_.topLevelField.name).toSet)
-        assertResult(4)(res0.map(_.value).head.asInstanceOf[GenericData.Array[GenericData.Record]].toArray.length)
+        res0.map(_.topLevelField.name).toSet should be(Set("chargeRecords"))
+        res0.map(_.value).head.asInstanceOf[GenericData.Array[GenericData.Record]].toArray.length should be(4)
       }
     }
 
@@ -341,8 +283,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res0.map(_.value).mkString("\n"))
 
-        assertResult(Set("chargeRecords"))(res0.map(_.topLevelField.name).toSet)
-        assertResult(6)(res0.map(_.value).head.asInstanceOf[GenericData.Array[GenericData.Record]].toArray.length)
+        res0.map(_.topLevelField.name).toSet should be(Set("chargeRecords"))
+        res0.map(_.value).head.asInstanceOf[GenericData.Array[GenericData.Record]].toArray.length should be(6)
       }
 
       val path1 = ".chargeRecords{.time > -1}.time"
@@ -352,8 +294,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast1)
         info("Got:\n" + res1.map(_.value).mkString("\n"))
 
-        assertResult(Set("chargeRecords"))(res1.map(_.topLevelField.name).toSet)
-        assertResult(List(1, 2, 4))(res1.map(_.value))
+        res1.map(_.topLevelField.name).toSet should be(Set("chargeRecords"))
+        res1.map(_.value) should be(List(1, 2, 4))
       }
 
       val path2 = ".chargeRecords{.time > 3}"
@@ -363,8 +305,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast2)
         info("Got:\n" + res2.map(_.value).mkString("\n"))
 
-        assertResult(Set("chargeRecords"))(res2.map(_.topLevelField.name).toSet)
-        assertResult(List(chargeRecord3))(res2.map(_.value))
+        res2.map(_.topLevelField.name).toSet should be(Set("chargeRecords"))
+        res2.map(_.value) should be(List(chargeRecord3))
       }
     }
 
@@ -379,8 +321,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res0.map(_.value).mkString("\n"))
 
-        assertResult(Set("chargeRecords"))(res0.map(_.topLevelField.name).toSet)
-        assertResult(0)(res0.map(_.value).head.asInstanceOf[GenericData.Array[GenericData.Record]].toArray.length)
+        res0.map(_.topLevelField.name).toSet should be(Set("chargeRecords"))
+        res0.map(_.value).head.asInstanceOf[GenericData.Array[GenericData.Record]].toArray.length should be(0)
       }
     }
 
@@ -394,9 +336,9 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res0.map(_.value).mkString("\n"))
 
-        assertResult(Set("devApps"))(res0.map(_.topLevelField.name).toSet)
+        res0.map(_.topLevelField.name).toSet should be(Set("devApps"))
         // the order of selected map items is not guaranteed due to the implemetation of java.util.Map
-        assertResult(List(1, 2))(res0.map(_.value.asInstanceOf[Int]).sorted)
+        res0.map(_.value.asInstanceOf[Int]).sorted should be(List(1, 2))
       }
 
       Evaluator.update(record, ast, 100) foreach { _.commit() }
@@ -405,8 +347,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res1.map(_.value).mkString("\n"))
 
-        assertResult(Set("devApps"))(res1.map(_.topLevelField.name).toSet)
-        assertResult(List(100, 100))(res1.map(_.value))
+        res1.map(_.topLevelField.name).toSet should be(Set("devApps"))
+        res1.map(_.value) should be(List(100, 100))
       }
 
       Evaluator.updateJson(record, ast, "123") foreach { _.commit() }
@@ -415,8 +357,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res2.map(_.value).mkString("\n"))
 
-        assertResult(Set("devApps"))(res2.map(_.topLevelField.name).toSet)
-        assertResult(List(123, 123))(res2.map(_.value))
+        res2.map(_.topLevelField.name).toSet should be(Set("devApps"))
+        res2.map(_.value) should be(List(123, 123))
       }
     }
 
@@ -430,9 +372,9 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res0.map(_.value).mkString("\n"))
 
-        assertResult(Set("devApps"))(res0.map(_.topLevelField.name).toSet)
+        res0.map(_.topLevelField.name).toSet should be(Set("devApps"))
         // the order of selected map items is not guaranteed due to the implemetation of java.util.Map
-        assertResult(List(1, 2))(res0.map(_.value.asInstanceOf[Int]).sorted)
+        res0.map(_.value.asInstanceOf[Int]).sorted should be(List(1, 2))
       }
 
       Evaluator.update(record, ast, 100) foreach { _.commit() }
@@ -441,8 +383,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res1.map(_.value).mkString("\n"))
 
-        assertResult(Set("devApps"))(res1.map(_.topLevelField.name).toSet)
-        assertResult(List(100, 100))(res1.map(_.value))
+        res1.map(_.topLevelField.name).toSet should be(Set("devApps"))
+        res1.map(_.value) should be(List(100, 100))
       }
 
       Evaluator.updateJson(record, ast, "123") foreach { _.commit() }
@@ -451,8 +393,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res2.map(_.value).mkString("\n"))
 
-        assertResult(Set("devApps"))(res2.map(_.topLevelField.name).toSet)
-        assertResult(List(123, 123))(res2.map(_.value))
+        res2.map(_.topLevelField.name).toSet should be(Set("devApps"))
+        res2.map(_.value) should be(List(123, 123))
       }
     }
 
@@ -466,9 +408,9 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res0.map(_.value).mkString("\n"))
 
-        assertResult(Set("devApps"))(res0.map(_.topLevelField.name).toSet)
+        res0.map(_.topLevelField.name).toSet should be(Set("devApps"))
         // the order of selected map items is not guaranteed due to the implemetation of java.util.Map
-        assertResult(List(3))(res0.map(_.value.asInstanceOf[Int]).sorted)
+        res0.map(_.value.asInstanceOf[Int]).sorted should be(List(3))
       }
 
       Evaluator.update(record, ast, 100) foreach { _.commit() }
@@ -477,8 +419,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res1.map(_.value).mkString("\n"))
 
-        assertResult(Set("devApps"))(res1.map(_.topLevelField.name).toSet)
-        assertResult(List(100))(res1.map(_.value))
+        res1.map(_.topLevelField.name).toSet should be(Set("devApps"))
+        res1.map(_.value) should be(List(100))
       }
 
       Evaluator.updateJson(record, ast, "123") foreach { _.commit() }
@@ -487,8 +429,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res2.map(_.value).mkString("\n"))
 
-        assertResult(Set("devApps"))(res2.map(_.topLevelField.name).toSet)
-        assertResult(List(123))(res2.map(_.value))
+        res2.map(_.topLevelField.name).toSet should be(Set("devApps"))
+        res2.map(_.value) should be(List(123))
       }
     }
 
@@ -508,8 +450,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res0.map(_.value).mkString("\n"))
 
-        assertResult(Set("devApps"))(res0.map(_.topLevelField.name).toSet)
-        assertResult(5)(res0.map(_.value).head.asInstanceOf[java.util.Map[_, _]].size)
+        res0.map(_.topLevelField.name).toSet should be(Set("devApps"))
+        res0.map(_.value).head.asInstanceOf[java.util.Map[_, _]].size should be(5)
       }
     }
 
@@ -531,8 +473,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res0.map(_.value).mkString("\n"))
 
-        assertResult(Set("devApps"))(res0.map(_.topLevelField.name).toSet)
-        assertResult(8)(res0.map(_.value).head.asInstanceOf[java.util.Map[_, _]].size)
+        res0.map(_.topLevelField.name).toSet should be(Set("devApps"))
+        res0.map(_.value).head.asInstanceOf[java.util.Map[_, _]].size should be(8)
       }
     }
 
@@ -547,8 +489,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res0.map(_.value).mkString("\n"))
 
-        assertResult(Set())(res0.map(_.topLevelField.name).toSet)
-        assertResult(Nil)(res0.map(_.value))
+        res0.map(_.topLevelField.name).toSet should be(Set())
+        res0.map(_.value) should be(Nil)
       }
     }
 
@@ -563,8 +505,8 @@ class AvPathSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
         info("AST:\n" + ast)
         info("Got:\n" + res0.map(_.value).mkString("\n"))
 
-        assertResult(Set("devApps"))(res0.map(_.topLevelField.name).toSet)
-        assertResult(java.util.Collections.EMPTY_MAP)(res0.map(_.value).head)
+        res0.map(_.topLevelField.name).toSet should be(Set("devApps"))
+        res0.map(_.value).head should be(java.util.Collections.EMPTY_MAP)
       }
     }
 

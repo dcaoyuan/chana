@@ -45,7 +45,15 @@ final class Ctx(val schema: Schema, val target: Any, val container: Container, p
   }
 }
 
-sealed trait Container
+sealed trait Container {
+  private var _xpath = "/"
+  def xpath = _xpath
+  def xpathAppend(x: String): this.type = {
+    _xpath = _xpath + x
+    this
+  }
+}
+
 sealed trait CollectionContainer[T] extends Container { self =>
   private var _keys: java.util.List[T] = null
   def keys: java.util.List[T] = _keys
@@ -987,7 +995,7 @@ object XPathEvaluator {
                 val field = avro.getNonNull(schema).getField(local)
                 val fieldSchema = avro.getNonNull(field.schema)
                 val got = rec.get(field.pos)
-                Ctx(fieldSchema, got, RecordContainer(rec, field), got)
+                Ctx(fieldSchema, got, RecordContainer(rec, field).xpathAppend(local), got)
 
               case arr: java.util.Collection[IndexedRecord] @unchecked =>
                 val elems = new java.util.LinkedList[Any]()
@@ -1005,7 +1013,7 @@ object XPathEvaluator {
                 }
                 val resultSchema = Schema.createArray(fieldSchema)
                 val got = new GenericData.Array(resultSchema, elems)
-                Ctx(resultSchema, got, ArrayContainer(arr, schema, idxes, Some(field)), got)
+                Ctx(resultSchema, got, ArrayContainer(arr, schema, idxes, Some(field)).xpathAppend(local), got)
 
               case map: java.util.Map[String, IndexedRecord] @unchecked =>
                 //println("local: " + local + ", schema: " + schema)
@@ -1022,7 +1030,7 @@ object XPathEvaluator {
                 }
                 val resultSchema = Schema.createArray(fieldSchema)
                 val got = new GenericData.Array(resultSchema, entries)
-                Ctx(resultSchema, got, MapContainer(map, schema, keys, Some(field)), got)
+                Ctx(resultSchema, got, MapContainer(map, schema, keys, Some(field)).xpathAppend(local), got)
 
               case x => // what happens?
                 throw new XPathRuntimeException(x, "try to get child: " + local)
@@ -1036,7 +1044,7 @@ object XPathEvaluator {
                 val valueSchema = avro.getValueType(schema)
                 val got = map.get(local)
                 keys.add(local)
-                Ctx(valueSchema, got, MapContainer(map, schema, keys, None), got)
+                Ctx(valueSchema, got, MapContainer(map, schema, keys, None).xpathAppend("@"), got)
 
               case x => // what happens?
                 throw new XPathRuntimeException(x, "try to get attribute of: " + local)

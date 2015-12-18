@@ -42,9 +42,6 @@ class XPathSelectSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
 
     "query fields" should {
       val record = initAccount()
-      record.put("registerTime", 10000L)
-      record.put("lastLoginTime", 20000L)
-      record.put("id", "abcd")
 
       var q = "/registerTime"
       select(record, q).head should be(
@@ -106,9 +103,6 @@ class XPathSelectSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
 
     "query fields with position() predicates" should {
       val record = initAccount()
-      record.put("registerTime", 10000L)
-      record.put("lastLoginTime", 20000L)
-      record.put("id", "abcd")
 
       var q = "/chargeRecords[position() = 2]"
       select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
@@ -182,9 +176,6 @@ class XPathSelectSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
 
     "query fields with more predicates" should {
       val record = initAccount()
-      record.put("registerTime", 10000L)
-      record.put("lastLoginTime", 20000L)
-      record.put("id", "abcd")
 
       var q = "/chargeRecords[time = 2]"
       select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
@@ -235,9 +226,6 @@ class XPathSelectSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
 
     "query fields with boolean functions" should {
       val record = initAccount()
-      record.put("registerTime", 10000L)
-      record.put("lastLoginTime", 20000L)
-      record.put("id", "abcd")
 
       var q = "/devApps/@*[not(numBlackApps=2)]"
       select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(

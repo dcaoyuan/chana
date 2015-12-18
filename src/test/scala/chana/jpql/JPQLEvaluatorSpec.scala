@@ -40,9 +40,6 @@ class JPQLEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterAl
 
     "query fields" should {
       val record = initAccount()
-      record.put("registerTime", 10000L)
-      record.put("lastLoginTime", 20000L)
-      record.put("id", "abcd")
 
       var q = "SELECT a.registerTime, a.lastLoginTime FROM account a WHERE a.registerTime >= 10000"
       eval(q, record) should be(List(10000, 20000))
@@ -62,8 +59,8 @@ class JPQLEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterAl
       q = "SELECT a.chargeRecords FROM account a WHERE a.registerTime >= 10000"
       eval(q, record).asInstanceOf[List[GenericData.Array[_]]](0).size should be(2)
 
-      q = "SELECT a.id FROM account a WHERE a.id = 'abcd'"
-      eval(q, record) should be(List("abcd"))
+      q = "SELECT a.id FROM account a WHERE a.id = 'abCd'"
+      eval(q, record) should be(List("abCd"))
     }
 
     "select with atith calculating and functions" when {
