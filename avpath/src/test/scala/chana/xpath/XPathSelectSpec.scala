@@ -209,18 +209,13 @@ class XPathSelectSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
       // select map entries that meet predicates
       q = "/devApps[numBlackApps=2]"
       val expected = {
-        val itr = record.get("devApps").asInstanceOf[java.util.Map[String, _]].entrySet.iterator
-        var entry: java.util.Map.Entry[String, _] = null
-        while (itr.hasNext && entry == null) {
-          val x = itr.next
-          if (x.getKey == "b") {
-            entry = x
-          }
-        }
-        entry
+        val value = record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("b")
+        val res = new java.util.LinkedHashMap[String, Any]()
+        res.put("b", value)
+        res
       }
-      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
-        Array(expected))
+      select(record, q).head.asInstanceOf[java.util.Map[String, _]] should be(
+        expected)
 
     }
 
