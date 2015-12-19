@@ -1,7 +1,7 @@
 package chana
 
-import chana.xpath.Ctx
 import chana.avro.UpdateAction
+import chana.xpath.Context
 import chana.xpath.nodes.XPathParser
 import org.apache.avro.generic.IndexedRecord
 import scala.util.Try
@@ -9,8 +9,8 @@ import scala.util.Try
 package object xpath {
   def parser() = new XPathParser()
 
-  def select(data: IndexedRecord, path: String): Try[List[Ctx]] = select(parser())(data, path)
-  def select(parser: XPathParser)(data: IndexedRecord, path: String): Try[List[Ctx]] = {
+  def select(data: IndexedRecord, path: String): Try[List[Context]] = select(parser())(data, path)
+  def select(parser: XPathParser)(data: IndexedRecord, path: String): Try[List[Context]] = {
     Try {
       val ast = parser.parse(path)
       XPathEvaluator.select(data, ast)

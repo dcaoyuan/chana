@@ -19,11 +19,11 @@ case class XPathRuntimeException(value: Any, message: String)
       case _         => "primary type."
     }))
 
-object Ctx {
-  def apply(schema: Schema, target: Any, container: Container, value: Any) = new Ctx(schema, target, container, value)
-  def unapply(x: Ctx): Option[(Schema, Any, Container)] = Some((x.schema, x.target, x.container))
+object Context {
+  def apply(schema: Schema, target: Any, node: AvroNode[_], value: Any) = new Context(schema, target, node, value)
+  def unapply(x: Context): Option[(Schema, Any, AvroNode[_])] = Some((x.schema, x.target, x.node))
 }
-final class Ctx(val schema: Schema, val target: Any, val container: Container, private var _value: Any) {
+final class Context(val schema: Schema, val target: Any, val node: AvroNode[_], private var _value: Any) {
   /**
    * value during evaluating
    */
@@ -33,34 +33,20 @@ final class Ctx(val schema: Schema, val target: Any, val container: Container, p
     this
   }
 
-  def copy = Ctx(schema, target, container, value)
+  def copy = Context(schema, target, node, value)
 
   override def toString() = {
-    new StringBuilder().append("Ctx(")
+    new StringBuilder().append("Context(")
       .append(schema).append(",")
       .append(target).append(",")
-      .append(container).append(",")
+      .append(node).append(",")
       .append(value).append(")")
       .toString
   }
 }
 
-sealed trait Container {
-  private var _xpath = "/"
-  def xpath = _xpath
-  def xpathAppend(x: String): this.type = {
-    _xpath = _xpath + x
-    this
-  }
-}
-
-sealed trait CollectionContainer[T] extends Container { self =>
-  private var _keys: java.util.List[T] = null
-  def keys: java.util.List[T] = _keys
-  def keys(xs: java.util.List[_]): this.type = {
-    _keys = xs.asInstanceOf[java.util.List[T]]
-    this
-  }
+sealed trait AvroNode[T] {
+  def underlying: T
 
   private var _field: Option[Schema.Field] = None
   def field = _field
@@ -68,29 +54,52 @@ sealed trait CollectionContainer[T] extends Container { self =>
     _field = x
     this
   }
+
+  private var _xpath = "/"
+  def xpath = _xpath
+  def xpath(x: String): this.type = {
+    _xpath = x
+    this
+  }
 }
 
-object RecordContainer {
-  def apply(record: IndexedRecord, field: Schema.Field) = new RecordContainer(record, field)
-  def unapply(x: RecordContainer): Option[(IndexedRecord, Schema.Field)] = Some((x.record, x.field))
+sealed trait CollectionNode[T, K] extends AvroNode[T] {
+  private var _keys: java.util.Collection[K] = null
+  def keys: java.util.Collection[K] = _keys
+  def keys(xs: java.util.Collection[_]): this.type = {
+    _keys = xs.asInstanceOf[java.util.Collection[K]]
+    this
+  }
+
 }
-final class RecordContainer(val record: IndexedRecord, var field: Schema.Field) extends Container {
+
+object RecordNode {
+  def apply(record: IndexedRecord, field: Option[Schema.Field]) =
+    new RecordNode(record).field(field)
+
+  def unapply(x: RecordNode): Option[(IndexedRecord, Option[Schema.Field])] =
+    Some((x.underlying, x.field))
+}
+final class RecordNode(val underlying: IndexedRecord) extends AvroNode[IndexedRecord] {
   override def toString() = {
-    new StringBuilder().append("RecordContainer(")
-      .append(record).append(",")
+    new StringBuilder().append("RecordNode(")
+      .append(underlying).append(",")
       .append(field).append(")")
       .toString
   }
 }
 
-object ArrayContainer {
-  def apply(array: java.util.Collection[_], arraySchema: Schema, idxes: java.util.List[Int], field: Option[Schema.Field]) = new ArrayContainer(array, arraySchema).keys(idxes).field(field)
-  def unapply(x: ArrayContainer): Option[(java.util.Collection[_], Schema, java.util.List[Int], Option[Schema.Field])] = Some((x.array, x.arraySchema, x.keys, x.field))
+object ArrayNode {
+  def apply(array: java.util.Collection[_], arraySchema: Schema, idxes: java.util.Collection[Int], field: Option[Schema.Field]) =
+    new ArrayNode(array, arraySchema).keys(idxes).field(field)
+
+  def unapply(x: ArrayNode): Option[(java.util.Collection[_], Schema, java.util.Collection[Int], Option[Schema.Field])] =
+    Some((x.underlying, x.arraySchema, x.keys, x.field))
 }
-final class ArrayContainer(val array: java.util.Collection[_], val arraySchema: Schema) extends CollectionContainer[Int] {
+final class ArrayNode(val underlying: java.util.Collection[_], val arraySchema: Schema) extends CollectionNode[java.util.Collection[_], Int] {
   override def toString() = {
-    new StringBuilder().append("ArrayContainer(")
-      .append(array).append(",")
+    new StringBuilder().append("ArrayNode(")
+      .append(underlying).append(",")
       .append(arraySchema).append(",")
       .append(keys).append(",")
       .append(field).append(")")
@@ -98,14 +107,17 @@ final class ArrayContainer(val array: java.util.Collection[_], val arraySchema: 
   }
 }
 
-object MapContainer {
-  def apply(map: java.util.Map[String, _], mapSchema: Schema, keys: java.util.List[String], field: Option[Schema.Field]) = new MapContainer(map, mapSchema).keys(keys).field(field)
-  def unapply(x: MapContainer): Option[(java.util.Map[String, _], Schema, java.util.List[String], Option[Schema.Field])] = Some((x.map, x.mapSchema, x.keys, x.field))
+object MapNode {
+  def apply(map: java.util.Map[String, _], mapSchema: Schema, keys: java.util.Collection[String], field: Option[Schema.Field]) =
+    new MapNode(map, mapSchema).keys(keys).field(field)
+
+  def unapply(x: MapNode): Option[(java.util.Map[String, _], Schema, java.util.Collection[String], Option[Schema.Field])] =
+    Some((x.underlying, x.mapSchema, x.keys, x.field))
 }
-final class MapContainer(val map: java.util.Map[String, _], val mapSchema: Schema) extends CollectionContainer[String] {
+final class MapNode(val underlying: java.util.Map[String, _], val mapSchema: Schema) extends CollectionNode[java.util.Map[String, _], String] {
   override def toString() = {
-    new StringBuilder().append("MapContainer(")
-      .append(map).append(",")
+    new StringBuilder().append("MapNode(")
+      .append(underlying).append(",")
       .append(mapSchema).append(",")
       .append(keys).append(",")
       .append(field).append(")")
@@ -115,8 +127,8 @@ final class MapContainer(val map: java.util.Map[String, _], val mapSchema: Schem
 
 object XPathEvaluator {
 
-  def select(record: IndexedRecord, xpath: Expr): List[Ctx] = {
-    val ctx = Ctx(record.getSchema, record, RecordContainer(record, null), null)
+  def select(record: IndexedRecord, xpath: Expr): List[Context] = {
+    val ctx = Context(record.getSchema, record, RecordNode(record, None), null)
     expr(xpath.expr, xpath.exprs, ctx)
   }
 
@@ -160,11 +172,11 @@ object XPathEvaluator {
     opClear(ctxs.head)
   }
 
-  private def opUpdate(ctx: Ctx, value: Any, isJsonValue: Boolean): List[UpdateAction] = {
+  private def opUpdate(ctx: Context, value: Any, isJsonValue: Boolean): List[UpdateAction] = {
     var actions = List[UpdateAction]()
 
-    ctx.container match {
-      case RecordContainer(rec, null) =>
+    ctx.node match {
+      case RecordNode(rec, None) =>
         val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], rec.getSchema, false) else value
         value1 match {
           case v: IndexedRecord =>
@@ -175,7 +187,7 @@ object XPathEvaluator {
           case _ => // log.error 
         }
 
-      case RecordContainer(rec, field) =>
+      case RecordNode(rec, Some(field)) =>
         val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
 
         val prev = rec.get(field.pos)
@@ -183,11 +195,11 @@ object XPathEvaluator {
         val commit = { () => rec.put(field.pos, value1) }
         actions ::= UpdateAction(commit, rlback, Changelog("/" + field.name, value1, field.schema))
 
-      case ArrayContainer(arr: java.util.Collection[Any], arrSchema, idxes, field) =>
+      case ArrayNode(arr: java.util.Collection[Any], arrSchema, idxes, field) =>
         val elemSchema = avro.getElementType(arrSchema)
         val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
 
-        //println(ctx.container)
+        //println(ctx.node)
         val itr = idxes.iterator
         while (itr.hasNext) {
           val ix = itr.next - 1
@@ -206,11 +218,11 @@ object XPathEvaluator {
           }
         }
 
-      case MapContainer(map: java.util.Map[String, Any], mapSchema, keys, field) =>
+      case MapNode(map: java.util.Map[String, Any], mapSchema, keys, field) =>
         val valueSchema = avro.getValueType(mapSchema)
         val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], valueSchema, false) else value
 
-        //println(ctx.container)
+        //println(ctx.node)
         val itr = keys.iterator
         while (itr.hasNext) {
           val key = itr.next
@@ -233,11 +245,11 @@ object XPathEvaluator {
     actions.reverse
   }
 
-  private def opInsert(ctx: Ctx, value: Any, isJsonValue: Boolean): List[UpdateAction] = {
+  private def opInsert(ctx: Context, value: Any, isJsonValue: Boolean): List[UpdateAction] = {
     var actions = List[UpdateAction]()
 
-    ctx.container match {
-      case RecordContainer(rec, field) =>
+    ctx.node match {
+      case RecordNode(rec, Some(field)) =>
         rec.get(field.pos) match {
           case arr: java.util.Collection[Any] @unchecked =>
             val elemSchema = avro.getElementType(field.schema)
@@ -274,21 +286,21 @@ object XPathEvaluator {
           case _ => // can only insert to array/map field
         }
 
-      case _: ArrayContainer =>
+      case _: ArrayNode =>
       // why are you here, for Insert, you should op on record's arr field directly
 
-      case _: MapContainer   =>
+      case _: MapNode   =>
       // why are you here, for Insert, you should op on record's map field directly
     }
 
     actions.reverse
   }
 
-  private def opInsertAll(ctx: Ctx, value: Any, isJsonValue: Boolean): List[UpdateAction] = {
+  private def opInsertAll(ctx: Context, value: Any, isJsonValue: Boolean): List[UpdateAction] = {
     var actions = List[UpdateAction]()
 
-    ctx.container match {
-      case RecordContainer(rec, field) =>
+    ctx.node match {
+      case RecordNode(rec, Some(field)) =>
         rec.get(field.pos) match {
           case arr: java.util.Collection[Any] @unchecked =>
             val elemSchema = avro.getElementType(field.schema)
@@ -335,31 +347,31 @@ object XPathEvaluator {
             }
         }
 
-      case _: ArrayContainer =>
+      case _: ArrayNode =>
       // why are you here, for Insert, you should op on record's arr field directly
 
-      case _: MapContainer   =>
+      case _: MapNode   =>
       // why are you here, for Insert, you should op on record's map field directly
     }
 
     actions.reverse
   }
 
-  private def opDelete(ctx: Ctx): List[UpdateAction] = {
+  private def opDelete(ctx: Context): List[UpdateAction] = {
     var actions = List[UpdateAction]()
 
     val processingArrs = new mutable.HashMap[java.util.Collection[Any], (Schema, List[Int])]()
-    ctx.container match {
-      case _: RecordContainer => // cannot apply delete on record
+    ctx.node match {
+      case _: RecordNode => // cannot apply delete on record
 
-      case ArrayContainer(arr: java.util.Collection[Any], arrSchema, idxes, field) =>
+      case ArrayNode(arr: java.util.Collection[Any], arrSchema, idxes, field) =>
         val itr = idxes.iterator
         while (itr.hasNext) {
           val ix = itr.next - 1
           processingArrs += arr -> (arrSchema, ix :: processingArrs.getOrElse(arr, (arrSchema, List[Int]()))._2)
         }
 
-      case MapContainer(map: java.util.Map[String, Any], mapSchema, keys, field) =>
+      case MapNode(map: java.util.Map[String, Any], mapSchema, keys, field) =>
         val itr = keys.iterator
         while (itr.hasNext) {
           val key = itr.next
@@ -399,11 +411,11 @@ object XPathEvaluator {
     actions.reverse
   }
 
-  private def opClear(ctx: Ctx): List[UpdateAction] = {
+  private def opClear(ctx: Context): List[UpdateAction] = {
     var actions = List[UpdateAction]()
 
-    ctx.container match {
-      case RecordContainer(rec, field) =>
+    ctx.node match {
+      case RecordNode(rec, Some(field)) =>
         rec.get(field.pos) match {
           case arr: java.util.Collection[_] =>
             val prev = new java.util.ArrayList(arr)
@@ -420,10 +432,10 @@ object XPathEvaluator {
           case _ => // ?
         }
 
-      case _: ArrayContainer =>
+      case _: ArrayNode =>
       // why are you here, for Insert, you should op on record's arr field directly
 
-      case _: MapContainer   =>
+      case _: MapNode   =>
       // why are you here, for Insert, you should op on record's map field directly
     }
 
@@ -432,29 +444,297 @@ object XPathEvaluator {
 
   // -------------------------------------------------------------------------
 
-  def paramList(param0: Param, params: List[Param], ctx: Ctx): List[Any] = {
+  private def _applyPredicateList(preds: List[Context], targetContext: Context): Context = {
+    //println("ctx: " + targetContext.node + " in predicates: " + preds)
+    if (preds.nonEmpty) {
+      val applieds = preds map { pred => _applyPredicate(pred, targetContext) }
+      applieds.head // TODO process multiple predicates
+    } else {
+      targetContext
+    }
+  }
+
+  private def _applyPredicate(pred: Context, targetContext: Context): Context = {
+    targetContext.schema.getType match {
+      case Schema.Type.ARRAY =>
+        pred.value match {
+          case ix: Number =>
+            val node = _checkIfApplyOnCollectionField(targetContext)
+            val origKeys = node.keys.iterator
+
+            val arr = targetContext.target.asInstanceOf[java.util.Collection[Any]].iterator
+
+            val elems = new java.util.LinkedList[Any]()
+            val keys = new java.util.LinkedList[Any]()
+            val idx = ix.intValue
+            var i = 1
+            while (arr.hasNext && i <= idx) {
+              val elem = arr.next
+              val key = origKeys.next
+              if (i == idx) {
+                elems.add(elem)
+                keys.add(key)
+              }
+              i += 1
+            }
+
+            //println(ctx.target + ", " + node.keys + ", ix:" + ix + ", elems: " + elems)
+            val got = elems
+            Context(targetContext.schema, got, node.keys(keys), got)
+
+          case boolOrInts: java.util.Collection[_] @unchecked =>
+            val node = _checkIfApplyOnCollectionField(targetContext)
+            val origKeys = node.keys.iterator
+
+            val arr = targetContext.target.asInstanceOf[java.util.Collection[Any]].iterator
+
+            val elems = new java.util.LinkedList[Any]()
+            val keys = new java.util.LinkedList[Any]()
+            var i = 0
+            val conds = boolOrInts.iterator
+            while (arr.hasNext && conds.hasNext) {
+              val elem = arr.next
+              val key = origKeys.next
+              conds.next match {
+                case cond: java.lang.Boolean =>
+                  if (cond) {
+                    elems.add(elem)
+                    keys.add(key)
+                  }
+                case cond: Number =>
+                  if (i == cond.intValue) {
+                    elems.add(elem)
+                    keys.add(key)
+                  }
+              }
+              i += 1
+            }
+
+            //println(ctx.target + ", " + node.keys + ", elems: " + elems)
+            val got = elems
+            Context(targetContext.schema, got, node.keys(keys), got)
+
+          case _ =>
+            targetContext // TODO
+        }
+
+      case Schema.Type.MAP => // TODO
+        pred.value match {
+          case bools: java.util.Collection[Boolean] @unchecked =>
+            val node = _checkIfApplyOnCollectionField(targetContext)
+            val origKeys = node.keys.iterator
+
+            val map = targetContext.target.asInstanceOf[java.util.Map[String, Any]].entrySet.iterator
+
+            val entries = new java.util.LinkedList[Any]()
+            val keys = new java.util.LinkedList[Any]()
+            val conds = bools.iterator
+            while (map.hasNext && conds.hasNext) {
+              val entry = map.next
+              val key = origKeys.next
+              val cond = conds.next
+              if (cond) {
+                entries.add(entry)
+                keys.add(key)
+              }
+            }
+
+            //println(ctx.target + ", " + node.keys + ", entries: " + entries)
+            val got = entries
+            Context(targetContext.schema, got, node.keys(keys), got)
+
+          case _ =>
+            targetContext // TODO
+        }
+
+      case tpe =>
+        //println("value: " + ctx.target + ", pred: " + pred)
+        pred.value match {
+          case x: Boolean => if (x) targetContext else Context(targetContext.schema, (), targetContext.node, ())
+          case _          => targetContext
+        }
+    }
+
+  }
+
+  /**
+   * When apply filtering on record's collection field, we know that the
+   * node should be transfered to a CollectionNode now.
+   */
+  private def _checkIfApplyOnCollectionField(ctx: Context): CollectionNode[_, _] = {
+    ctx.node match {
+      case x: RecordNode =>
+        ctx.target match {
+          case xs: java.util.Collection[Any] @unchecked =>
+            val n = xs.size
+            val keys = new java.util.LinkedList[Int]()
+            var i = 1
+            while (i <= n) {
+              keys.add(i)
+              i += 1
+            }
+
+            ArrayNode(xs, ctx.schema, keys, None)
+
+          case xs: java.util.Map[String, Any] @unchecked =>
+            val keys = new java.util.LinkedList[String]()
+            val itr = xs.keySet.iterator
+            while (itr.hasNext) {
+              keys.add(itr.next)
+            }
+
+            MapNode(xs, ctx.schema, keys, None)
+        }
+      case x: CollectionNode[_, _] => x
+    }
+  }
+
+  /**
+   * Node: Always convert selected collection result to scala list except which
+   * is selected by exactly the field name.
+   */
+  private def _ctxOfNameTest(axis: Axis, testResult: Any, ctx: Context): Context = {
+    testResult match {
+      case URIQualifiedName(uri, name) => ctx
+      case PrefixedName(prefix, local) => ctx
+      case UnprefixedName(local) =>
+        val schema = ctx.schema
+        val target = ctx.target
+
+        axis match {
+          case Child =>
+            target match {
+              case rec: IndexedRecord =>
+                val field = avro.getNonNull(schema).getField(local)
+                val fieldSchema = avro.getNonNull(field.schema)
+                val got = rec.get(field.pos)
+                Context(fieldSchema, got, RecordNode(rec, Some(field)).xpath(local), got)
+
+              case arr: java.util.Collection[IndexedRecord] @unchecked =>
+                val elems = new java.util.LinkedList[Any]()
+                val idxes = new java.util.LinkedList[Int]()
+                val elemSchema = avro.getElementType(schema)
+                val field = elemSchema.getField(local)
+                val fieldSchema = avro.getNonNull(field.schema)
+                val itr = arr.iterator
+                var i = 1
+                while (itr.hasNext) {
+                  val elem = itr.next
+                  elems.add(elem.get(field.pos))
+                  idxes.add(i)
+                  i += 1
+                }
+                val resultSchema = Schema.createArray(fieldSchema)
+                val got = new GenericData.Array(resultSchema, elems)
+                Context(resultSchema, got, ArrayNode(arr, schema, idxes, Some(field)).xpath(local), got)
+
+              case map: java.util.Map[String, IndexedRecord] @unchecked =>
+                //println("local: " + local + ", schema: " + schema)
+                val entries = new java.util.LinkedList[Any]()
+                val keys = new java.util.LinkedList[String]()
+                val valueSchema = avro.getValueType(schema)
+                val field = valueSchema.getField(local)
+                val fieldSchema = avro.getNonNull(field.schema)
+                val itr = map.entrySet.iterator
+                while (itr.hasNext) {
+                  val entry = itr.next
+                  entries.add(entry.getValue.get(field.pos))
+                  keys.add(entry.getKey)
+                }
+                val resultSchema = Schema.createArray(fieldSchema)
+                val got = new GenericData.Array(resultSchema, entries)
+                Context(resultSchema, got, MapNode(map, schema, keys, Some(field)).xpath(local), got)
+
+              case x => // what happens?
+                throw new XPathRuntimeException(x, "try to get child: " + local)
+            }
+
+          case Attribute =>
+            target match {
+              case map: java.util.Map[String, Any] @unchecked =>
+                // ok we're fetching a map value via key
+                val keys = new java.util.LinkedList[String]()
+                val valueSchema = avro.getValueType(schema)
+                val got = map.get(local)
+                keys.add(local)
+                Context(valueSchema, got, MapNode(map, schema, keys, None).xpath("@"), got)
+
+              case x => // what happens?
+                throw new XPathRuntimeException(x, "try to get attribute of: " + local)
+            }
+
+        }
+
+      case Aster =>
+        val schema = ctx.schema
+        val target = ctx.target
+
+        axis match {
+          case Child => ctx // TODO
+
+          case Attribute =>
+            //println("target: ", target)
+            target match {
+              case map: java.util.Map[String, Any] @unchecked =>
+                val elems = new java.util.LinkedList[Any]()
+                val keys = new java.util.LinkedList[String]()
+                // ok we're fetching all map values
+                val valueSchema = avro.getValueType(schema)
+                val itr = map.entrySet.iterator
+                while (itr.hasNext) {
+                  val entry = itr.next
+                  elems.add(entry.getValue)
+                  keys.add(entry.getKey)
+                }
+                val resultSchema = Schema.createArray(valueSchema)
+                val got = new GenericData.Array(resultSchema, elems)
+                // we convert values to an avro array, since it's selected result
+                Context(resultSchema, got, MapNode(map, schema, keys, None), got)
+
+              case x => // what happens?
+                throw new XPathRuntimeException(x, "try to get attribute of: " + Aster)
+            }
+
+          case _ => ctx // TODO
+
+        }
+
+      case NameAster(name) => ctx // TODO
+      case AsterName(name) => ctx // TODO
+      case UriAster(uri)   => ctx // TODO
+
+      case _ =>
+        //println("NodeTest res: " + testResult)
+        ctx
+
+    }
+  }
+
+  // -------------------------------------------------------------------------
+
+  def paramList(param0: Param, params: List[Param], ctx: Context): List[Any] = {
     param0 :: params map { x => param(x.name, x.typeDecl, ctx) }
   }
 
-  def param(name: EQName, typeDecl: Option[TypeDeclaration], ctx: Ctx) = {
+  def param(name: EQName, typeDecl: Option[TypeDeclaration], ctx: Context) = {
     // name
     typeDecl map { x => typeDeclaration(x.asType, ctx) }
   }
 
-  def functionBody(expr: EnclosedExpr, ctx: Ctx) = {
+  def functionBody(expr: EnclosedExpr, ctx: Context) = {
     enclosedExpr(expr.expr, ctx)
   }
 
-  def enclosedExpr(_expr: Expr, ctx: Ctx) = {
+  def enclosedExpr(_expr: Expr, ctx: Context) = {
     expr(_expr.expr, _expr.exprs, ctx)
   }
 
   // TODO should we support multiple exprSingles? which brings List values
-  def expr(expr: ExprSingle, exprs: List[ExprSingle], ctx: Ctx): List[Ctx] = {
+  def expr(expr: ExprSingle, exprs: List[ExprSingle], ctx: Context): List[Context] = {
     expr :: exprs map { exprSingle(_, ctx) }
   }
 
-  def exprSingle(expr: ExprSingle, ctx: Ctx): Ctx = {
+  def exprSingle(expr: ExprSingle, ctx: Context): Context = {
     expr match {
       case ForExpr(forClause, returnExpr)                         => forExpr(forClause, returnExpr, ctx)
       case LetExpr(letClause, returnExpr)                         => letExpr(letClause, returnExpr, ctx)
@@ -464,51 +744,51 @@ object XPathEvaluator {
     }
   }
 
-  def forExpr(forClause: SimpleForClause, returnExpr: ExprSingle, ctx: Ctx) = {
+  def forExpr(forClause: SimpleForClause, returnExpr: ExprSingle, ctx: Context) = {
     simpleForClause(forClause.binding, forClause.bindings, ctx)
     exprSingle(returnExpr, ctx)
   }
 
-  def simpleForClause(binding: SimpleForBinding, bindings: List[SimpleForBinding], ctx: Ctx) = {
+  def simpleForClause(binding: SimpleForBinding, bindings: List[SimpleForBinding], ctx: Context) = {
     binding :: bindings map { x => simpleForBinding(x.varName, x.inExpr, ctx) }
   }
 
-  def simpleForBinding(_varName: VarName, inExpr: ExprSingle, ctx: Ctx) = {
+  def simpleForBinding(_varName: VarName, inExpr: ExprSingle, ctx: Context) = {
     varName(_varName.eqName, ctx)
     exprSingle(inExpr, ctx)
   }
 
-  def letExpr(letClause: SimpleLetClause, returnExpr: ExprSingle, ctx: Ctx) = {
+  def letExpr(letClause: SimpleLetClause, returnExpr: ExprSingle, ctx: Context) = {
     simpleLetClause(letClause.binding, letClause.bindings, ctx)
     exprSingle(returnExpr, ctx)
   }
 
-  def simpleLetClause(binding: SimpleLetBinding, bindings: List[SimpleLetBinding], ctx: Ctx) = {
+  def simpleLetClause(binding: SimpleLetBinding, bindings: List[SimpleLetBinding], ctx: Context) = {
     binding :: bindings map { x => simpleLetBinding(x.varName, x.boundTo, ctx) }
   }
 
-  def simpleLetBinding(_varName: VarName, boundTo: ExprSingle, ctx: Ctx) = {
+  def simpleLetBinding(_varName: VarName, boundTo: ExprSingle, ctx: Context) = {
     varName(_varName.eqName, ctx)
     exprSingle(boundTo, ctx)
   }
 
-  def quantifiedExpr(isEvery: Boolean, varExpr: VarInExprSingle, varExprs: List[VarInExprSingle], statisExpr: ExprSingle, ctx: Ctx) = {
+  def quantifiedExpr(isEvery: Boolean, varExpr: VarInExprSingle, varExprs: List[VarInExprSingle], statisExpr: ExprSingle, ctx: Context) = {
     varExpr :: varExprs map { x => varInExprSingle(x.varName, x.inExpr, ctx) }
     exprSingle(statisExpr, ctx)
   }
 
-  def varInExprSingle(_varName: VarName, inExpr: ExprSingle, ctx: Ctx) = {
+  def varInExprSingle(_varName: VarName, inExpr: ExprSingle, ctx: Context) = {
     varName(_varName.eqName, ctx)
     exprSingle(inExpr, ctx)
   }
 
-  def ifExpr(ifExpr: Expr, thenExpr: ExprSingle, elseExpr: ExprSingle, ctx: Ctx) = {
+  def ifExpr(ifExpr: Expr, thenExpr: ExprSingle, elseExpr: ExprSingle, ctx: Context) = {
     expr(ifExpr.expr, ifExpr.exprs, ctx)
     exprSingle(thenExpr, ctx)
     exprSingle(elseExpr, ctx)
   }
 
-  def orExpr(_andExpr: AndExpr, andExprs: List[AndExpr], ctx: Ctx): Ctx = {
+  def orExpr(_andExpr: AndExpr, andExprs: List[AndExpr], ctx: Context): Context = {
     val ctx1 = andExpr(_andExpr.compExpr, _andExpr.compExprs, ctx)
     val value0 = ctx1.value
 
@@ -517,7 +797,7 @@ object XPathEvaluator {
     ctx1.value(value1)
   }
 
-  def andExpr(compExpr: ComparisonExpr, compExprs: List[ComparisonExpr], ctx: Ctx): Ctx = {
+  def andExpr(compExpr: ComparisonExpr, compExprs: List[ComparisonExpr], ctx: Context): Context = {
     val ctx1 = comparisonExpr(compExpr.concExpr, compExpr.compExprPostfix, ctx)
     val value0 = ctx1.value
 
@@ -526,7 +806,7 @@ object XPathEvaluator {
     ctx1.value(value1)
   }
 
-  def comparisonExpr(concExpr: StringConcatExpr, compExprPostfix: Option[ComparisonExprPostfix], ctx: Ctx): Ctx = {
+  def comparisonExpr(concExpr: StringConcatExpr, compExprPostfix: Option[ComparisonExprPostfix], ctx: Context): Context = {
     val ctx1 = stringConcatExpr(concExpr.rangeExpr, concExpr.rangeExprs, ctx)
     val value0 = ctx1.value
 
@@ -564,11 +844,11 @@ object XPathEvaluator {
    * valuecomp: "eq", "ne", "lt", "le", "gt", "ge"
    * nodecomp: "is", "<<", ">>"
    */
-  def comparisonExprPostfix(compOp: CompOperator, concExpr: StringConcatExpr, ctx: Ctx) = {
+  def comparisonExprPostfix(compOp: CompOperator, concExpr: StringConcatExpr, ctx: Context) = {
     stringConcatExpr(concExpr.rangeExpr, concExpr.rangeExprs, ctx)
   }
 
-  def stringConcatExpr(_rangeExpr: RangeExpr, rangeExprs: List[RangeExpr], ctx: Ctx) = {
+  def stringConcatExpr(_rangeExpr: RangeExpr, rangeExprs: List[RangeExpr], ctx: Context) = {
     val ctx1 = rangeExpr(_rangeExpr.addExpr, _rangeExpr.toExpr, ctx)
     val value0 = ctx1.value
 
@@ -581,7 +861,7 @@ object XPathEvaluator {
     ctx1.value(value1)
   }
 
-  def rangeExpr(addExpr: AdditiveExpr, toExpr: Option[AdditiveExpr], ctx: Ctx): Ctx = {
+  def rangeExpr(addExpr: AdditiveExpr, toExpr: Option[AdditiveExpr], ctx: Context): Context = {
     val ctx1 = additiveExpr(addExpr.multiExpr, addExpr.prefixedMultiExprs, ctx)
     val value0 = ctx1.value
 
@@ -592,7 +872,7 @@ object XPathEvaluator {
     ctx1.value(value1)
   }
 
-  def additiveExpr(multiExpr: MultiplicativeExpr, prefixedMultiExprs: List[MultiplicativeExpr], ctx: Ctx): Ctx = {
+  def additiveExpr(multiExpr: MultiplicativeExpr, prefixedMultiExprs: List[MultiplicativeExpr], ctx: Context): Context = {
     val ctx1 = multiplicativeExpr(multiExpr.prefix, multiExpr.unionExpr, multiExpr.prefixedUnionExprs, ctx)
     val v0 = ctx1.value
     val value0 = multiExpr.prefix match {
@@ -612,7 +892,7 @@ object XPathEvaluator {
   /**
    * prefix is "", or "+", "-"
    */
-  def multiplicativeExpr(prefix: Prefix, _unionExpr: UnionExpr, prefixedUnionExprs: List[UnionExpr], ctx: Ctx): Ctx = {
+  def multiplicativeExpr(prefix: Prefix, _unionExpr: UnionExpr, prefixedUnionExprs: List[UnionExpr], ctx: Context): Context = {
     val ctx1 = unionExpr(_unionExpr.prefix, _unionExpr.intersectExceptExpr, _unionExpr.prefixedIntersectExceptExprs, ctx)
     val value0 = ctx1.value
 
@@ -630,7 +910,7 @@ object XPathEvaluator {
   /**
    * prefix is "", or "*", "div", "idiv", "mod"
    */
-  def unionExpr(prefix: Prefix, _intersectExceptExpr: IntersectExceptExpr, prefixedIntersectExceptExprs: List[IntersectExceptExpr], ctx: Ctx): Ctx = {
+  def unionExpr(prefix: Prefix, _intersectExceptExpr: IntersectExceptExpr, prefixedIntersectExceptExprs: List[IntersectExceptExpr], ctx: Context): Context = {
     val ctx1 = intersectExceptExpr(_intersectExceptExpr.prefix, _intersectExceptExpr.instanceOfExpr, _intersectExceptExpr.prefixedInstanceOfExprs, ctx)
     val value0 = ctx1.value
 
@@ -645,7 +925,7 @@ object XPathEvaluator {
   /**
    * prefix is "", or "union", "|". The union and | operators are equivalent
    */
-  def intersectExceptExpr(prefix: Prefix, _instanceOfExpr: InstanceofExpr, prefixedInstanceOfExprs: List[InstanceofExpr], ctx: Ctx): Ctx = {
+  def intersectExceptExpr(prefix: Prefix, _instanceOfExpr: InstanceofExpr, prefixedInstanceOfExprs: List[InstanceofExpr], ctx: Context): Context = {
     val ctx1 = instanceofExpr(_instanceOfExpr.prefix, _instanceOfExpr.treatExpr, _instanceOfExpr.ofType, ctx)
     val value0 = ctx1.value
 
@@ -661,7 +941,7 @@ object XPathEvaluator {
   /**
    * prefix is "", or "intersect", "except"
    */
-  def instanceofExpr(prefix: Prefix, _treatExpr: TreatExpr, ofType: Option[SequenceType], ctx: Ctx): Ctx = {
+  def instanceofExpr(prefix: Prefix, _treatExpr: TreatExpr, ofType: Option[SequenceType], ctx: Context): Context = {
     val ctx1 = treatExpr(_treatExpr.castableExpr, _treatExpr.asType, ctx)
     val value = ctx1.value
 
@@ -674,7 +954,7 @@ object XPathEvaluator {
     ctx1.value(value1)
   }
 
-  def treatExpr(_castableExpr: CastableExpr, asType: Option[SequenceType], ctx: Ctx): Ctx = {
+  def treatExpr(_castableExpr: CastableExpr, asType: Option[SequenceType], ctx: Context): Context = {
     val ctx1 = castableExpr(_castableExpr.castExpr, _castableExpr.asType, ctx)
     val value = ctx1.value
 
@@ -687,7 +967,7 @@ object XPathEvaluator {
     ctx1.value(value1)
   }
 
-  def castableExpr(_castExpr: CastExpr, asType: Option[SingleType], ctx: Ctx): Ctx = {
+  def castableExpr(_castExpr: CastExpr, asType: Option[SingleType], ctx: Context): Context = {
     val ctx1 = castExpr(_castExpr.unaryExpr, _castExpr.asType, ctx)
     val value = ctx1.value
 
@@ -700,7 +980,7 @@ object XPathEvaluator {
     ctx1.value(value1)
   }
 
-  def castExpr(_unaryExpr: UnaryExpr, asType: Option[SingleType], ctx: Ctx): Ctx = {
+  def castExpr(_unaryExpr: UnaryExpr, asType: Option[SingleType], ctx: Context): Context = {
     val ctx1 = unaryExpr(_unaryExpr.prefix, _unaryExpr.valueExpr, ctx)
     val v = ctx1.value
     val value = _unaryExpr.prefix match {
@@ -720,18 +1000,18 @@ object XPathEvaluator {
   /**
    * prefix is "", or "-", "+"
    */
-  def unaryExpr(prefix: Prefix, _valueExpr: ValueExpr, ctx: Ctx): Ctx = {
+  def unaryExpr(prefix: Prefix, _valueExpr: ValueExpr, ctx: Context): Context = {
     valueExpr(_valueExpr.simpleMapExpr, ctx)
   }
 
   /**
    * TODO, fetch value here or later?
    */
-  def valueExpr(_simpleMapExpr: SimpleMapExpr, ctx: Ctx) = {
+  def valueExpr(_simpleMapExpr: SimpleMapExpr, ctx: Context) = {
     simpleMapExpr(_simpleMapExpr.pathExpr, _simpleMapExpr.exclamExprs, ctx)
   }
 
-  def simpleMapExpr(_pathExpr: PathExpr, exclamExprs: List[PathExpr], ctx: Ctx): Ctx = {
+  def simpleMapExpr(_pathExpr: PathExpr, exclamExprs: List[PathExpr], ctx: Context): Context = {
     val path = pathExpr(_pathExpr.prefix, _pathExpr.relativeExpr, ctx)
     exclamExprs map { x => pathExpr(x.prefix, x.relativeExpr, ctx) }
     path
@@ -744,7 +1024,7 @@ object XPathEvaluator {
    * / "/"  RelativePathExpr?
    * / RelativePathExpr
    */
-  def pathExpr(prefix: Prefix, relativeExpr: Option[RelativePathExpr], ctx: Ctx): Ctx = {
+  def pathExpr(prefix: Prefix, relativeExpr: Option[RelativePathExpr], ctx: Context): Context = {
     prefix match {
       case Nop      =>
       case Absolute =>
@@ -756,7 +1036,7 @@ object XPathEvaluator {
     }
   }
 
-  def relativePathExpr(_stepExpr: StepExpr, prefixedStepExprs: List[StepExpr], ctx: Ctx): Ctx = {
+  def relativePathExpr(_stepExpr: StepExpr, prefixedStepExprs: List[StepExpr], ctx: Context): Context = {
     val path0 = stepExpr(_stepExpr.prefix, _stepExpr.expr, ctx)
     prefixedStepExprs.foldLeft(path0) { (acc, x) => stepExpr(x.prefix, x.expr, acc) }
   }
@@ -764,7 +1044,7 @@ object XPathEvaluator {
   /**
    * prefix is "" or "/" or "//"
    */
-  def stepExpr(prefix: Prefix, expr: Either[PostfixExpr, AxisStep], ctx: Ctx): Ctx = {
+  def stepExpr(prefix: Prefix, expr: Either[PostfixExpr, AxisStep], ctx: Context): Context = {
     prefix match {
       case Nop      =>
       case Absolute =>
@@ -795,177 +1075,32 @@ object XPathEvaluator {
             val step = ForwardStep(Self, AnyKindTest)
             forwardAxisStep(step, predicates, ctx)
           case _ =>
-            Ctx(null, value0, null, value0) // TODO
+            Context(null, value0, null, value0) // TODO
         }
     }
   }
 
-  def reverseAxisStep(step: ReverseStep, predicates: PredicateList, ctx: Ctx): Ctx = {
-    val nodeTestCtx = nodeTest(step.axis, step.nodeTest, ctx)
+  def reverseAxisStep(step: ReverseStep, predicates: PredicateList, ctx: Context): Context = {
+    val nodeTestContext = nodeTest(step.axis, step.nodeTest, ctx)
     // We should separate the node test ctx and predicate ctx, the node test ctx will
     // be applied by predicates, and predicate ctx will use it as the beginning
     // ctx. So, we'll rely on predicateList to make a new copy for each predicate 
     // evaluating
-    val preds = predicateList(predicates.predicates, nodeTestCtx)
-    _applyPredicateList(preds, nodeTestCtx)
+    val preds = predicateList(predicates.predicates, nodeTestContext)
+    _applyPredicateList(preds, nodeTestContext)
   }
 
-  def forwardAxisStep(step: ForwardStep, predicates: PredicateList, ctx: Ctx): Ctx = {
-    val nodeTestCtx = nodeTest(step.axis, step.nodeTest, ctx)
+  def forwardAxisStep(step: ForwardStep, predicates: PredicateList, ctx: Context): Context = {
+    val nodeTestContext = nodeTest(step.axis, step.nodeTest, ctx)
     // We should separate the node test ctx and predicate ctx, the node test ctx will
     // be applied by predicates, and predicate ctx will use it as the beginning
     // ctx. So, we'll rely on predicateList to make a new copy for each predicate 
     // evaluating
-    val preds = predicateList(predicates.predicates, nodeTestCtx)
-    _applyPredicateList(preds, nodeTestCtx)
+    val preds = predicateList(predicates.predicates, nodeTestContext)
+    _applyPredicateList(preds, nodeTestContext)
   }
 
-  private def _applyPredicateList(preds: List[Ctx], targetCtx: Ctx): Ctx = {
-    //println("ctx: " + targetCtx.container + " in predicates: " + preds)
-    if (preds.nonEmpty) {
-      val applieds = preds map { pred => _applyPredicate(pred, targetCtx) }
-      applieds.head // TODO process multiple predicates
-    } else {
-      targetCtx
-    }
-  }
-
-  private def _applyPredicate(pred: Ctx, targetCtx: Ctx): Ctx = {
-    targetCtx.schema.getType match {
-      case Schema.Type.ARRAY =>
-        pred.value match {
-          case ix: Number =>
-            val container = _checkIfApplyOnCollectionField(targetCtx)
-            val origKeys = container.keys.iterator
-
-            val arr = targetCtx.target.asInstanceOf[java.util.Collection[Any]].iterator
-
-            val elems = new java.util.LinkedList[Any]()
-            val keys = new java.util.LinkedList[Any]()
-            val idx = ix.intValue
-            var i = 1
-            while (arr.hasNext && i <= idx) {
-              val elem = arr.next
-              val key = origKeys.next
-              if (i == idx) {
-                elems.add(elem)
-                keys.add(key)
-              }
-              i += 1
-            }
-
-            //println(ctx.target + ", " + container.keys + ", ix:" + ix + ", elems: " + elems)
-            val got = elems
-            Ctx(targetCtx.schema, got, container.keys(keys), got)
-
-          case boolOrInts: java.util.Collection[_] @unchecked =>
-            val container = _checkIfApplyOnCollectionField(targetCtx)
-            val origKeys = container.keys.iterator
-
-            val arr = targetCtx.target.asInstanceOf[java.util.Collection[Any]].iterator
-
-            val elems = new java.util.LinkedList[Any]()
-            val keys = new java.util.LinkedList[Any]()
-            var i = 0
-            val conds = boolOrInts.iterator
-            while (arr.hasNext && conds.hasNext) {
-              val elem = arr.next
-              val key = origKeys.next
-              conds.next match {
-                case cond: java.lang.Boolean =>
-                  if (cond) {
-                    elems.add(elem)
-                    keys.add(key)
-                  }
-                case cond: Number =>
-                  if (i == cond.intValue) {
-                    elems.add(elem)
-                    keys.add(key)
-                  }
-              }
-              i += 1
-            }
-
-            //println(ctx.target + ", " + container.keys + ", elems: " + elems)
-            val got = elems
-            Ctx(targetCtx.schema, got, container.keys(keys), got)
-
-          case _ =>
-            targetCtx // TODO
-        }
-
-      case Schema.Type.MAP => // TODO
-        pred.value match {
-          case bools: java.util.Collection[Boolean] @unchecked =>
-            val container = _checkIfApplyOnCollectionField(targetCtx)
-            val origKeys = container.keys.iterator
-
-            val map = targetCtx.target.asInstanceOf[java.util.Map[String, Any]].entrySet.iterator
-
-            val entries = new java.util.LinkedList[Any]()
-            val keys = new java.util.LinkedList[Any]()
-            val conds = bools.iterator
-            while (map.hasNext && conds.hasNext) {
-              val entry = map.next
-              val key = origKeys.next
-              val cond = conds.next
-              if (cond) {
-                entries.add(entry)
-                keys.add(key)
-              }
-            }
-
-            //println(ctx.target + ", " + container.keys + ", entries: " + entries)
-            val got = entries
-            Ctx(targetCtx.schema, got, container.keys(keys), got)
-
-          case _ =>
-            targetCtx // TODO
-        }
-
-      case tpe =>
-        //println("value: " + ctx.target + ", pred: " + pred)
-        pred.value match {
-          case x: Boolean => if (x) targetCtx else Ctx(targetCtx.schema, (), targetCtx.container, ())
-          case _          => targetCtx
-        }
-    }
-
-  }
-
-  /**
-   * When apply filtering on record's collection field, we know that the
-   * container should be transfered to a CollectionContainer now.
-   */
-  private def _checkIfApplyOnCollectionField(ctx: Ctx): CollectionContainer[_] = {
-    ctx.container match {
-      case x: RecordContainer =>
-        ctx.target match {
-          case xs: java.util.Collection[Any] @unchecked =>
-            val n = xs.size
-            val keys = new java.util.LinkedList[Int]()
-            var i = 1
-            while (i <= n) {
-              keys.add(i)
-              i += 1
-            }
-
-            ArrayContainer(xs, ctx.schema, keys, None)
-
-          case xs: java.util.Map[String, Any] @unchecked =>
-            val keys = new java.util.LinkedList[String]()
-            val itr = xs.keySet.iterator
-            while (itr.hasNext) {
-              keys.add(itr.next)
-            }
-
-            MapContainer(xs, ctx.schema, keys, None)
-        }
-      case x: CollectionContainer[_] => x
-    }
-  }
-
-  def nodeTest(axis: Axis, test: NodeTest, ctx: Ctx): Ctx = {
+  def nodeTest(axis: Axis, test: NodeTest, ctx: Context): Context = {
     test match {
       case x: NameTest =>
         val res = nameTest(x, ctx)
@@ -976,135 +1111,14 @@ object XPathEvaluator {
     }
   }
 
-  /**
-   * Node: Always convert selected collection result to scala list except which
-   * is selected by exactly the field name.
-   */
-  private def _ctxOfNameTest(axis: Axis, testResult: Any, ctx: Ctx): Ctx = {
-    testResult match {
-      case URIQualifiedName(uri, name) => ctx
-      case PrefixedName(prefix, local) => ctx
-      case UnprefixedName(local) =>
-        val schema = ctx.schema
-        val target = ctx.target
-
-        axis match {
-          case Child =>
-            target match {
-              case rec: IndexedRecord =>
-                val field = avro.getNonNull(schema).getField(local)
-                val fieldSchema = avro.getNonNull(field.schema)
-                val got = rec.get(field.pos)
-                Ctx(fieldSchema, got, RecordContainer(rec, field).xpathAppend(local), got)
-
-              case arr: java.util.Collection[IndexedRecord] @unchecked =>
-                val elems = new java.util.LinkedList[Any]()
-                val idxes = new java.util.LinkedList[Int]()
-                val elemSchema = avro.getElementType(schema)
-                val field = elemSchema.getField(local)
-                val fieldSchema = avro.getNonNull(field.schema)
-                val itr = arr.iterator
-                var i = 1
-                while (itr.hasNext) {
-                  val elem = itr.next
-                  elems.add(elem.get(field.pos))
-                  idxes.add(i)
-                  i += 1
-                }
-                val resultSchema = Schema.createArray(fieldSchema)
-                val got = new GenericData.Array(resultSchema, elems)
-                Ctx(resultSchema, got, ArrayContainer(arr, schema, idxes, Some(field)).xpathAppend(local), got)
-
-              case map: java.util.Map[String, IndexedRecord] @unchecked =>
-                //println("local: " + local + ", schema: " + schema)
-                val entries = new java.util.LinkedList[Any]()
-                val keys = new java.util.LinkedList[String]()
-                val valueSchema = avro.getValueType(schema)
-                val field = valueSchema.getField(local)
-                val fieldSchema = avro.getNonNull(field.schema)
-                val itr = map.entrySet.iterator
-                while (itr.hasNext) {
-                  val entry = itr.next
-                  entries.add(entry.getValue.get(field.pos))
-                  keys.add(entry.getKey)
-                }
-                val resultSchema = Schema.createArray(fieldSchema)
-                val got = new GenericData.Array(resultSchema, entries)
-                Ctx(resultSchema, got, MapContainer(map, schema, keys, Some(field)).xpathAppend(local), got)
-
-              case x => // what happens?
-                throw new XPathRuntimeException(x, "try to get child: " + local)
-            }
-
-          case Attribute =>
-            target match {
-              case map: java.util.Map[String, Any] @unchecked =>
-                // ok we're fetching a map value via key
-                val keys = new java.util.LinkedList[String]()
-                val valueSchema = avro.getValueType(schema)
-                val got = map.get(local)
-                keys.add(local)
-                Ctx(valueSchema, got, MapContainer(map, schema, keys, None).xpathAppend("@"), got)
-
-              case x => // what happens?
-                throw new XPathRuntimeException(x, "try to get attribute of: " + local)
-            }
-
-        }
-
-      case Aster =>
-        val schema = ctx.schema
-        val target = ctx.target
-
-        axis match {
-          case Child => ctx // TODO
-
-          case Attribute =>
-            //println("target: ", target)
-            target match {
-              case map: java.util.Map[String, Any] @unchecked =>
-                val elems = new java.util.LinkedList[Any]()
-                val keys = new java.util.LinkedList[String]()
-                // ok we're fetching all map values
-                val valueSchema = avro.getValueType(schema)
-                val itr = map.entrySet.iterator
-                while (itr.hasNext) {
-                  val entry = itr.next
-                  elems.add(entry.getValue)
-                  keys.add(entry.getKey)
-                }
-                val resultSchema = Schema.createArray(valueSchema)
-                val got = new GenericData.Array(resultSchema, elems)
-                // we convert values to an avro array, since it's selected result
-                Ctx(resultSchema, got, MapContainer(map, schema, keys, None), got)
-
-              case x => // what happens?
-                throw new XPathRuntimeException(x, "try to get attribute of: " + Aster)
-            }
-
-          case _ => ctx // TODO
-
-        }
-
-      case NameAster(name) => ctx // TODO
-      case AsterName(name) => ctx // TODO
-      case UriAster(uri)   => ctx // TODO
-
-      case _ =>
-        //println("NodeTest res: " + testResult)
-        ctx
-
-    }
-  }
-
-  def nameTest(test: NameTest, ctx: Ctx) = {
+  def nameTest(test: NameTest, ctx: Context) = {
     test match {
       case name: EQName       => name
       case wildcard: Wildcard => wildcard
     }
   }
 
-  def kindTest(test: KindTest, ctx: Ctx) = {
+  def kindTest(test: KindTest, ctx: Context) = {
     test match {
       case AnyKindTest =>
       case DocumentTest(elemTest) => documentTest(elemTest, ctx)
@@ -1121,7 +1135,7 @@ object XPathEvaluator {
     }
   }
 
-  def argumentList(args: List[Argument], ctx: Ctx): List[Ctx] = {
+  def argumentList(args: List[Argument], ctx: Context): List[Context] = {
     args map {
       case expr: ExprSingle    => exprSingle(expr, ctx)
       case ArgumentPlaceholder => ctx.value(ArgumentPlaceholder)
@@ -1132,7 +1146,7 @@ object XPathEvaluator {
    * Should make a new copy of ctx for each predicate, since we are in new ctx
    * during each predicate evaluating.
    */
-  def predicateList(predicates: List[Predicate], ctx: Ctx): List[Ctx] = {
+  def predicateList(predicates: List[Predicate], ctx: Context): List[Context] = {
     predicates map { x => predicate(x.expr, ctx.copy) }
   }
 
@@ -1140,15 +1154,15 @@ object XPathEvaluator {
    * predicate is composed by 'expr' which may have multiple values, but actually
    * it's rare?  So we just pick the head one.
    */
-  def predicate(_expr: Expr, ctx: Ctx): Ctx = {
+  def predicate(_expr: Expr, ctx: Context): Context = {
     expr(_expr.expr, _expr.exprs, ctx).head
   }
 
-  def lookup(_keySpecifier: KeySpecifier, ctx: Ctx) = {
+  def lookup(_keySpecifier: KeySpecifier, ctx: Context) = {
     keySpecifier(_keySpecifier, ctx)
   }
 
-  def keySpecifier(key: AnyRef, ctx: Ctx) = {
+  def keySpecifier(key: AnyRef, ctx: Context) = {
     key match {
       case ncName: String          => ncName
       case v: java.lang.Integer    => v
@@ -1158,7 +1172,7 @@ object XPathEvaluator {
     }
   }
 
-  def arrowPostfix(arrowFunction: ArrowFunctionSpecifier, args: ArgumentList, ctx: Ctx) = {
+  def arrowPostfix(arrowFunction: ArrowFunctionSpecifier, args: ArgumentList, ctx: Context) = {
     arrowFunction match {
       case name: EQName            =>
       case VarRef(varName)         =>
@@ -1166,7 +1180,7 @@ object XPathEvaluator {
     }
   }
 
-  def primaryExpr(expr: PrimaryExpr, ctx: Ctx): Any = {
+  def primaryExpr(expr: PrimaryExpr, ctx: Context): Any = {
     expr match {
       case Literal(x)                                       => literal(x, ctx)
       case VarRef(varName)                                  => varRef(varName, ctx)
@@ -1184,23 +1198,23 @@ object XPathEvaluator {
   /**
    * Force Any to AnyRef to avoid AnyVal be boxed/unboxed again and again
    */
-  def literal(v: Any, ctx: Ctx): AnyRef = {
+  def literal(v: Any, ctx: Context): AnyRef = {
     v.asInstanceOf[AnyRef]
   }
 
-  def varRef(_varName: VarName, ctx: Ctx) = {
+  def varRef(_varName: VarName, ctx: Context) = {
     varName(_varName.eqName, ctx)
   }
 
-  def varName(eqName: EQName, ctx: Ctx): EQName = {
+  def varName(eqName: EQName, ctx: Context): EQName = {
     eqName
   }
 
-  def parenthesizedExpr(_expr: Option[Expr], ctx: Ctx): Option[List[Ctx]] = {
+  def parenthesizedExpr(_expr: Option[Expr], ctx: Context): Option[List[Context]] = {
     _expr map { x => expr(x.expr, x.exprs, ctx) }
   }
 
-  def functionCall(name: EQName, _args: ArgumentList, ctx: Ctx): Any = {
+  def functionCall(name: EQName, _args: ArgumentList, ctx: Context): Any = {
     val fnName = name match {
       case UnprefixedName(local)       => local
       case PrefixedName(prefix, local) => local
@@ -1221,11 +1235,11 @@ object XPathEvaluator {
     }
   }
 
-  def namedFunctionRef(name: EQName, index: Int, ctx: Ctx) = {
+  def namedFunctionRef(name: EQName, index: Int, ctx: Context) = {
     // TODO
   }
 
-  def inlineFunctionExpr(params: Option[ParamList], asType: Option[SequenceType], _functionBody: FunctionBody, ctx: Ctx) = {
+  def inlineFunctionExpr(params: Option[ParamList], asType: Option[SequenceType], _functionBody: FunctionBody, ctx: Context) = {
     params match {
       case Some(x) => paramList(x.param, x.params, ctx)
       case None    => Nil
@@ -1234,16 +1248,16 @@ object XPathEvaluator {
     functionBody(_functionBody.expr, ctx)
   }
 
-  def mapConstructor(entrys: List[MapConstructorEntry], ctx: Ctx) = {
+  def mapConstructor(entrys: List[MapConstructorEntry], ctx: Context) = {
     entrys map { x => mapConstructorEntry(x.key, x.value, ctx) }
   }
 
-  def mapConstructorEntry(key: MapKeyExpr, value: MapValueExpr, ctx: Ctx): Any = {
+  def mapConstructorEntry(key: MapKeyExpr, value: MapValueExpr, ctx: Context): Any = {
     exprSingle(key.expr, ctx)
     exprSingle(value.expr, ctx)
   }
 
-  def arrayConstructor(constructor: ArrayConstructor, ctx: Ctx): Any = {
+  def arrayConstructor(constructor: ArrayConstructor, ctx: Context): Any = {
     constructor match {
       case SquareArrayConstructor(exprs) =>
         exprs map { x => exprSingle(x, ctx) }
@@ -1255,19 +1269,19 @@ object XPathEvaluator {
     }
   }
 
-  def unaryLookup(key: KeySpecifier, ctx: Ctx) = {
+  def unaryLookup(key: KeySpecifier, ctx: Context) = {
     keySpecifier(key, ctx)
   }
 
-  def singleType(name: SimpleTypeName, withQuestionMark: Boolean, ctx: Ctx) = {
+  def singleType(name: SimpleTypeName, withQuestionMark: Boolean, ctx: Context) = {
     simpleTypeName(name.name, ctx)
   }
 
-  def typeDeclaration(asType: SequenceType, ctx: Ctx) = {
+  def typeDeclaration(asType: SequenceType, ctx: Context) = {
     sequenceType(asType, ctx)
   }
 
-  def sequenceType(tpe: SequenceType, ctx: Ctx) = {
+  def sequenceType(tpe: SequenceType, ctx: Context) = {
     tpe match {
       case SequenceType_Empty =>
       case SequenceType_ItemType(_itemType, occurrence) =>
@@ -1281,7 +1295,7 @@ object XPathEvaluator {
     }
   }
 
-  def itemType(tpe: ItemType, ctx: Ctx): Any = {
+  def itemType(tpe: ItemType, ctx: Context): Any = {
     tpe match {
       case ItemType_ITEM                    =>
       case AtomicOrUnionType(eqName)        => eqName
@@ -1296,18 +1310,18 @@ object XPathEvaluator {
   /**
    * elemTest should be either ElementTest or SchemaElementTest
    */
-  def documentTest(elemTest: Option[KindTest], ctx: Ctx): Any = {
+  def documentTest(elemTest: Option[KindTest], ctx: Context): Any = {
     elemTest map { x => kindTest(x, ctx) }
   }
 
-  def piTest(name: Option[String], ctx: Ctx) = {
+  def piTest(name: Option[String], ctx: Context) = {
     name match {
       case Some(x) =>
       case None    =>
     }
   }
 
-  def attributeTest_Name(name: AttribNameOrWildcard, typeName: Option[TypeName], ctx: Ctx) = {
+  def attributeTest_Name(name: AttribNameOrWildcard, typeName: Option[TypeName], ctx: Context) = {
     // TODO optional type name
     name match {
       case Left(x)  => attributeName(x.name, ctx)
@@ -1315,77 +1329,77 @@ object XPathEvaluator {
     }
   }
 
-  def schemaAttributeTest(attrDecl: AttributeDeclaration, ctx: Ctx) = {
+  def schemaAttributeTest(attrDecl: AttributeDeclaration, ctx: Context) = {
     attributeDeclaration(attrDecl.name, ctx)
   }
 
-  def attributeDeclaration(name: AttributeName, ctx: Ctx) = {
+  def attributeDeclaration(name: AttributeName, ctx: Context) = {
     attributeName(name.name, ctx)
   }
 
-  def elementTest_Name(name: ElementNameOrWildcard, typeName: Option[TypeName], withQuestionMark: Boolean, ctx: Ctx) = {
+  def elementTest_Name(name: ElementNameOrWildcard, typeName: Option[TypeName], withQuestionMark: Boolean, ctx: Context) = {
     name match {
       case Left(x)  => elementName(x.name, ctx)
       case Right(x) => // Aster - QName
     }
   }
 
-  def schemaElementTest(elemDecl: ElementDeclaration, ctx: Ctx) = {
+  def schemaElementTest(elemDecl: ElementDeclaration, ctx: Context) = {
     elementDeclaration(elemDecl.name, ctx)
   }
 
-  def elementDeclaration(name: ElementName, ctx: Ctx) = {
+  def elementDeclaration(name: ElementName, ctx: Context) = {
     elementName(name.name, ctx)
   }
 
-  def attributeName(name: EQName, ctx: Ctx): EQName = {
+  def attributeName(name: EQName, ctx: Context): EQName = {
     name
   }
 
-  def elementName(name: EQName, ctx: Ctx): EQName = {
+  def elementName(name: EQName, ctx: Context): EQName = {
     name
   }
 
-  def simpleTypeName(name: TypeName, ctx: Ctx): EQName = {
+  def simpleTypeName(name: TypeName, ctx: Context): EQName = {
     typeName(name.name, ctx)
   }
 
-  def typeName(name: EQName, ctx: Ctx): EQName = {
+  def typeName(name: EQName, ctx: Context): EQName = {
     name
   }
 
-  def functionTest(test: FunctionTest, ctx: Ctx) = {
+  def functionTest(test: FunctionTest, ctx: Context) = {
     test match {
       case AnyFunctionTest                  =>
       case TypedFunctionTest(types, asType) => typedFunctionTest(types, asType, ctx)
     }
   }
 
-  def typedFunctionTest(types: List[SequenceType], asType: SequenceType, ctx: Ctx): Any = {
+  def typedFunctionTest(types: List[SequenceType], asType: SequenceType, ctx: Context): Any = {
     types map { sequenceType(_, ctx) }
     sequenceType(asType, ctx)
   }
 
-  def mapTest(test: MapTest, ctx: Ctx) = {
+  def mapTest(test: MapTest, ctx: Context) = {
     test match {
       case AnyMapTest                =>
       case TypedMapTest(tpe, asType) => typedMapTest(tpe, asType, ctx)
     }
   }
 
-  def typedMapTest(tpe: AtomicOrUnionType, asType: SequenceType, ctx: Ctx) = {
+  def typedMapTest(tpe: AtomicOrUnionType, asType: SequenceType, ctx: Context) = {
     //tpe.eqName
     sequenceType(asType, ctx)
   }
 
-  def arrayTest(test: ArrayTest, ctx: Ctx) = {
+  def arrayTest(test: ArrayTest, ctx: Context) = {
     test match {
       case AnyArrayTest        =>
       case TypedArrayTest(tpe) => typedArrayTest(tpe, ctx)
     }
   }
 
-  def typedArrayTest(tpe: SequenceType, ctx: Ctx) = {
+  def typedArrayTest(tpe: SequenceType, ctx: Context) = {
     sequenceType(tpe, ctx)
   }
 

@@ -13,7 +13,7 @@ import chana.SelectJson
 import chana.Update
 import chana.UpdateJson
 import chana.xpath
-import chana.xpath.Ctx
+import chana.xpath.Context
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
@@ -25,8 +25,8 @@ trait XPathBehavior extends Entity {
       resetIdleTimeout()
       val commander = sender()
       xpath.select(record, path) match {
-        case Success(ctxList: List[Ctx]) =>
-          commander ! Success(ctxList)
+        case Success(ctxs: List[Context]) =>
+          commander ! Success(ctxs)
         case x @ Failure(ex) =>
           log.error(ex, ex.getMessage)
           commander ! x
