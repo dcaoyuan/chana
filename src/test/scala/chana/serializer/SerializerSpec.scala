@@ -3,9 +3,12 @@ package chana.serializer
 import akka.actor.ActorSystem
 import akka.testkit.{ ImplicitSender, TestKit }
 import akka.serialization.SerializationExtension
+import akka.util.ByteString
 import chana.PutSchema
 import chana.UpdatedFields
+import chana.avro
 import chana.avro.DefaultRecordBuilder
+import chana.avro.UpdateEvent
 import chana.jpql.BinaryProjection
 import chana.jpql.RemoveProjection
 import com.typesafe.config.ConfigFactory
@@ -92,6 +95,26 @@ class SerializerSpec(_system: ActorSystem) extends TestKit(_system) with Implici
     resById should be(obj)
   }
 
+  "StringSerializer" must {
+    "handle string" in {
+      val obj = "abcd中文"
+      val builder = ByteString.newBuilder
+
+      StringSerializer.appendToByteString(builder, obj)
+      val bytes = builder.result.iterator
+      StringSerializer.fromByteIterator(bytes) should be(obj)
+    }
+
+    "handle empty string" in {
+      val obj = ""
+      val builder = ByteString.newBuilder
+
+      StringSerializer.appendToByteString(builder, obj)
+      val bytes = builder.result.iterator
+      StringSerializer.fromByteIterator(bytes) should be(obj)
+    }
+  }
+
   "Serializer" must {
     "handle Avro record" in {
       test(record)
@@ -144,5 +167,16 @@ class SerializerSpec(_system: ActorSystem) extends TestKit(_system) with Implici
       val obj = RemoveProjection("5678")
       test(obj)
     }
+
+    "handle binlog" in {
+      val obj = avro.Changelog("", record, record.getSchema)
+      test(obj)
+    }
+
+    "handle update event" in {
+      val obj = UpdateEvent(Array(avro.Changelog("/", record, record.getSchema)))
+      test(obj)
+    }
+
   }
 }

@@ -68,7 +68,13 @@ package object avro {
   final case class Insertlog(xpath: String, value: Any, schema: Schema) extends Binlog { def `type` = 1 }
 
   final case class UpdateAction(commit: () => Any, rollback: () => Any, binlog: Binlog)
-  final case class UpdateEvent(binlogs: Array[Binlog]) extends Serializable
+
+  final case class UpdateEvent(binlogs: Array[Binlog]) extends Serializable {
+    override def equals(o: Any): Boolean = o match {
+      case UpdateEvent(binlogs) => this.binlogs.sameElements(binlogs)
+      case _                    => false
+    }
+  }
 
   private[avro] val JSON_MAPPER = new ObjectMapper()
   private[avro] val JSON_FACTORY = new JsonFactory()

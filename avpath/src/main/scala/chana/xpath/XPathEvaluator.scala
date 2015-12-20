@@ -18,24 +18,34 @@ final case class XPathRuntimeException(value: Any, message: String) extends Runt
     case _         => "primary type."
   }))
 
-final case class PathedValue(parent: PathedValue, value: Any, key: Option[Any]) {
-
-}
-
+/**
+ * XPath elements cases:
+ *   record
+ *   record's field
+ *   map entry
+ *   map entry's value
+ *   map entry's value's field
+ *   array element
+ *   array element's field
+ */
 sealed trait AvroNode[T] {
   def underlying: T
+  def schema: Schema
+
+  private var _xpath = ""
+  /**
+   * xpath till underlying
+   */
+  def xpath = _xpath
+  def xpath(x: String): this.type = {
+    _xpath = x
+    this
+  }
 
   private var _field: Option[Schema.Field] = None
   def field = _field
   def field(x: Option[Schema.Field]): this.type = {
     _field = x
-    this
-  }
-
-  private var _xpath = "/"
-  def xpath = _xpath
-  def xpath(x: String): this.type = {
-    _xpath = x
     this
   }
 }
@@ -58,6 +68,8 @@ object RecordNode {
     Some((x.underlying, x.field))
 }
 final class RecordNode private (val underlying: IndexedRecord) extends AvroNode[IndexedRecord] {
+  def schema = underlying.getSchema
+
   override def toString() = {
     new StringBuilder().append("RecordNode(")
       .append(underlying).append(",")
@@ -71,13 +83,13 @@ object ArrayNode {
     new ArrayNode(array, arraySchema).keys(idxes).field(field)
 
   def unapply(x: ArrayNode): Option[(java.util.Collection[_], Schema, java.util.Collection[Int], Option[Schema.Field])] =
-    Some((x.underlying, x.arraySchema, x.keys, x.field))
+    Some((x.underlying, x.schema, x.keys, x.field))
 }
-final class ArrayNode private (val underlying: java.util.Collection[_], val arraySchema: Schema) extends CollectionNode[java.util.Collection[_], Int] {
+final class ArrayNode private (val underlying: java.util.Collection[_], val schema: Schema) extends CollectionNode[java.util.Collection[_], Int] {
   override def toString() = {
     new StringBuilder().append("ArrayNode(")
       .append(underlying).append(",")
-      .append(arraySchema).append(",")
+      .append(schema).append(",")
       .append(keys).append(",")
       .append(field).append(")")
       .toString
@@ -89,13 +101,13 @@ object MapNode {
     new MapNode(map, mapSchema).keys(keys).field(field)
 
   def unapply(x: MapNode): Option[(java.util.Map[String, _], Schema, java.util.Collection[String], Option[Schema.Field])] =
-    Some((x.underlying, x.mapSchema, x.keys, x.field))
+    Some((x.underlying, x.schema, x.keys, x.field))
 }
-final class MapNode private (val underlying: java.util.Map[String, _], val mapSchema: Schema) extends CollectionNode[java.util.Map[String, _], String] {
+final class MapNode private (val underlying: java.util.Map[String, _], val schema: Schema) extends CollectionNode[java.util.Map[String, _], String] {
   override def toString() = {
     new StringBuilder().append("MapNode(")
       .append(underlying).append(",")
-      .append(mapSchema).append(",")
+      .append(schema).append(",")
       .append(keys).append(",")
       .append(field).append(")")
       .toString
@@ -103,13 +115,23 @@ final class MapNode private (val underlying: java.util.Map[String, _], val mapSc
 }
 
 object Context {
-  def apply(schema: Schema, target: Any, node: AvroNode[_], value: Any) = new Context(schema, target, node, value)
+  def apply(schema: Schema, target: Any, node: AvroNode[_], value: Any) = new Context(schema, target, node).value(value)
   def unapply(x: Context): Option[(Schema, Any, AvroNode[_])] = Some((x.schema, x.target, x.node))
 }
-final class Context(val schema: Schema, val target: Any, val node: AvroNode[_], private var _value: Any) {
+/**
+ * Context during evaluating.
+ *
+ * @param schema  the schema of target
+ * @param target  current value/values to be applied on node test
+ * @param node    the owner node(or this node's field) of target
+ *
+ * value the value during evaluating, vairable during this context
+ */
+final class Context private (val schema: Schema, val target: Any, val node: AvroNode[_]) {
   /**
-   * value during evaluating
+   * value during evaluating, vairable during this context
    */
+  private var _value: Any = _
   def value = _value
   def value(x: Any) = {
     _value = x
@@ -179,49 +201,58 @@ object XPathEvaluator {
     var actions = List[UpdateAction]()
 
     ctx.node match {
-      case RecordNode(rec, None) =>
+      case n @ RecordNode(rec, None) =>
         val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], rec.getSchema, false) else value
         value1 match {
           case v: IndexedRecord =>
             val prev = new GenericData.Record(rec.asInstanceOf[GenericData.Record], true)
             val rlback = { () => avro.replace(rec, prev) }
             val commit = { () => avro.replace(rec, v) }
-            actions ::= UpdateAction(commit, rlback, Changelog("/", v, rec.getSchema))
+            val xpath = n.xpath match {
+              case "" => "/"
+              case x  => x
+            }
+            // if xpath == "" will cause error, why? TODO
+            actions ::= UpdateAction(commit, rlback, Changelog(xpath, v, rec.getSchema))
           case _ => // log.error 
         }
 
-      case RecordNode(rec, Some(field)) =>
+      case n @ RecordNode(rec, Some(field)) =>
         val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
 
         val prev = rec.get(field.pos)
         val rlback = { () => rec.put(field.pos, prev) }
         val commit = { () => rec.put(field.pos, value1) }
-        actions ::= UpdateAction(commit, rlback, Changelog("/" + field.name, value1, field.schema))
+        val xpath = n.xpath + "/" + field.name
+        actions ::= UpdateAction(commit, rlback, Changelog(xpath, value1, field.schema))
 
-      case ArrayNode(arr: java.util.Collection[Any], arrSchema, idxes, field) =>
+      case n @ ArrayNode(arr: java.util.Collection[Any], arrSchema, idxes, field) =>
         val elemSchema = avro.getElementType(arrSchema)
         val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
 
         //println(ctx.node)
         val itr = idxes.iterator
         while (itr.hasNext) {
-          val ix = itr.next - 1
+          val idx = itr.next
+          val ix = idx - 1
           val target = avro.arraySelect(arr, ix)
           field match {
-            case Some(x) =>
+            case Some(f) =>
               val rec = target.asInstanceOf[IndexedRecord]
-              val prev = rec.get(x.pos)
-              val rlback = { () => rec.put(x.pos, prev) }
-              val commit = { () => rec.put(x.pos, value1) }
-              actions ::= UpdateAction(commit, rlback, Changelog("", (ix, value1), x.schema))
+              val prev = rec.get(f.pos)
+              val rlback = { () => rec.put(f.pos, prev) }
+              val commit = { () => rec.put(f.pos, value1) }
+              val xpath = n.xpath + "[" + idx + "]/" + f.name
+              actions ::= UpdateAction(commit, rlback, Changelog(xpath, (ix, value1), f.schema))
             case None =>
               val rlback = { () => avro.arrayUpdate(arr, ix, target) }
               val commit = { () => avro.arrayUpdate(arr, ix, value1) }
-              actions ::= UpdateAction(commit, rlback, Changelog("", (ix, value1), arrSchema))
+              val xpath = n.xpath + "[" + idx + "]"
+              actions ::= UpdateAction(commit, rlback, Changelog(xpath, (ix, value1), arrSchema))
           }
         }
 
-      case MapNode(map: java.util.Map[String, Any], mapSchema, keys, field) =>
+      case n @ MapNode(map: java.util.Map[String, Any], mapSchema, keys, field) =>
         val valueSchema = avro.getValueType(mapSchema)
         val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], valueSchema, false) else value
 
@@ -231,16 +262,18 @@ object XPathEvaluator {
           val key = itr.next
           val target = map.get(key)
           field match {
-            case Some(x) =>
+            case Some(f) =>
               val rec = target.asInstanceOf[IndexedRecord]
-              val prev = rec.get(x.pos)
-              val rlback = { () => rec.put(x.pos, prev) }
-              val commit = { () => rec.put(x.pos, value1) }
-              actions ::= UpdateAction(commit, rlback, Changelog("", (key, value1), mapSchema))
+              val prev = rec.get(f.pos)
+              val rlback = { () => rec.put(f.pos, prev) }
+              val commit = { () => rec.put(f.pos, value1) }
+              val xpath = n.xpath + "/@" + key + "/" + f.name
+              actions ::= UpdateAction(commit, rlback, Changelog(xpath, (key, value1), mapSchema))
             case None =>
               val rlback = { () => map.put(key, target) }
               val commit = { () => map.put(key, value1) }
-              actions ::= UpdateAction(commit, rlback, Changelog("", (key, value1), mapSchema))
+              val xpath = n.xpath + "/@" + key
+              actions ::= UpdateAction(commit, rlback, Changelog(xpath, (key, value1), mapSchema))
 
           }
         }
@@ -563,7 +596,7 @@ object XPathEvaluator {
    */
   private def _checkIfApplyOnCollectionField(ctx: Context): CollectionNode[_, _] = {
     ctx.node match {
-      case x: RecordNode =>
+      case n: RecordNode =>
         ctx.target match {
           case arr: java.util.Collection[Any] @unchecked =>
             val itr = arr.iterator
@@ -574,10 +607,20 @@ object XPathEvaluator {
               keys.add(i)
               i += 1
             }
-            ArrayNode(arr, ctx.schema, keys, None)
+            val xpath = n.field match {
+              case Some(f) => n.xpath + "/" + f.name
+              case None    => n.xpath
+            }
+
+            ArrayNode(arr, ctx.schema, keys, None).xpath(xpath)
 
           case map: java.util.Map[String, Any] @unchecked =>
-            MapNode(map, ctx.schema, map.keySet, None)
+            val xpath = n.field match {
+              case Some(f) => n.xpath + "/" + f.name
+              case None    => n.xpath
+            }
+
+            MapNode(map, ctx.schema, map.keySet, None).xpath(xpath)
         }
       case x: CollectionNode[_, _] => x
     }
@@ -601,24 +644,24 @@ object XPathEvaluator {
                 val field = avro.getNonNull(schema).getField(local)
                 val fieldSchema = avro.getNonNull(field.schema)
                 val value = rec.get(field.pos)
-                Context(fieldSchema, value, RecordNode(rec, Some(field)).xpath(local), value)
+
+                val node = ctx.node match {
+                  case n: RecordNode =>
+                    val xpath = n.field match {
+                      case Some(f) => n.xpath + "/" + f.name
+                      case None    => n.xpath
+                    }
+                    RecordNode(rec, Some(field)).xpath(xpath)
+                  case n: MapNode =>
+                    RecordNode(rec, Some(field)).xpath(n.xpath)
+                  case n: ArrayNode =>
+                    RecordNode(rec, Some(field)).xpath(n.xpath)
+                }
+
+                Context(fieldSchema, value, node, value)
 
               case arr: java.util.Collection[IndexedRecord] @unchecked =>
                 // we'll transfer Node to record's ArrayNode
-                val node = ctx.node match {
-                  case x: RecordNode =>
-                    val itr = arr.iterator
-                    val keys = new java.util.LinkedList[Int]()
-                    var i = 1
-                    while (itr.hasNext) {
-                      itr.next
-                      keys.add(i)
-                      i += 1
-                    }
-                    ArrayNode(arr, ctx.schema, keys, None)
-                  case x: CollectionNode[_, _] => x
-                }
-
                 val values = new java.util.LinkedList[Any]()
                 val elemSchema = avro.getElementType(schema)
                 val field = elemSchema.getField(local)
@@ -629,16 +672,29 @@ object XPathEvaluator {
                   val value = elem.get(field.pos)
                   values.add(value)
                 }
-                Context(Schema.createArray(fieldSchema), values, node.field(Some(field)), values)
 
-              case map: java.util.Map[String, IndexedRecord] @unchecked =>
-                // we'll transfer Node to record's MapNode
                 val node = ctx.node match {
-                  case x: RecordNode =>
-                    MapNode(map, ctx.schema, map.keySet, None)
-                  case x: CollectionNode[_, _] => x
+                  case n: RecordNode =>
+                    val itr = arr.iterator
+                    val keys = new java.util.LinkedList[Int]()
+                    var i = 1
+                    while (itr.hasNext) {
+                      itr.next
+                      keys.add(i)
+                      i += 1
+                    }
+                    val xpath = n.field match {
+                      case Some(f) => n.xpath + "/" + f.name
+                      case None    => n.xpath
+                    }
+                    ArrayNode(arr, ctx.schema, keys, Some(field)).xpath(xpath)
+
+                  case n: CollectionNode[_, _] => n.field(Some(field))
                 }
 
+                Context(Schema.createArray(fieldSchema), values, node, values)
+
+              case map: java.util.Map[String, IndexedRecord] @unchecked =>
                 val values = new java.util.LinkedList[Any]()
                 val valueSchema = avro.getValueType(schema)
                 val field = valueSchema.getField(local)
@@ -649,7 +705,20 @@ object XPathEvaluator {
                   val value = entry.getValue.get(field.pos)
                   values.add(entry.getValue.get(field.pos))
                 }
-                Context(Schema.createArray(fieldSchema), values, node.field(Some(field)), values)
+
+                // we'll transfer Node to record's MapNode
+                val node = ctx.node match {
+                  case n: RecordNode =>
+                    val xpath = n.field match {
+                      case Some(f) => n.xpath + "/" + f.name
+                      case None    => n.xpath
+                    }
+                    MapNode(map, ctx.schema, map.keySet, Some(field)).xpath(xpath)
+
+                  case n: CollectionNode[_, _] => n.field(Some(field))
+                }
+
+                Context(Schema.createArray(fieldSchema), values, node, values)
 
               case x => // what happens?
                 throw new XPathRuntimeException(x, "try to get child: " + local)
@@ -659,11 +728,24 @@ object XPathEvaluator {
             ctx.target match {
               case map: java.util.Map[String, Any] @unchecked =>
                 // ok we're fetching a map value via key
+                val values = new java.util.LinkedList[Any]()
                 val keys = new java.util.LinkedList[String]()
                 val valueSchema = avro.getValueType(schema)
                 val value = map.get(local)
+                values.add(value)
                 keys.add(local)
-                Context(valueSchema, value, MapNode(map, schema, keys, None).xpath("@"), value)
+
+                val node = ctx.node match {
+                  case n: RecordNode =>
+                    val xpath = n.field match {
+                      case Some(f) => n.xpath + "/" + f.name
+                      case None    => n.xpath
+                    }
+                    MapNode(map, schema, keys, None).xpath(xpath)
+                  case n: CollectionNode[_, _] => n.keys(keys)
+                }
+
+                Context(valueSchema, value, node, value)
 
               case x => // what happens?
                 throw new XPathRuntimeException(x, "try to get attribute of: " + local)
@@ -683,9 +765,21 @@ object XPathEvaluator {
               case map: java.util.Map[String, Any] @unchecked =>
                 // ok we're fetching all map values
                 val valueSchema = avro.getValueType(schema)
-                val resultSchema = Schema.createArray(valueSchema)
+                val values = map.values
+                val keys = map.keySet
+
+                val node = ctx.node match {
+                  case n: RecordNode =>
+                    val xpath = n.field match {
+                      case Some(f) => n.xpath + "/" + f.name
+                      case None    => n.xpath
+                    }
+                    MapNode(map, schema, keys, None).xpath(xpath)
+                  case n: CollectionNode[_, _] => n.keys(keys)
+                }
+
                 // we convert values to an avro array, since it's selected result
-                Context(resultSchema, map.values, MapNode(map, schema, map.keySet, None), map.values)
+                Context(Schema.createArray(valueSchema), values, node, values)
 
               case x => // what happens?
                 throw new XPathRuntimeException(x, "try to get attribute of: " + Aster)
@@ -1077,23 +1171,23 @@ object XPathEvaluator {
   }
 
   def reverseAxisStep(step: ReverseStep, predicates: PredicateList, ctx: Context): Context = {
-    val nodeTestContext = nodeTest(step.axis, step.nodeTest, ctx)
+    val nodeTestCtx = nodeTest(step.axis, step.nodeTest, ctx)
     // We should separate the node test ctx and predicate ctx, the node test ctx will
     // be applied by predicates, and predicate ctx will use it as the beginning
     // ctx. So, we'll rely on predicateList to make a new copy for each predicate 
     // evaluating
-    val preds = predicateList(predicates.predicates, nodeTestContext)
-    _applyPredicateList(preds, nodeTestContext)
+    val preds = predicateList(predicates.predicates, nodeTestCtx)
+    _applyPredicateList(preds, nodeTestCtx)
   }
 
   def forwardAxisStep(step: ForwardStep, predicates: PredicateList, ctx: Context): Context = {
-    val nodeTestContext = nodeTest(step.axis, step.nodeTest, ctx)
+    val nodeTestCtx = nodeTest(step.axis, step.nodeTest, ctx)
     // We should separate the node test ctx and predicate ctx, the node test ctx will
     // be applied by predicates, and predicate ctx will use it as the beginning
     // ctx. So, we'll rely on predicateList to make a new copy for each predicate 
     // evaluating
-    val preds = predicateList(predicates.predicates, nodeTestContext)
-    _applyPredicateList(preds, nodeTestContext)
+    val preds = predicateList(predicates.predicates, nodeTestCtx)
+    _applyPredicateList(preds, nodeTestCtx)
   }
 
   def nodeTest(axis: Axis, test: NodeTest, ctx: Context): Context = {

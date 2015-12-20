@@ -58,10 +58,14 @@ class XPathSelectSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
       q = "/devApps/@a"
       select(record, q).head should be(
         record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("a"))
+      //select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+      //  Array(record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("a")))
 
       q = "/devApps/@a/numBlackApps"
       select(record, q).head should be(
         1)
+      //select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+      //  Array(1))
 
       q = "/devApps/@*"
       select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
@@ -196,10 +200,14 @@ class XPathSelectSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
       q = "/devApps/@a[numBlackApps = 1]"
       select(record, q).head should be(
         record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("a"))
+      //select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+      //  Array(record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("a")))
 
       q = "/devApps/@a[numBlackApps != 1]"
       select(record, q).head should be(
         ())
+      //select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+      //  Array())
 
       // select map values that meet predicates 
       q = "/devApps/@*[numBlackApps=2]"

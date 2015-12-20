@@ -10,7 +10,7 @@ import java.nio.ByteOrder
 final class UpdateEventSerializer(system: ExtendedActorSystem) extends Serializer {
   implicit val byteOrder = ByteOrder.BIG_ENDIAN
 
-  override def identifier: Int = 302668162
+  override def identifier: Int = 302668164
 
   override def includeManifest: Boolean = false
 
@@ -33,7 +33,7 @@ final class UpdateEventSerializer(system: ExtendedActorSystem) extends Serialize
       builder.result.toArray
 
     case _ =>
-      throw new IllegalArgumentException("Can't serialize a non-Avro message using AvroSerializer [" + obj + "]")
+      throw new IllegalArgumentException("Can't serialize UpdateEvent message using UpdateEventSerializer [" + obj + "]")
   }
 
   override def fromBinary(bytes: Array[Byte], manifest: Option[Class[_]]): AnyRef = {

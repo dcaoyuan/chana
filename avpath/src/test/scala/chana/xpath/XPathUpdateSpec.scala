@@ -51,7 +51,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
     val e = evaluator()
     val stmt = parse(query)
     val res = e.insertJson(record, stmt, value)
-    info("\nUpdate:\n" + res)
+    info("\nInsert:\n" + res)
     res foreach { _.commit() }
   }
 
@@ -59,7 +59,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
     val e = evaluator()
     val stmt = parse(query)
     val res = e.insertAllJson(record, stmt, value)
-    info("\nUpdate:\n" + res)
+    info("\nInsertAll:\n" + res)
     res foreach { _.commit() }
   }
 
@@ -67,7 +67,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
     val e = evaluator()
     val stmt = parse(query)
     val res = e.delete(record, stmt)
-    info("\nUpdate:\n" + res)
+    info("\nDelete:\n" + res)
     res foreach { _.commit() }
   }
 
@@ -75,7 +75,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
     val e = evaluator()
     val stmt = parse(query)
     val res = e.clear(record, stmt)
-    info("\nUpdate:\n" + res)
+    info("\nClear:\n" + res)
     res foreach { _.commit() }
   }
 
@@ -108,6 +108,8 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
       update(record, q, 8)
       select(record, q).head should be(
         8)
+      //select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+      //  Array(8))
 
       q = "/chargeRecords[2]/time"
       update(record, q, 88)
@@ -174,6 +176,8 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
       delete(record, q)
       select(record, q).head.asInstanceOf[AnyRef] should be(
         null)
+      //select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+      //  Array(null))
 
       q = "/chargeRecords[2]"
       delete(record, q)
