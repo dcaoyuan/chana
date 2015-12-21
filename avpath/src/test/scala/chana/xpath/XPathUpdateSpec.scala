@@ -106,10 +106,8 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
 
       q = "/devApps/@a/numBlackApps"
       update(record, q, 8)
-      select(record, q).head should be(
-        8)
-      //select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
-      //  Array(8))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(8))
 
       q = "/chargeRecords[2]/time"
       update(record, q, 88)
@@ -174,10 +172,8 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
 
       var q = "/devApps/@a"
       delete(record, q)
-      select(record, q).head.asInstanceOf[AnyRef] should be(
-        null)
-      //select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
-      //  Array(null))
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(null))
 
       q = "/chargeRecords[2]"
       delete(record, q)

@@ -744,7 +744,8 @@ object XPathEvaluator {
                   case n: CollectionNode[_, _] => n.keys(keys)
                 }
 
-                Context(valueSchema, value, node, value)
+                // when select upon collection field (map/array), we'll always return collection
+                Context(Schema.createArray(valueSchema), values, node, values)
 
               case x => // what happens?
                 throw new XPathRuntimeException(x, "try to get attribute of: " + local)
