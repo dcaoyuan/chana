@@ -39,8 +39,8 @@ akka.actor {
   serialization-bindings {
     "akka.persistence.journal.AsyncWriteTarget$WriteMessages" = writemessages
     "chana.package$UpdatedFields" = record-event
-    "chana.avro.package$Binlog" = binlog
-    "chana.avro.package$UpdateEvent" = update-event
+    "chana.avro.Binlog" = binlog
+    "chana.avro.UpdateEvent" = update-event
     "chana.jpql.AvroProjection" = avro-projection
     "chana.package$PutSchema" = schema-event
     "java.util.HashMap" = java-map

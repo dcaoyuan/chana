@@ -212,7 +212,6 @@ object XPathEvaluator {
               case "" => "/"
               case x  => x
             }
-            // if xpath == "" will cause error, why? TODO
             actions ::= UpdateAction(commit, rlback, Changelog(xpath, v, rec.getSchema))
           case _ => // log.error 
         }
