@@ -152,6 +152,10 @@ final class Context private (val schema: Schema, val target: Any, val node: Avro
 }
 
 object XPathEvaluator {
+  sealed trait ValueFormat
+  case object Value extends ValueFormat
+  case object Json extends ValueFormat
+  case object Avro extends ValueFormat
 
   def select(record: IndexedRecord, xpath: Expr): List[Context] = {
     val ctx = Context(record.getSchema, record, RecordNode(record, None), null)
@@ -160,32 +164,47 @@ object XPathEvaluator {
 
   def update(record: IndexedRecord, xpath: Expr, value: Any): List[UpdateAction] = {
     val ctxs = select(record, xpath)
-    opUpdate(ctxs.head, value, isJsonValue = false)
+    opUpdate(ctxs.head, value, Value)
   }
 
   def updateJson(record: IndexedRecord, xpath: Expr, value: String): List[UpdateAction] = {
     val ctxs = select(record, xpath)
-    opUpdate(ctxs.head, value, isJsonValue = true)
+    opUpdate(ctxs.head, value, Json)
+  }
+
+  def updateAvro(record: IndexedRecord, xpath: Expr, value: Array[Byte]): List[UpdateAction] = {
+    val ctxs = select(record, xpath)
+    opUpdate(ctxs.head, value, Avro)
   }
 
   def insert(record: IndexedRecord, xpath: Expr, value: Any): List[UpdateAction] = {
     val ctxs = select(record, xpath)
-    opInsert(ctxs.head, value, isJsonValue = false)
+    opInsert(ctxs.head, value, Value)
   }
 
   def insertJson(record: IndexedRecord, xpath: Expr, value: String): List[UpdateAction] = {
     val ctxs = select(record, xpath)
-    opInsert(ctxs.head, value, isJsonValue = true)
+    opInsert(ctxs.head, value, Json)
+  }
+
+  def insertAvro(record: IndexedRecord, xpath: Expr, value: Array[Byte]): List[UpdateAction] = {
+    val ctxs = select(record, xpath)
+    opInsert(ctxs.head, value, Avro)
   }
 
   def insertAll(record: IndexedRecord, xpath: Expr, values: java.util.Collection[_]): List[UpdateAction] = {
     val ctxs = select(record, xpath)
-    opInsertAll(ctxs.head, values, isJsonValue = false)
+    opInsertAll(ctxs.head, values, Value)
   }
 
   def insertAllJson(record: IndexedRecord, xpath: Expr, values: String): List[UpdateAction] = {
     val ctxs = select(record, xpath)
-    opInsertAll(ctxs.head, values, isJsonValue = true)
+    opInsertAll(ctxs.head, values, Json)
+  }
+
+  def insertAllAvro(record: IndexedRecord, xpath: Expr, values: Array[Byte]): List[UpdateAction] = {
+    val ctxs = select(record, xpath)
+    opInsertAll(ctxs.head, values, Avro)
   }
 
   def delete(record: IndexedRecord, xpath: Expr): List[UpdateAction] = {
@@ -198,12 +217,16 @@ object XPathEvaluator {
     opClear(ctxs.head)
   }
 
-  private def opUpdate(ctx: Context, value: Any, isJsonValue: Boolean): List[UpdateAction] = {
+  private def opUpdate(ctx: Context, value: Any, format: ValueFormat): List[UpdateAction] = {
     var actions = List[UpdateAction]()
 
     ctx.node match {
       case n @ RecordNode(rec, None) =>
-        val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], rec.getSchema, false) else value
+        val value1 = format match {
+          case Json  => avro.jsonDecode(value.asInstanceOf[String], rec.getSchema).get
+          case Avro  => avro.avroDecode[Any](value.asInstanceOf[Array[Byte]], rec.getSchema).get
+          case Value => value
+        }
         value1 match {
           case v: IndexedRecord =>
             val prev = new GenericData.Record(rec.asInstanceOf[GenericData.Record], true)
@@ -218,7 +241,11 @@ object XPathEvaluator {
         }
 
       case n @ RecordNode(rec, Some(field)) =>
-        val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
+        val value1 = format match {
+          case Json  => avro.jsonDecode(value.asInstanceOf[String], field.schema).get
+          case Avro  => avro.avroDecode[Any](value.asInstanceOf[Array[Byte]], field.schema).get
+          case Value => value
+        }
 
         val prev = rec.get(field.pos)
         val rlback = { () => rec.put(field.pos, prev) }
@@ -236,7 +263,12 @@ object XPathEvaluator {
           val target = avro.arraySelect(arr, ix)
           field match {
             case Some(f) =>
-              val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], f.schema, false) else value
+              val value1 = format match {
+                case Json  => avro.jsonDecode(value.asInstanceOf[String], f.schema).get
+                case Avro  => avro.avroDecode[Any](value.asInstanceOf[Array[Byte]], f.schema).get
+                case Value => value
+              }
+
               val rec = target.asInstanceOf[IndexedRecord]
               val prev = rec.get(f.pos)
               val rlback = { () => rec.put(f.pos, prev) }
@@ -245,7 +277,12 @@ object XPathEvaluator {
               actions ::= UpdateAction(commit, rlback, Changelog(xpath, value1, f.schema))
             case None =>
               val elemSchema = avro.getElementType(arrSchema)
-              val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
+              val value1 = format match {
+                case Json  => avro.jsonDecode(value.asInstanceOf[String], elemSchema).get
+                case Avro  => avro.avroDecode[Any](value.asInstanceOf[Array[Byte]], elemSchema).get
+                case Value => value
+              }
+
               val rlback = { () => avro.arrayUpdate(arr, ix, target) }
               val commit = { () => avro.arrayUpdate(arr, ix, value1) }
               val xpath = n.xpath + "[" + idx + "]"
@@ -262,7 +299,12 @@ object XPathEvaluator {
           val target = map.get(key)
           field match {
             case Some(f) =>
-              val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], f.schema, false) else value
+              val value1 = format match {
+                case Json  => avro.jsonDecode(value.asInstanceOf[String], f.schema).get
+                case Avro  => avro.avroDecode[Any](value.asInstanceOf[Array[Byte]], f.schema).get
+                case Value => value
+              }
+
               val rec = target.asInstanceOf[IndexedRecord]
               val prev = rec.get(f.pos)
               val rlback = { () => rec.put(f.pos, prev) }
@@ -271,7 +313,12 @@ object XPathEvaluator {
               actions ::= UpdateAction(commit, rlback, Changelog(xpath, value1, f.schema))
             case None =>
               val valueSchema = avro.getValueType(mapSchema)
-              val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], valueSchema, false) else value
+              val value1 = format match {
+                case Json  => avro.jsonDecode(value.asInstanceOf[String], valueSchema).get
+                case Avro  => avro.avroDecode[Any](value.asInstanceOf[Array[Byte]], valueSchema).get
+                case Value => value
+              }
+
               val rlback = { () => map.put(key, target) }
               val commit = { () => map.put(key, value1) }
               val xpath = n.xpath + "/@" + key
@@ -283,7 +330,7 @@ object XPathEvaluator {
     actions.reverse
   }
 
-  private def opInsert(ctx: Context, value: Any, isJsonValue: Boolean): List[UpdateAction] = {
+  private def opInsert(ctx: Context, value: Any, format: ValueFormat): List[UpdateAction] = {
     var actions = List[UpdateAction]()
 
     ctx.node match {
@@ -291,7 +338,11 @@ object XPathEvaluator {
         rec.get(field.pos) match {
           case arr: java.util.Collection[Any] @unchecked =>
             val elemSchema = avro.getElementType(field.schema)
-            val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
+            val value1 = format match {
+              case Json  => avro.jsonDecode(value.asInstanceOf[String], elemSchema).get
+              case Avro  => avro.avroDecode[Any](value.asInstanceOf[Array[Byte]], elemSchema).get
+              case Value => value
+            }
 
             // There should be only one element
             val rlback = { () => arr.remove(value1) }
@@ -301,7 +352,11 @@ object XPathEvaluator {
 
           case map: java.util.Map[String, Any] @unchecked =>
             val valueSchema = avro.getValueType(field.schema)
-            val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
+            val value1 = format match {
+              case Json  => avro.jsonDecode(value.asInstanceOf[String], field.schema).get
+              case Avro  => avro.avroDecode[Any](value.asInstanceOf[Array[Byte]], field.schema).get
+              case Value => value
+            }
             value1 match {
               case (k: String, v) =>
                 val prev = map.get(k)
@@ -341,15 +396,18 @@ object XPathEvaluator {
     actions.reverse
   }
 
-  private def opInsertAll(ctx: Context, value: Any, isJsonValue: Boolean): List[UpdateAction] = {
+  private def opInsertAll(ctx: Context, value: Any, format: ValueFormat): List[UpdateAction] = {
     var actions = List[UpdateAction]()
 
     ctx.node match {
       case n @ RecordNode(rec, Some(field)) =>
         rec.get(field.pos) match {
           case arr: java.util.Collection[Any] @unchecked =>
-            val elemSchema = avro.getElementType(field.schema)
-            val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
+            val value1 = format match {
+              case Json  => avro.jsonDecode(value.asInstanceOf[String], field.schema).get
+              case Avro  => avro.avroDecode[Any](value.asInstanceOf[Array[Byte]], field.schema).get
+              case Value => value
+            }
             value1 match {
               case xs: java.util.Collection[Any] @unchecked =>
                 val rlback = { () => arr.removeAll(xs) }
@@ -361,7 +419,11 @@ object XPathEvaluator {
             }
 
           case map: java.util.Map[String, Any] @unchecked =>
-            val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
+            val value1 = format match {
+              case Json  => avro.jsonDecode(value.asInstanceOf[String], field.schema).get
+              case Avro  => avro.avroDecode[Any](value.asInstanceOf[Array[Byte]], field.schema).get
+              case Value => value
+            }
             value1 match {
               case xs: java.util.Collection[(String, Any)] @unchecked =>
                 val prev = new java.util.LinkedHashMap[String, Any]()
