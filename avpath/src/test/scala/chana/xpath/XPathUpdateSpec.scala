@@ -27,7 +27,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
     // now let's do Parsing
     val parser = new XPathParser()
     val stmt = parser.parse(query)
-    info("\nParsed:\n" + stmt)
+    //info("\nParsed:\n" + stmt)
     stmt
   }
 
@@ -35,7 +35,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
     val e = evaluator()
     val stmt = parse(query)
     val res = e.select(record, stmt) map (_.value)
-    info("\nSelect:\n" + res)
+    //info("\nSelect:\n" + res)
     res
   }
 
@@ -43,7 +43,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
     val e = evaluator()
     val stmt = parse(query)
     val res = e.update(record, stmt, value)
-    info("\nUpdate:\n" + res)
+    info("\nUpdate:\n" + res.map(_.binlog).mkString("\n"))
     res foreach { _.commit() }
   }
 
@@ -51,7 +51,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
     val e = evaluator()
     val stmt = parse(query)
     val res = e.insertJson(record, stmt, value)
-    info("\nInsert:\n" + res)
+    info("\nInsert:\n" + res.map(_.binlog).mkString("\n"))
     res foreach { _.commit() }
   }
 
@@ -59,7 +59,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
     val e = evaluator()
     val stmt = parse(query)
     val res = e.insertAllJson(record, stmt, value)
-    info("\nInsertAll:\n" + res)
+    info("\nInsertAll:\n" + res.map(_.binlog).mkString("\n"))
     res foreach { _.commit() }
   }
 
@@ -67,7 +67,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
     val e = evaluator()
     val stmt = parse(query)
     val res = e.delete(record, stmt)
-    info("\nDelete:\n" + res)
+    info("\nDelete:\n" + res.map(_.binlog).mkString("\n"))
     res foreach { _.commit() }
   }
 
@@ -75,7 +75,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
     val e = evaluator()
     val stmt = parse(query)
     val res = e.clear(record, stmt)
-    info("\nClear:\n" + res)
+    info("\nClear:\n" + res.map(_.binlog).mkString("\n"))
     res foreach { _.commit() }
   }
 

@@ -2,6 +2,7 @@ package chana.xpath
 
 import chana.avro
 import chana.avro.Changelog
+import chana.avro.Clearlog
 import chana.avro.Deletelog
 import chana.avro.Insertlog
 import chana.avro.UpdateAction
@@ -226,8 +227,6 @@ object XPathEvaluator {
         actions ::= UpdateAction(commit, rlback, Changelog(xpath, value1, field.schema))
 
       case n @ ArrayNode(arr: java.util.Collection[Any], arrSchema, idxes, field) =>
-        val elemSchema = avro.getElementType(arrSchema)
-        val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
 
         //println(ctx.node)
         val itr = idxes.iterator
@@ -237,23 +236,24 @@ object XPathEvaluator {
           val target = avro.arraySelect(arr, ix)
           field match {
             case Some(f) =>
+              val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], f.schema, false) else value
               val rec = target.asInstanceOf[IndexedRecord]
               val prev = rec.get(f.pos)
               val rlback = { () => rec.put(f.pos, prev) }
               val commit = { () => rec.put(f.pos, value1) }
               val xpath = n.xpath + "[" + idx + "]/" + f.name
-              actions ::= UpdateAction(commit, rlback, Changelog(xpath, (ix, value1), f.schema))
+              actions ::= UpdateAction(commit, rlback, Changelog(xpath, value1, f.schema))
             case None =>
+              val elemSchema = avro.getElementType(arrSchema)
+              val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
               val rlback = { () => avro.arrayUpdate(arr, ix, target) }
               val commit = { () => avro.arrayUpdate(arr, ix, value1) }
               val xpath = n.xpath + "[" + idx + "]"
-              actions ::= UpdateAction(commit, rlback, Changelog(xpath, (ix, value1), arrSchema))
+              actions ::= UpdateAction(commit, rlback, Changelog(xpath, value1, elemSchema))
           }
         }
 
       case n @ MapNode(map: java.util.Map[String, Any], mapSchema, keys, field) =>
-        val valueSchema = avro.getValueType(mapSchema)
-        val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], valueSchema, false) else value
 
         //println(ctx.node)
         val itr = keys.iterator
@@ -262,17 +262,20 @@ object XPathEvaluator {
           val target = map.get(key)
           field match {
             case Some(f) =>
+              val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], f.schema, false) else value
               val rec = target.asInstanceOf[IndexedRecord]
               val prev = rec.get(f.pos)
               val rlback = { () => rec.put(f.pos, prev) }
               val commit = { () => rec.put(f.pos, value1) }
               val xpath = n.xpath + "/@" + key + "/" + f.name
-              actions ::= UpdateAction(commit, rlback, Changelog(xpath, (key, value1), mapSchema))
+              actions ::= UpdateAction(commit, rlback, Changelog(xpath, value1, f.schema))
             case None =>
+              val valueSchema = avro.getValueType(mapSchema)
+              val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], valueSchema, false) else value
               val rlback = { () => map.put(key, target) }
               val commit = { () => map.put(key, value1) }
               val xpath = n.xpath + "/@" + key
-              actions ::= UpdateAction(commit, rlback, Changelog(xpath, (key, value1), mapSchema))
+              actions ::= UpdateAction(commit, rlback, Changelog(xpath, value1, valueSchema))
 
           }
         }
@@ -284,35 +287,42 @@ object XPathEvaluator {
     var actions = List[UpdateAction]()
 
     ctx.node match {
-      case RecordNode(rec, Some(field)) =>
+      case n @ RecordNode(rec, Some(field)) =>
         rec.get(field.pos) match {
           case arr: java.util.Collection[Any] @unchecked =>
             val elemSchema = avro.getElementType(field.schema)
             val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], elemSchema, false) else value
 
+            // There should be only one element
             val rlback = { () => arr.remove(value1) }
             val commit = { () => arr.add(value1) }
-            actions ::= UpdateAction(commit, rlback, Insertlog("", value1, field.schema))
+            val xpath = n.xpath + "/" + field.name
+            actions ::= UpdateAction(commit, rlback, Insertlog(xpath, value1, elemSchema))
 
           case map: java.util.Map[String, Any] @unchecked =>
+            val valueSchema = avro.getValueType(field.schema)
             val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
             value1 match {
               case (k: String, v) =>
                 val prev = map.get(k)
                 val rlback = { () => map.put(k, prev) }
                 val commit = { () => map.put(k, v) }
-                actions ::= UpdateAction(commit, rlback, Insertlog("", (k, v), field.schema))
+                val xpath = n.xpath + "/" + field.name + "/@" + k
+                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, v, valueSchema))
 
               case kvs: java.util.Map[String, _] @unchecked =>
                 val entries = kvs.entrySet.iterator
                 // should contains only one entry
                 if (entries.hasNext) {
                   val entry = entries.next
+                  val k = entry.getKey
+                  val v = entry.getValue
 
-                  val prev = map.get(entry.getKey)
+                  val prev = map.get(k)
                   val rlback = { () => map.put(entry.getKey, prev) }
-                  val commit = { () => map.put(entry.getKey, entry.getValue) }
-                  actions ::= UpdateAction(commit, rlback, Insertlog("", (entry.getKey, entry.getValue), field.schema))
+                  val commit = { () => map.put(entry.getKey, v) }
+                  val xpath = n.xpath + "/" + field.name + "/@" + k
+                  actions ::= UpdateAction(commit, rlback, Insertlog(xpath, v, valueSchema))
                 }
 
               case _ =>
@@ -335,7 +345,7 @@ object XPathEvaluator {
     var actions = List[UpdateAction]()
 
     ctx.node match {
-      case RecordNode(rec, Some(field)) =>
+      case n @ RecordNode(rec, Some(field)) =>
         rec.get(field.pos) match {
           case arr: java.util.Collection[Any] @unchecked =>
             val elemSchema = avro.getElementType(field.schema)
@@ -344,7 +354,8 @@ object XPathEvaluator {
               case xs: java.util.Collection[Any] @unchecked =>
                 val rlback = { () => arr.removeAll(xs) }
                 val commit = { () => arr.addAll(xs) }
-                actions ::= UpdateAction(commit, rlback, Insertlog("", xs, field.schema))
+                val xpath = n.xpath + "/" + field.name
+                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, xs, field.schema))
 
               case _ => // ?
             }
@@ -353,8 +364,8 @@ object XPathEvaluator {
             val value1 = if (isJsonValue) avro.FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
             value1 match {
               case xs: java.util.Collection[(String, Any)] @unchecked =>
-                val prev = new java.util.HashMap[String, Any]()
-                val toPut = new java.util.HashMap[String, Any]()
+                val prev = new java.util.LinkedHashMap[String, Any]()
+                val toPut = new java.util.LinkedHashMap[String, Any]()
                 val itr = xs.iterator
                 while (itr.hasNext) {
                   val entry = itr.next
@@ -364,7 +375,8 @@ object XPathEvaluator {
                 }
                 val rlback = { () => map.putAll(prev) }
                 val commit = { () => map.putAll(toPut) }
-                actions ::= UpdateAction(commit, rlback, Insertlog("", toPut, field.schema))
+                val xpath = n.xpath + "/" + field.name
+                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, toPut, field.schema))
 
               case xs: java.util.Map[String, Any] @unchecked =>
                 val prev = new java.util.HashMap[String, Any]()
@@ -372,11 +384,13 @@ object XPathEvaluator {
                 while (itr.hasNext) {
                   val entry = itr.next
                   val k = entry.getKey
-                  prev.put(k, map.get(k))
+                  val v = entry.getValue
+                  prev.put(k, v)
                 }
                 val rlback = { () => map.putAll(prev) }
                 val commit = { () => map.putAll(xs) }
-                actions ::= UpdateAction(commit, rlback, Insertlog("", xs, field.schema))
+                val xpath = n.xpath + "/" + field.name
+                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, xs, field.schema))
 
               case _ => // ?
             }
@@ -399,48 +413,54 @@ object XPathEvaluator {
     ctx.node match {
       case _: RecordNode => // cannot apply delete on record
 
-      case ArrayNode(arr: java.util.Collection[Any], arrSchema, idxes, field) =>
+      case n @ ArrayNode(arr: java.util.Collection[Any], arrSchema, idxes, field) =>
         val itr = idxes.iterator
         while (itr.hasNext) {
           val ix = itr.next - 1
           processingArrs += arr -> (arrSchema, ix :: processingArrs.getOrElse(arr, (arrSchema, List[Int]()))._2)
         }
 
-      case MapNode(map: java.util.Map[String, Any], mapSchema, keys, field) =>
+        for ((arr, (arrSchema, _toRemove)) <- processingArrs) {
+          val toRemove = _toRemove.sortBy(-_)
+
+          // toRlback will be asc sorted
+          var prev = toRemove
+          var toRlback = List[(Int, Any)]()
+          var i = 0
+          var arrItr = arr.iterator
+          while (prev.nonEmpty) {
+            val idx = prev.head
+            prev = prev.tail
+            while (arrItr.hasNext && i <= idx) {
+              if (i == idx) {
+                toRlback ::= (i, arrItr.next)
+              } else {
+                arrItr.next
+              }
+              i += 1
+            }
+          }
+
+          val rlback = { () => avro.arrayInsert(arr, toRlback) }
+          val commit = { () => avro.arrayRemove(arr, toRemove) }
+          val xpath = n.xpath
+          // in case of delete on array, Deletelog just remember the idxes.
+          actions ::= UpdateAction(commit, rlback, Deletelog(xpath, idxes, arrSchema))
+        }
+
+      case n @ MapNode(map: java.util.Map[String, Any], mapSchema, keys, field) =>
+        val prev = new java.util.LinkedHashMap[String, Any]()
         val itr = keys.iterator
         while (itr.hasNext) {
-          val key = itr.next
-          val prev = map.get(key)
-          val rlback = { () => map.put(key, prev) }
-          val commit = { () => map.remove(key) }
-          actions ::= UpdateAction(commit, rlback, Deletelog("", (key, prev), mapSchema))
+          val k = itr.next
+          val v = map.get(k)
+          prev.put(k, v)
         }
-    }
-
-    for ((arr, (arrSchema, _toRemove)) <- processingArrs) {
-      val toRemove = _toRemove.sortBy(-_)
-
-      // toRlback will be asc sorted
-      var prev = toRemove
-      var toRlback = List[(Int, Any)]()
-      var i = 0
-      var arrItr = arr.iterator
-      while (prev.nonEmpty) {
-        val idx = prev.head
-        prev = prev.tail
-        while (arrItr.hasNext && i <= idx) {
-          if (i == idx) {
-            toRlback ::= (i, arrItr.next)
-          } else {
-            arrItr.next
-          }
-          i += 1
-        }
-      }
-
-      val rlback = { () => avro.arrayInsert(arr, toRlback) }
-      val commit = { () => avro.arrayRemove(arr, toRemove) }
-      actions ::= UpdateAction(commit, rlback, Deletelog("", toRemove, arrSchema))
+        val rlback = { () => map.putAll(prev) }
+        val commit = { () => map.keySet.removeAll(keys) }
+        val xpath = n.xpath
+        // in case of delete on map , Deletelog just remember the keys.
+        actions ::= UpdateAction(commit, rlback, Deletelog(xpath, keys, mapSchema))
     }
 
     actions.reverse
@@ -450,19 +470,21 @@ object XPathEvaluator {
     var actions = List[UpdateAction]()
 
     ctx.node match {
-      case RecordNode(rec, Some(field)) =>
+      case n @ RecordNode(rec, Some(field)) =>
         rec.get(field.pos) match {
           case arr: java.util.Collection[_] =>
             val prev = new java.util.ArrayList(arr)
-            val commit = { () => arr.clear }
             val rlback = { () => arr.addAll(prev) }
-            actions ::= UpdateAction(commit, rlback, Deletelog("", prev, field.schema))
+            val commit = { () => arr.clear }
+            val xpath = n.xpath + "/" + field.name
+            actions ::= UpdateAction(commit, rlback, Clearlog(xpath, prev, field.schema))
 
           case map: java.util.Map[String, Any] @unchecked =>
             val prev = new java.util.HashMap[String, Any](map)
             val rlback = { () => map.putAll(prev) }
             val commit = { () => map.clear }
-            actions ::= UpdateAction(commit, rlback, Deletelog("", prev, field.schema))
+            val xpath = n.xpath + "/" + field.name
+            actions ::= UpdateAction(commit, rlback, Clearlog(xpath, prev, field.schema))
 
           case _ => // ?
         }

@@ -8,6 +8,7 @@ object Binlog {
       case -1 => Deletelog(xpath, value, schema)
       case 0  => Changelog(xpath, value, schema)
       case 1  => Insertlog(xpath, value, schema)
+      case 2  => Clearlog(xpath, value, schema)
     }
   }
   def unapply(binlog: Binlog): Option[(String, Any, Schema)] = {
@@ -23,6 +24,7 @@ sealed trait Binlog extends Serializable {
 final case class Deletelog(xpath: String, value: Any, schema: Schema) extends Binlog { def `type` = -1 }
 final case class Changelog(xpath: String, value: Any, schema: Schema) extends Binlog { def `type` = 0 }
 final case class Insertlog(xpath: String, value: Any, schema: Schema) extends Binlog { def `type` = 1 }
+final case class Clearlog(xpath: String, value: Any, schema: Schema) extends Binlog { def `type` = 2 }
 
 final case class UpdateAction(commit: () => Any, rollback: () => Any, binlog: Binlog)
 
