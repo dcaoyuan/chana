@@ -51,7 +51,7 @@ trait JPQLBehavior extends Entity {
       val commander = sender()
       val eval = new JPQLMapperEvaluator(jpqlMeta)
       val updateAction = eval.insertEval(stmt, record)
-      updateAction.commit()
+      updateAction foreach { _.commit() }
 
     case jpqlMeta @ JPQLUpdate(stmt, projectionSchema, asToEntity, asToJoin) =>
       val commander = sender()

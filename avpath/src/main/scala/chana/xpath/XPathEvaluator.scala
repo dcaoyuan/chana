@@ -152,6 +152,7 @@ final class Context private (val schema: Schema, val target: Any, val node: Avro
 }
 
 object XPathEvaluator {
+
   sealed trait ValueFormat
   case object Value extends ValueFormat
   case object Json extends ValueFormat
@@ -236,7 +237,8 @@ object XPathEvaluator {
               case "" => "/"
               case x  => x
             }
-            actions ::= UpdateAction(commit, rlback, Changelog(xpath, v, rec.getSchema))
+            val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(value1, rec.getSchema).get
+            actions ::= UpdateAction(commit, rlback, Changelog(xpath, bytes))
           case _ => // log.error 
         }
 
@@ -251,7 +253,8 @@ object XPathEvaluator {
         val rlback = { () => rec.put(field.pos, prev) }
         val commit = { () => rec.put(field.pos, value1) }
         val xpath = n.xpath + "/" + field.name
-        actions ::= UpdateAction(commit, rlback, Changelog(xpath, value1, field.schema))
+        val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(value1, field.schema).get
+        actions ::= UpdateAction(commit, rlback, Changelog(xpath, bytes))
 
       case n @ ArrayNode(arr: java.util.Collection[Any], arrSchema, idxes, field) =>
 
@@ -274,7 +277,8 @@ object XPathEvaluator {
               val rlback = { () => rec.put(f.pos, prev) }
               val commit = { () => rec.put(f.pos, value1) }
               val xpath = n.xpath + "[" + idx + "]/" + f.name
-              actions ::= UpdateAction(commit, rlback, Changelog(xpath, value1, f.schema))
+              val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(value1, f.schema).get
+              actions ::= UpdateAction(commit, rlback, Changelog(xpath, bytes))
             case None =>
               val elemSchema = avro.getElementType(arrSchema)
               val value1 = format match {
@@ -286,7 +290,8 @@ object XPathEvaluator {
               val rlback = { () => avro.arrayUpdate(arr, ix, target) }
               val commit = { () => avro.arrayUpdate(arr, ix, value1) }
               val xpath = n.xpath + "[" + idx + "]"
-              actions ::= UpdateAction(commit, rlback, Changelog(xpath, value1, elemSchema))
+              val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(value1, elemSchema).get
+              actions ::= UpdateAction(commit, rlback, Changelog(xpath, bytes))
           }
         }
 
@@ -310,7 +315,8 @@ object XPathEvaluator {
               val rlback = { () => rec.put(f.pos, prev) }
               val commit = { () => rec.put(f.pos, value1) }
               val xpath = n.xpath + "/@" + key + "/" + f.name
-              actions ::= UpdateAction(commit, rlback, Changelog(xpath, value1, f.schema))
+              val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(value1, f.schema).get
+              actions ::= UpdateAction(commit, rlback, Changelog(xpath, bytes))
             case None =>
               val valueSchema = avro.getValueType(mapSchema)
               val value1 = format match {
@@ -322,7 +328,8 @@ object XPathEvaluator {
               val rlback = { () => map.put(key, target) }
               val commit = { () => map.put(key, value1) }
               val xpath = n.xpath + "/@" + key
-              actions ::= UpdateAction(commit, rlback, Changelog(xpath, value1, valueSchema))
+              val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(value1, valueSchema).get
+              actions ::= UpdateAction(commit, rlback, Changelog(xpath, bytes))
 
           }
         }
@@ -348,7 +355,8 @@ object XPathEvaluator {
             val rlback = { () => arr.remove(value1) }
             val commit = { () => arr.add(value1) }
             val xpath = n.xpath + "/" + field.name
-            actions ::= UpdateAction(commit, rlback, Insertlog(xpath, value1, elemSchema))
+            val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(value1, elemSchema).get
+            actions ::= UpdateAction(commit, rlback, Insertlog(xpath, bytes))
 
           case map: java.util.Map[String, Any] @unchecked =>
             val valueSchema = avro.getValueType(field.schema)
@@ -363,7 +371,8 @@ object XPathEvaluator {
                 val rlback = { () => map.put(k, prev) }
                 val commit = { () => map.put(k, v) }
                 val xpath = n.xpath + "/" + field.name + "/@" + k
-                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, v, valueSchema))
+                val bytes = avro.avroEncode(v, valueSchema).get
+                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, bytes))
 
               case kvs: java.util.Map[String, _] @unchecked =>
                 val entries = kvs.entrySet.iterator
@@ -377,7 +386,8 @@ object XPathEvaluator {
                   val rlback = { () => map.put(entry.getKey, prev) }
                   val commit = { () => map.put(entry.getKey, v) }
                   val xpath = n.xpath + "/" + field.name + "/@" + k
-                  actions ::= UpdateAction(commit, rlback, Insertlog(xpath, v, valueSchema))
+                  val bytes = avro.avroEncode(v, valueSchema).get
+                  actions ::= UpdateAction(commit, rlback, Insertlog(xpath, bytes))
                 }
 
               case _ =>
@@ -413,7 +423,8 @@ object XPathEvaluator {
                 val rlback = { () => arr.removeAll(xs) }
                 val commit = { () => arr.addAll(xs) }
                 val xpath = n.xpath + "/" + field.name
-                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, xs, field.schema))
+                val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(value1, field.schema).get
+                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, bytes))
 
               case _ => // ?
             }
@@ -438,7 +449,8 @@ object XPathEvaluator {
                 val rlback = { () => map.putAll(prev) }
                 val commit = { () => map.putAll(toPut) }
                 val xpath = n.xpath + "/" + field.name
-                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, toPut, field.schema))
+                val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(toPut, field.schema).get
+                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, bytes))
 
               case xs: java.util.Map[String, Any] @unchecked =>
                 val prev = new java.util.HashMap[String, Any]()
@@ -452,7 +464,8 @@ object XPathEvaluator {
                 val rlback = { () => map.putAll(prev) }
                 val commit = { () => map.putAll(xs) }
                 val xpath = n.xpath + "/" + field.name
-                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, xs, field.schema))
+                val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(value1, field.schema).get
+                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, bytes))
 
               case _ => // ?
             }
@@ -507,7 +520,7 @@ object XPathEvaluator {
           val commit = { () => avro.arrayRemove(arr, toRemove) }
           val xpath = n.xpath
           // in case of delete on array, Deletelog just remember the idxes.
-          actions ::= UpdateAction(commit, rlback, Deletelog(xpath, idxes, arrSchema))
+          actions ::= UpdateAction(commit, rlback, Deletelog(xpath, idxes))
         }
 
       case n @ MapNode(map: java.util.Map[String, Any], mapSchema, keys, field) =>
@@ -522,7 +535,7 @@ object XPathEvaluator {
         val commit = { () => map.keySet.removeAll(keys) }
         val xpath = n.xpath
         // in case of delete on map , Deletelog just remember the keys.
-        actions ::= UpdateAction(commit, rlback, Deletelog(xpath, keys, mapSchema))
+        actions ::= UpdateAction(commit, rlback, Deletelog(xpath, keys))
     }
 
     actions.reverse
@@ -539,14 +552,14 @@ object XPathEvaluator {
             val rlback = { () => arr.addAll(prev) }
             val commit = { () => arr.clear }
             val xpath = n.xpath + "/" + field.name
-            actions ::= UpdateAction(commit, rlback, Clearlog(xpath, prev, field.schema))
+            actions ::= UpdateAction(commit, rlback, Clearlog(xpath))
 
           case map: java.util.Map[String, Any] @unchecked =>
             val prev = new java.util.HashMap[String, Any](map)
             val rlback = { () => map.putAll(prev) }
             val commit = { () => map.clear }
             val xpath = n.xpath + "/" + field.name
-            actions ::= UpdateAction(commit, rlback, Clearlog(xpath, prev, field.schema))
+            actions ::= UpdateAction(commit, rlback, Clearlog(xpath))
 
           case _ => // ?
         }

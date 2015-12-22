@@ -85,12 +85,12 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
       val record = initAccount()
 
       var q = "/registerTime"
-      update(record, q, 8)
+      update(record, q, 8L)
       select(record, q).head should be(
         8)
 
       q = "/lastChargeRecord/time"
-      update(record, q, 8)
+      update(record, q, 8L)
       select(record, q).head should be(
         8)
 
@@ -110,17 +110,17 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
         Array(8))
 
       q = "/chargeRecords[2]/time"
-      update(record, q, 88)
+      update(record, q, 88L)
       select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
         Array(88))
 
       q = "/chargeRecords[position()>0]/time"
-      update(record, q, 888)
+      update(record, q, 888L)
       select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
         Array(888, 888))
 
       q = "/chargeRecords/time"
-      update(record, q, 8888)
+      update(record, q, 8888L)
       select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
         Array(8888, 8888))
 

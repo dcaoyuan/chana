@@ -19,6 +19,7 @@ import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
 
+@deprecated("Use XPathBehavior", "0.2")
 trait AVPathBehavior extends Entity {
   //protected def parser = new avpath.Parser()
 

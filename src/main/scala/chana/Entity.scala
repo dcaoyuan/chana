@@ -271,7 +271,9 @@ trait Entity extends Actor with Stash with PersistentActor {
       val prev = record.get(field.pos)
       val rlback = { () => record.put(field.pos, prev) }
       val commit = { () => record.put(field.pos, value) }
-      actions ::= UpdateAction(commit, rlback, Changelog("/" + field.name, value, field.schema))
+      val xpath = "/" + field.name
+      val bytes = avro.avroEncode(value, field.schema).get
+      actions ::= UpdateAction(commit, rlback, Changelog(xpath, bytes))
     }
 
     commit(id, actions.reverse, commander)
@@ -288,7 +290,9 @@ trait Entity extends Actor with Stash with PersistentActor {
       val prev = record.get(field.pos)
       val rlback = { () => record.put(field.pos, prev) }
       val commit = { () => record.put(field.pos, value) }
-      actions ::= UpdateAction(commit, rlback, Changelog("/" + field.name, value, field.schema))
+      val xpath = "/" + field.name
+      val bytes = avro.avroEncode(value, field.schema).get
+      actions ::= UpdateAction(commit, rlback, Changelog(xpath, bytes))
     }
 
     commit(id, actions.reverse, commander)

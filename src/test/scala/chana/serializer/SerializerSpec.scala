@@ -13,6 +13,7 @@ import chana.jpql.BinaryProjection
 import chana.jpql.RemoveProjection
 import com.typesafe.config.ConfigFactory
 import java.util.concurrent.TimeUnit
+import org.apache.avro.Schema
 import org.apache.avro.Schema.Parser
 import org.apache.avro.generic.GenericData
 import org.apache.avro.util.Utf8
@@ -169,12 +170,40 @@ class SerializerSpec(_system: ActorSystem) extends TestKit(_system) with Implici
     }
 
     "handle binlog" in {
-      val obj = avro.Changelog("", record, record.getSchema)
+      val bytes = avro.avroEncode(record, record.getSchema).get
+      val obj = avro.Changelog("", bytes)
+      test(obj)
+    }
+
+    "handle changelog" in {
+      val bytes = avro.avroEncode(1L, Schema.create(Schema.Type.LONG)).get
+      val obj = avro.Changelog("/xpath/to", bytes)
+      test(obj)
+    }
+
+    "handle clearlog" in {
+      val obj = avro.Clearlog("/xpath/to")
+      test(obj)
+    }
+
+    "handle deletelog with int key" in {
+      val keys = java.util.Arrays.asList(1, 2)
+      val obj = avro.Deletelog("/xpath/to", keys)
+      test(obj)
+    }
+
+    "handle deletelog with String key" in {
+      val keys = java.util.Arrays.asList("a", "b")
+      val obj = avro.Deletelog("/xpath/to", keys)
       test(obj)
     }
 
     "handle update event" in {
-      val obj = UpdateEvent(Array(avro.Changelog("/", record, record.getSchema)))
+      val bytes = avro.avroEncode(record, record.getSchema).get
+      val keys = java.util.Arrays.asList(1, 2)
+      val obj = UpdateEvent(Array(
+        avro.Changelog("/", bytes),
+        avro.Deletelog("/xpath/to", keys)))
       test(obj)
     }
 

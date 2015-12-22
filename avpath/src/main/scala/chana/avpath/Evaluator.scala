@@ -80,7 +80,7 @@ object Evaluator {
         val prev = map.get(key)
         val rlback = { () => map.put(key, prev) }
         val commit = { () => map.remove(key) }
-        actions ::= UpdateAction(commit, rlback, Deletelog("", (key, prev), mapSchema))
+        actions ::= UpdateAction(commit, rlback, null)
     }
 
     for ((arr, (arrSchema, _toRemove)) <- processingArrs) {
@@ -106,7 +106,7 @@ object Evaluator {
 
       val rlback = { () => avro.arrayInsert(arr, toRlback) }
       val commit = { () => avro.arrayRemove(arr, toRemove) }
-      actions ::= UpdateAction(commit, rlback, Deletelog("", toRemove, arrSchema))
+      actions ::= UpdateAction(commit, rlback, null)
     }
 
     actions.reverse
@@ -122,13 +122,13 @@ object Evaluator {
             val prev = new java.util.ArrayList(arr)
             val commit = { () => arr.clear }
             val rlback = { () => arr.addAll(prev) }
-            actions ::= UpdateAction(commit, rlback, Deletelog("", prev, field.schema))
+            actions ::= UpdateAction(commit, rlback, null)
 
           case map: java.util.Map[String, Any] @unchecked =>
             val prev = new java.util.HashMap[String, Any](map)
             val rlback = { () => map.putAll(prev) }
             val commit = { () => map.clear }
-            actions ::= UpdateAction(commit, rlback, Deletelog("", prev, field.schema))
+            actions ::= UpdateAction(commit, rlback, null)
 
           case _ => // ?
         }
@@ -154,7 +154,7 @@ object Evaluator {
             val prev = new GenericData.Record(rec.asInstanceOf[GenericData.Record], true)
             val rlback = { () => avro.replace(rec, prev) }
             val commit = { () => avro.replace(rec, v) }
-            actions ::= UpdateAction(commit, rlback, Changelog("/", v, rec.getSchema))
+            actions ::= UpdateAction(commit, rlback, null)
           case _ => // log.error 
         }
 
@@ -164,7 +164,7 @@ object Evaluator {
         val prev = rec.get(field.pos)
         val rlback = { () => rec.put(field.pos, prev) }
         val commit = { () => rec.put(field.pos, value1) }
-        actions ::= UpdateAction(commit, rlback, Changelog("/" + field.name, value1, field.schema))
+        actions ::= UpdateAction(commit, rlback, null)
 
       case TargetArray(arr, idx, arrSchema) =>
         val elemSchema = avro.getElementType(arrSchema)
@@ -173,7 +173,7 @@ object Evaluator {
         val prev = avro.arraySelect(arr, idx)
         val rlback = { () => avro.arrayUpdate(arr, idx, prev) }
         val commit = { () => avro.arrayUpdate(arr, idx, value1) }
-        actions ::= UpdateAction(commit, rlback, Changelog("", (idx, value1), arrSchema))
+        actions ::= UpdateAction(commit, rlback, null)
 
       case TargetMap(map, key, mapSchema) =>
         val valueSchema = avro.getValueType(mapSchema)
@@ -182,7 +182,7 @@ object Evaluator {
         val prev = map.get(key)
         val rlback = { () => map.put(key, prev) }
         val commit = { () => map.put(key, value1) }
-        actions ::= UpdateAction(commit, rlback, Changelog("", (key, value1), mapSchema))
+        actions ::= UpdateAction(commit, rlback, null)
     }
 
     actions.reverse
@@ -200,7 +200,7 @@ object Evaluator {
 
             val rlback = { () => arr.remove(value1) }
             val commit = { () => arr.add(value1) }
-            actions ::= UpdateAction(commit, rlback, Insertlog("", value1, field.schema))
+            actions ::= UpdateAction(commit, rlback, null)
 
           case map: java.util.Map[String, Any] @unchecked =>
             val value1 = if (isJsonValue) FromJson.fromJsonString(value.asInstanceOf[String], field.schema, false) else value
@@ -209,7 +209,7 @@ object Evaluator {
                 val prev = map.get(k)
                 val rlback = { () => map.put(k, prev) }
                 val commit = { () => map.put(k, v) }
-                actions ::= UpdateAction(commit, rlback, Insertlog("", (k, v), field.schema))
+                actions ::= UpdateAction(commit, rlback, null)
 
               case kvs: java.util.Map[String, _] @unchecked =>
                 val entries = kvs.entrySet.iterator
@@ -220,7 +220,7 @@ object Evaluator {
                   val prev = map.get(entry.getKey)
                   val rlback = { () => map.put(entry.getKey, prev) }
                   val commit = { () => map.put(entry.getKey, entry.getValue) }
-                  actions ::= UpdateAction(commit, rlback, Insertlog("", (entry.getKey, entry.getValue), field.schema))
+                  actions ::= UpdateAction(commit, rlback, null)
                 }
               case _ =>
             }
@@ -251,7 +251,7 @@ object Evaluator {
               case xs: java.util.Collection[Any] @unchecked =>
                 val rlback = { () => arr.removeAll(xs) }
                 val commit = { () => arr.addAll(xs) }
-                actions ::= UpdateAction(commit, rlback, Insertlog("", xs, field.schema))
+                actions ::= UpdateAction(commit, rlback, null)
 
               case _ => // ?
             }
@@ -271,7 +271,7 @@ object Evaluator {
                 }
                 val rlback = { () => map.putAll(prev) }
                 val commit = { () => map.putAll(toPut) }
-                actions ::= UpdateAction(commit, rlback, Insertlog("", toPut, field.schema))
+                actions ::= UpdateAction(commit, rlback, null)
 
               case xs: java.util.Map[String, Any] @unchecked =>
                 val prev = new java.util.HashMap[String, Any]()
@@ -283,7 +283,7 @@ object Evaluator {
                 }
                 val rlback = { () => map.putAll(prev) }
                 val commit = { () => map.putAll(xs) }
-                actions ::= UpdateAction(commit, rlback, Insertlog("", xs, field.schema))
+                actions ::= UpdateAction(commit, rlback, null)
 
               case _ => // ?
             }

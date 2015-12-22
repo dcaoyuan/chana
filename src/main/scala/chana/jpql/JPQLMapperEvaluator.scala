@@ -1,5 +1,6 @@
 package chana.jpql
 
+import chana.avro
 import chana.avro.Changelog
 import chana.avro.Deletelog
 import chana.avro.Insertlog
@@ -193,12 +194,12 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
 
   def deleteEval(stmt: DeleteStatement, record: GenericRecord): Boolean = {
     val entityName = deleteClause(stmt.delete, record)
-    Deletelog("/", record, record.getSchema) // TODO changeAction
+    Deletelog("/", java.util.Collections.EMPTY_LIST) // TODO changeAction
     entityName.equalsIgnoreCase(record.getSchema.getName) && stmt.where.fold(true) { x => whereClause(x, record) }
   }
 
   def insertEval(stmt: InsertStatement, record: GenericRecord) = {
-    var fieldToValues = List[(String, Any)]()
+    var fieldToValues = List[(Schema.Field, Any)]()
 
     val entityName = insertClause(stmt.insert, record)
     if (entityName.equalsIgnoreCase(record.getSchema.getName)) {
@@ -208,7 +209,9 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
           var attrs = attributesClause(x, record)
           while (attrs.nonEmpty) {
             if (values.nonEmpty) {
-              fieldToValues ::= (attrs.head, values.head)
+              val fieldName = attrs.head
+              val field = record.getSchema.getField(fieldName)
+              fieldToValues ::= (field, values.head)
               attrs = attrs.tail
               values = values.tail
             } else {
@@ -221,7 +224,7 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
           while (fields.hasNext) {
             val field = fields.next
             if (values.nonEmpty) {
-              fieldToValues ::= (field.name, values.head)
+              fieldToValues ::= (field, values.head)
               values = values.tail
             } else {
               throw JPQLRuntimeException(field, "does not have corresponding value.")
@@ -232,16 +235,14 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
       // do nothing 
     }
 
-    val commit = { () =>
-      for ((field, value) <- fieldToValues) {
-        record.put(field, value)
-      }
+    for ((field, value) <- fieldToValues) yield {
+      val prev = record.get(field.pos)
+      val rollback = { () => record.put(field.pos, prev) }
+      val commit = { () => record.put(field.pos, value) }
+      val xpath = "/" + field.name
+      val bytes = avro.avroEncode(value, field.schema).get
+      UpdateAction(commit, rollback, Insertlog(xpath, bytes))
     }
-    val rollback = { () =>
-      // todo
-    }
-
-    UpdateAction(commit, rollback, Insertlog("/", fieldToValues, record.getSchema))
   }
 
   def updateEval(stmt: UpdateStatement, record: GenericRecord): List[List[UpdateAction]] = {
@@ -285,10 +286,13 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
   }
 
   private def updateValue(attr: String, v: Any, record: GenericRecord): UpdateAction = {
-    val prev = record.get(attr)
-    val rlback = { () => record.put(attr, prev) }
-    val commit = { () => record.put(attr, v) }
-    UpdateAction(commit, rlback, Changelog("/" + attr, v, record.getSchema.getField(attr).schema))
+    val field = record.getSchema.getField(attr)
+    val prev = record.get(field.pos)
+    val rlback = { () => record.put(field.pos, prev) }
+    val commit = { () => record.put(field.pos, v) }
+    val xpath = "/" + field.name
+    val bytes = avro.avroEncode(v, field.schema).get
+    UpdateAction(commit, rlback, Changelog(xpath, bytes))
   }
 
   private def updateValue(attrPaths: List[String], v: Any, record: GenericRecord): UpdateAction = {
@@ -306,11 +310,13 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
       currTarget match {
         case fieldRec: GenericRecord =>
           if (paths.isEmpty) { // reaches last path
-            val prev = fieldRec.get(path)
-            val rlback = { () => fieldRec.put(path, prev) }
-            val commit = { () => fieldRec.put(path, v) }
+            val field = fieldRec.getSchema.getField(path)
+            val prev = fieldRec.get(field.pos)
+            val rlback = { () => fieldRec.put(field.pos, prev) }
+            val commit = { () => fieldRec.put(field.pos, v) }
             val xpath = paths.mkString("/", "/", "") // TODO
-            action = UpdateAction(commit, rlback, Changelog(xpath, v, schema))
+            val bytes = avro.avroEncode(v, field.schema).get
+            action = UpdateAction(commit, rlback, Changelog(xpath, bytes))
           } else {
             currTarget = fieldRec.get(path)
           }
