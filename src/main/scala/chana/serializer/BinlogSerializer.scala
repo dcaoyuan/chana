@@ -50,23 +50,23 @@ final class BinlogSerializer(system: ExtendedActorSystem) extends Serializer {
 
       builder.result.toArray
 
-    case binlog @ Changelog(xpath, bin) =>
+    case binlog @ Changelog(xpath, _, bytes) =>
       val builder = ByteString.newBuilder
 
       builder.putByte(binlog.`type`)
       StringSerializer.appendToByteString(builder, xpath)
-      builder.putInt(bin.length)
-      builder.putBytes(bin)
+      builder.putInt(bytes.length)
+      builder.putBytes(bytes)
 
       builder.result.toArray
 
-    case binlog @ Insertlog(xpath, bin) =>
+    case binlog @ Insertlog(xpath, _, bytes) =>
       val builder = ByteString.newBuilder
 
       builder.putByte(binlog.`type`)
       StringSerializer.appendToByteString(builder, xpath)
-      builder.putInt(bin.length)
-      builder.putBytes(bin)
+      builder.putInt(bytes.length)
+      builder.putBytes(bytes)
 
       builder.result.toArray
     case _ =>

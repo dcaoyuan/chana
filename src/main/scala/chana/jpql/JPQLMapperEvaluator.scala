@@ -241,7 +241,7 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
       val commit = { () => record.put(field.pos, value) }
       val xpath = "/" + field.name
       val bytes = avro.avroEncode(value, field.schema).get
-      UpdateAction(commit, rollback, Insertlog(xpath, bytes))
+      UpdateAction(commit, rollback, Insertlog(xpath, value, bytes))
     }
   }
 
@@ -292,7 +292,7 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
     val commit = { () => record.put(field.pos, v) }
     val xpath = "/" + field.name
     val bytes = avro.avroEncode(v, field.schema).get
-    UpdateAction(commit, rlback, Changelog(xpath, bytes))
+    UpdateAction(commit, rlback, Changelog(xpath, v, bytes))
   }
 
   private def updateValue(attrPaths: List[String], v: Any, record: GenericRecord): UpdateAction = {
@@ -316,7 +316,7 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
             val commit = { () => fieldRec.put(field.pos, v) }
             val xpath = paths.mkString("/", "/", "") // TODO
             val bytes = avro.avroEncode(v, field.schema).get
-            action = UpdateAction(commit, rlback, Changelog(xpath, bytes))
+            action = UpdateAction(commit, rlback, Changelog(xpath, v, bytes))
           } else {
             currTarget = fieldRec.get(path)
           }

@@ -1,9 +1,9 @@
-Chana
+ChaNa
 ======
 
 Avro Data Store based on Akka (persistence in progressing)
 
-This project is named from Chinese word 刹那, which is a transliteration
+This project is named from Chinese word "刹那", which is a transliteration
 of the word "Kasna" from Sanskrit, means "instant; split second". 
 
 .. image:: https://travis-ci.org/wandoulabs/chana.png
@@ -15,7 +15,7 @@ Core Design
 
 -  Each record is an actor (non-blocking)
 -  Akka sharding cluster (easy to scale-out)
--  Locate field/value via XPath (since version 0.2.0)
+-  Locate field/value via `XPath <http://www.w3.org/TR/xpath-31>`__ (since version 0.2.0)
 -  Scripting triggered by field updating events (JDK 8 JavaScript engine
    -
    `Nashorn <http://docs.oracle.com/javase/8/docs/technotes/guides/scripting/nashorn/>`__)
@@ -290,8 +290,8 @@ chana stores Avro record, with two groups of APIs:
 Primitive API (Scala / Java)
 ----------------------------
 
-use **xpath** expression to locate avro field. See
-`xpath <http://www.w3.org/TR/xpath-31>`__
+use **XPath** expression to locate avro field. See
+`XPath <http://www.w3.org/TR/xpath-31>`__
 
 1. Schema
 ~~~~~~~~~
@@ -619,9 +619,9 @@ Where,
 -  ``id``: the id of this entity 
 -  ``record``: the entity record after updated 
 -  ``binlogs``: array of Binlog(s) during this updating action 
--  ``binlogs[i].type()``: -1 - Delete, 0 - Change, 1 - Insert
+-  ``binlogs[i].type()``: -1 - Clear, 0 - Delete, 1 - Change, 2 - Insert
 -  ``binlogs[i].xpath()``: XPath Location of changed value
--  ``binlogs[i].value()``: value
+-  ``binlogs[i].value()``: value - Change/Insert, keys - Delete, void - Clear
 
 -  The JavaScript code should do what ever operation via function only.
    You can define local variables in function, and transfer these local
@@ -630,6 +630,6 @@ Where,
 Reference
 =========
 
--  `xpath <http://www.w3.org/TR/xpath-31>`__
+-  `XPath <http://www.w3.org/TR/xpath-31>`__
 -  `Nashorn <https://wiki.openjdk.java.net/display/Nashorn/Main>`__
 

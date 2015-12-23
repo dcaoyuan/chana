@@ -171,13 +171,13 @@ class SerializerSpec(_system: ActorSystem) extends TestKit(_system) with Implici
 
     "handle binlog" in {
       val bytes = avro.avroEncode(record, record.getSchema).get
-      val obj = avro.Changelog("", bytes)
+      val obj = avro.Changelog("", record, bytes)
       test(obj)
     }
 
     "handle changelog" in {
       val bytes = avro.avroEncode(1L, Schema.create(Schema.Type.LONG)).get
-      val obj = avro.Changelog("/xpath/to", bytes)
+      val obj = avro.Changelog("/xpath/to", 1L, bytes)
       test(obj)
     }
 

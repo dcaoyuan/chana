@@ -238,7 +238,7 @@ object XPathEvaluator {
               case x  => x
             }
             val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(value1, rec.getSchema).get
-            actions ::= UpdateAction(commit, rlback, Changelog(xpath, bytes))
+            actions ::= UpdateAction(commit, rlback, Changelog(xpath, value1, bytes))
           case _ => // log.error 
         }
 
@@ -254,7 +254,7 @@ object XPathEvaluator {
         val commit = { () => rec.put(field.pos, value1) }
         val xpath = n.xpath + "/" + field.name
         val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(value1, field.schema).get
-        actions ::= UpdateAction(commit, rlback, Changelog(xpath, bytes))
+        actions ::= UpdateAction(commit, rlback, Changelog(xpath, value1, bytes))
 
       case n @ ArrayNode(arr: java.util.Collection[Any], arrSchema, idxes, field) =>
 
@@ -278,7 +278,7 @@ object XPathEvaluator {
               val commit = { () => rec.put(f.pos, value1) }
               val xpath = n.xpath + "[" + idx + "]/" + f.name
               val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(value1, f.schema).get
-              actions ::= UpdateAction(commit, rlback, Changelog(xpath, bytes))
+              actions ::= UpdateAction(commit, rlback, Changelog(xpath, value1, bytes))
             case None =>
               val elemSchema = avro.getElementType(arrSchema)
               val value1 = format match {
@@ -291,7 +291,7 @@ object XPathEvaluator {
               val commit = { () => avro.arrayUpdate(arr, ix, value1) }
               val xpath = n.xpath + "[" + idx + "]"
               val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(value1, elemSchema).get
-              actions ::= UpdateAction(commit, rlback, Changelog(xpath, bytes))
+              actions ::= UpdateAction(commit, rlback, Changelog(xpath, value1, bytes))
           }
         }
 
@@ -316,7 +316,7 @@ object XPathEvaluator {
               val commit = { () => rec.put(f.pos, value1) }
               val xpath = n.xpath + "/@" + key + "/" + f.name
               val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(value1, f.schema).get
-              actions ::= UpdateAction(commit, rlback, Changelog(xpath, bytes))
+              actions ::= UpdateAction(commit, rlback, Changelog(xpath, value1, bytes))
             case None =>
               val valueSchema = avro.getValueType(mapSchema)
               val value1 = format match {
@@ -329,7 +329,7 @@ object XPathEvaluator {
               val commit = { () => map.put(key, value1) }
               val xpath = n.xpath + "/@" + key
               val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(value1, valueSchema).get
-              actions ::= UpdateAction(commit, rlback, Changelog(xpath, bytes))
+              actions ::= UpdateAction(commit, rlback, Changelog(xpath, value1, bytes))
 
           }
         }
@@ -356,7 +356,7 @@ object XPathEvaluator {
             val commit = { () => arr.add(value1) }
             val xpath = n.xpath + "/" + field.name
             val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(value1, elemSchema).get
-            actions ::= UpdateAction(commit, rlback, Insertlog(xpath, bytes))
+            actions ::= UpdateAction(commit, rlback, Insertlog(xpath, value1, bytes))
 
           case map: java.util.Map[String, Any] @unchecked =>
             val valueSchema = avro.getValueType(field.schema)
@@ -372,7 +372,7 @@ object XPathEvaluator {
                 val commit = { () => map.put(k, v) }
                 val xpath = n.xpath + "/" + field.name + "/@" + k
                 val bytes = avro.avroEncode(v, valueSchema).get
-                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, bytes))
+                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, v, bytes))
 
               case kvs: java.util.Map[String, _] @unchecked =>
                 val entries = kvs.entrySet.iterator
@@ -387,7 +387,7 @@ object XPathEvaluator {
                   val commit = { () => map.put(entry.getKey, v) }
                   val xpath = n.xpath + "/" + field.name + "/@" + k
                   val bytes = avro.avroEncode(v, valueSchema).get
-                  actions ::= UpdateAction(commit, rlback, Insertlog(xpath, bytes))
+                  actions ::= UpdateAction(commit, rlback, Insertlog(xpath, v, bytes))
                 }
 
               case _ =>
@@ -424,7 +424,7 @@ object XPathEvaluator {
                 val commit = { () => arr.addAll(xs) }
                 val xpath = n.xpath + "/" + field.name
                 val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(value1, field.schema).get
-                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, bytes))
+                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, value1, bytes))
 
               case _ => // ?
             }
@@ -450,7 +450,7 @@ object XPathEvaluator {
                 val commit = { () => map.putAll(toPut) }
                 val xpath = n.xpath + "/" + field.name
                 val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(toPut, field.schema).get
-                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, bytes))
+                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, toPut, bytes))
 
               case xs: java.util.Map[String, Any] @unchecked =>
                 val prev = new java.util.HashMap[String, Any]()
@@ -465,7 +465,7 @@ object XPathEvaluator {
                 val commit = { () => map.putAll(xs) }
                 val xpath = n.xpath + "/" + field.name
                 val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(value1, field.schema).get
-                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, bytes))
+                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, value1, bytes))
 
               case _ => // ?
             }
