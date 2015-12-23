@@ -131,14 +131,14 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
 
       var q = "/devApps"
       var json = "{'e' : {}}"
-      var value = avro.FromJson.fromJsonString("{}", appInfoSchema, false)
+      var value = avro.jsonDecode("{}", appInfoSchema).get
       insertJson(record, q, json)
       select(record, q).head.asInstanceOf[java.util.Map[String, _]].get("e") should be(
         value)
 
       q = "/chargeRecords"
       json = "{'time': 4, 'amount': -4.0}"
-      value = avro.FromJson.fromJsonString(json, chargeRecordSchema, false)
+      value = avro.jsonDecode(json, chargeRecordSchema).get
       insertJson(record, q, json)
       select(record, q).head.asInstanceOf[java.util.Collection[_]].contains(value) should be(
         true)
@@ -153,14 +153,14 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
 
       var q = "/devApps"
       var json = "{'g' : {}, 'h' : {'numBlackApps': 10}}"
-      var value = avro.FromJson.fromJsonString("{'numBlackApps': 10}", appInfoSchema, false)
+      var value = avro.jsonDecode("{'numBlackApps': 10}", appInfoSchema).get
       insertAllJson(record, q, json)
       select(record, q).head.asInstanceOf[java.util.Map[String, _]].get("h") should be(
         value)
 
       q = "/chargeRecords"
       json = "[{'time': 3, 'amount': -5.0}, {'time': 4, 'amount': -6.0}]"
-      value = avro.FromJson.fromJsonString(json, chargeRecordsSchema, false)
+      value = avro.jsonDecode(json, chargeRecordsSchema).get
       insertAllJson(record, q, json)
       select(record, q).head.asInstanceOf[java.util.Collection[_]].containsAll(value.asInstanceOf[java.util.Collection[_]]) should be(
         true)

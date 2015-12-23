@@ -376,7 +376,7 @@ object XPathEvaluator {
 
               case kvs: java.util.Map[String, _] @unchecked =>
                 val entries = kvs.entrySet.iterator
-                // should contains only one entry
+                // should contain only one entry
                 if (entries.hasNext) {
                   val entry = entries.next
                   val k = entry.getKey

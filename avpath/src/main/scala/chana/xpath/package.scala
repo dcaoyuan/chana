@@ -33,6 +33,14 @@ package object xpath {
     }
   }
 
+  def updateAvro(data: IndexedRecord, path: String, value: Array[Byte]): Try[List[UpdateAction]] = updateAvro(parser())(data, path, value)
+  def updateAvro(parser: XPathParser)(data: IndexedRecord, path: String, value: Array[Byte]): Try[List[UpdateAction]] = {
+    Try {
+      val ast = parser.parse(path)
+      XPathEvaluator.updateAvro(data, ast, value)
+    }
+  }
+
   /**
    * Applied on array/map only
    */
@@ -58,6 +66,17 @@ package object xpath {
   /**
    * Applied on array/map only
    */
+  def insertAvro(data: IndexedRecord, path: String, value: Array[Byte]): Try[List[UpdateAction]] = insertAvro(parser())(data, path, value)
+  def insertAvro(parser: XPathParser)(data: IndexedRecord, path: String, value: Array[Byte]): Try[List[UpdateAction]] = {
+    Try {
+      val ast = parser.parse(path)
+      XPathEvaluator.insertAvro(data, ast, value)
+    }
+  }
+
+  /**
+   * Applied on array/map only
+   */
   def insertAll(data: IndexedRecord, path: String, values: java.util.Collection[_]): Try[List[UpdateAction]] = insertAll(parser())(data, path, values)
   def insertAll(parser: XPathParser)(data: IndexedRecord, path: String, values: java.util.Collection[_]): Try[List[UpdateAction]] = {
     Try {
@@ -74,6 +93,17 @@ package object xpath {
     Try {
       val ast = parser.parse(path)
       XPathEvaluator.insertAllJson(data, ast, value)
+    }
+  }
+
+  /**
+   * Applied on array/map only
+   */
+  def insertAllAvro(data: IndexedRecord, path: String, value: Array[Byte]): Try[List[UpdateAction]] = insertAllAvro(parser())(data, path, value)
+  def insertAllAvro(parser: XPathParser)(data: IndexedRecord, path: String, value: Array[Byte]): Try[List[UpdateAction]] = {
+    Try {
+      val ast = parser.parse(path)
+      XPathEvaluator.insertAllAvro(data, ast, value)
     }
   }
 

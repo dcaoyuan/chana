@@ -4,10 +4,12 @@ import akka.actor.{ Actor, ActorRef, ActorSystem, Cancellable, PoisonPill, Props
 import akka.contrib.pattern.{ ClusterSharding, ShardRegion, DistributedPubSubExtension }
 import akka.event.LoggingAdapter
 import akka.persistence._
-import chana.avpath.Evaluator.Ctx
 import chana.avro.Binlog
 import chana.avro.Changelog
+import chana.avro.Clearlog
 import chana.avro.DefaultRecordBuilder
+import chana.avro.Deletelog
+import chana.avro.Insertlog
 import chana.avro.UpdateAction
 import chana.avro.UpdateEvent
 import org.apache.avro.Schema
@@ -126,7 +128,8 @@ trait Entity extends Actor with Stash with PersistentActor {
   def accessBehavior: Receive = {
     case GetRecord(_) =>
       resetIdleTimeout()
-      sender() ! Success(Ctx(new Record(record, true), schema, null))
+      // we return a deep copied field to avoid it's been modified via outside reference
+      sender() ! Success(new Record(record, true))
 
     case GetRecordAvro(_) =>
       resetIdleTimeout()
@@ -141,7 +144,8 @@ trait Entity extends Actor with Stash with PersistentActor {
       val commander = sender()
       val field = schema.getField(fieldName)
       if (field != null) {
-        commander ! Success(Ctx(GenericData.get().deepCopy(field.schema(), record.get(field.pos)), field.schema, field))
+        // we return a deep copied field to avoid it's been modified via outside reference
+        commander ! Success(GenericData.get().deepCopy(field.schema(), record.get(field.pos)))
       } else {
         val ex = new RuntimeException("Field does not exist: " + fieldName)
         log.error(ex, ex.getMessage)
@@ -303,13 +307,13 @@ trait Entity extends Actor with Stash with PersistentActor {
 
     // TODO configuration options to persistAsync etc.
     if (isPersistent) {
-      persist(event)(internal_commit(actions, commander))
+      persist(event)(_commit(actions, commander))
     } else {
-      internal_commit(actions, commander)(event)
+      _commit(actions, commander)(event)
     }
   }
 
-  private def internal_commit(actions: List[UpdateAction], commander: ActorRef)(event: UpdateEvent) {
+  private def _commit(actions: List[UpdateAction], commander: ActorRef)(event: UpdateEvent) {
     actions foreach { _.commit() }
 
     if (persistCount >= persistParams) {
@@ -327,12 +331,13 @@ trait Entity extends Actor with Stash with PersistentActor {
     onUpdated(event)
   }
 
-  private def doUpdateRecord(event: UpdatedFields): Unit = {
-    event.updatedFields foreach { case (pos, value) => record.put(pos, value) }
-  }
-
-  private def doUpdateRecord(binlog: Binlog): Unit = {
-    // TODO
+  private def doUpdateRecord(binlog: Binlog) {
+    binlog match {
+      case Clearlog(xpath)            => chana.xpath.clear(record, xpath)
+      case Deletelog(xpath, keys)     => chana.xpath.delete(record, xpath)
+      case Changelog(xpath, _, bytes) => chana.xpath.updateAvro(record, xpath, bytes)
+      case Insertlog(xpath, _, bytes) => chana.xpath.insertAvro(record, xpath, bytes) // TODO insertAll or insert?
+    }
   }
 
   /** for test only */
