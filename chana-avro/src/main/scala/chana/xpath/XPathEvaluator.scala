@@ -355,8 +355,7 @@ object XPathEvaluator {
             val rlback = { () => arr.remove(value1) }
             val commit = { () => arr.add(value1) }
             // always convert to a collection inserting
-            val vs = new java.util.LinkedList[Any]()
-            vs.add(value1)
+            val vs = java.util.Arrays.asList(value1)
             val xpath = n.xpath + "/" + field.name
             val bytes = avro.avroEncode(vs, field.schema).get
             actions ::= UpdateAction(commit, rlback, Insertlog(xpath, vs, bytes))
@@ -430,8 +429,8 @@ object XPathEvaluator {
                 val rlback = { () => arr.removeAll(xs) }
                 val commit = { () => arr.addAll(xs) }
                 val xpath = n.xpath + "/" + field.name
-                val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(value1, field.schema).get
-                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, value1, bytes))
+                val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(xs, field.schema).get
+                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, xs, bytes))
 
               case _ => // ?
             }
@@ -471,8 +470,8 @@ object XPathEvaluator {
                 val rlback = { () => map.putAll(prev) }
                 val commit = { () => map.putAll(xs) }
                 val xpath = n.xpath + "/" + field.name
-                val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(value1, field.schema).get
-                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, value1, bytes))
+                val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(xs, field.schema).get
+                actions ::= UpdateAction(commit, rlback, Insertlog(xpath, xs, bytes))
 
               case _ => // ?
             }

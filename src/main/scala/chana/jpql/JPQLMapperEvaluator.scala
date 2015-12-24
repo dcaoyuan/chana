@@ -240,8 +240,9 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
       val rollback = { () => record.put(field.pos, prev) }
       val commit = { () => record.put(field.pos, value) }
       val xpath = "/" + field.name
-      val bytes = avro.avroEncode(value, field.schema).get
-      UpdateAction(commit, rollback, Insertlog(xpath, value, bytes))
+      val xs = java.util.Arrays.asList(value)
+      val bytes = avro.avroEncode(value, Schema.createArray(field.schema)).get
+      UpdateAction(commit, rollback, Insertlog(xpath, xs, bytes))
     }
   }
 
