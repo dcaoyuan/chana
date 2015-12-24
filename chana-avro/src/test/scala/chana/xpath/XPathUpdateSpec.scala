@@ -22,7 +22,6 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
     val grammar = new XPathGrammar(reader, "")
     val r = grammar.pXPath(0)
     val rootNode = r.semanticValue[Node]
-    info("\n\n## " + query + " ##")
 
     // now let's do Parsing
     val parser = new XPathParser()
@@ -40,6 +39,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
   }
 
   def update(record: Record, query: String, value: Any) = {
+    info("\n\n## " + query + " ##")
     val e = evaluator()
     val stmt = parse(query)
     val res = e.update(record, stmt, value)
@@ -48,6 +48,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
   }
 
   def insertJson(record: Record, query: String, value: String) = {
+    info("\n\n## " + query + " ##")
     val e = evaluator()
     val stmt = parse(query)
     val res = e.insertJson(record, stmt, value)
@@ -56,6 +57,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
   }
 
   def insertAllJson(record: Record, query: String, value: String) = {
+    info("\n\n## " + query + " ##")
     val e = evaluator()
     val stmt = parse(query)
     val res = e.insertAllJson(record, stmt, value)
@@ -64,6 +66,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
   }
 
   def delete(record: Record, query: String) = {
+    info("\n\n## " + query + " ##")
     val e = evaluator()
     val stmt = parse(query)
     val res = e.delete(record, stmt)
@@ -72,6 +75,7 @@ class XPathUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
   }
 
   def clear(record: Record, query: String) = {
+    info("\n\n## " + query + " ##")
     val e = evaluator()
     val stmt = parse(query)
     val res = e.clear(record, stmt)

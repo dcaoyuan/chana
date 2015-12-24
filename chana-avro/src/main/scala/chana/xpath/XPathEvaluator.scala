@@ -484,44 +484,37 @@ object XPathEvaluator {
   private def opDelete(ctx: Context): List[UpdateAction] = {
     var actions = List[UpdateAction]()
 
-    val processingArrs = new mutable.HashMap[java.util.Collection[Any], (Schema, List[Int])]()
     ctx.node match {
       case _: RecordNode => // cannot apply delete on record
 
       case n @ ArrayNode(arr: java.util.Collection[Any], arrSchema, idxes, field) =>
-        val itr = idxes.iterator
-        while (itr.hasNext) {
-          val ix = itr.next - 1
-          processingArrs += arr -> (arrSchema, ix :: processingArrs.getOrElse(arr, (arrSchema, List[Int]()))._2)
-        }
+        val descendingIdxes = new java.util.ArrayList(idxes)
+        java.util.Collections.sort[Int](descendingIdxes, java.util.Collections.reverseOrder())
 
-        for ((arr, (arrSchema, _toRemove)) <- processingArrs) {
-          val toRemove = _toRemove.sortBy(-_)
-
-          // toRlback will be asc sorted
-          var prev = toRemove
-          var toRlback = List[(Int, Any)]()
-          var i = 0
-          var arrItr = arr.iterator
-          while (prev.nonEmpty) {
-            val idx = prev.head
-            prev = prev.tail
-            while (arrItr.hasNext && i <= idx) {
-              if (i == idx) {
-                toRlback ::= (i, arrItr.next)
-              } else {
-                arrItr.next
-              }
+        // toRlback will be asc sorted
+        var prev = descendingIdxes.iterator
+        var toRemove = List[Int]()
+        var toRlback = List[(Int, Any)]()
+        var i = 0
+        var arrItr = arr.iterator
+        while (prev.hasNext) {
+          val ix = prev.next - 1
+          while (arrItr.hasNext && i <= ix) {
+            if (i == ix) {
+              toRemove ::= i
+              toRlback ::= (i, arrItr.next)
+            } else {
+              arrItr.next
               i += 1
             }
           }
-
-          val rlback = { () => avro.arrayInsert(arr, toRlback) }
-          val commit = { () => avro.arrayRemove(arr, toRemove) }
-          val xpath = n.xpath
-          // in case of delete on array, Deletelog just remember the idxes.
-          actions ::= UpdateAction(commit, rlback, Deletelog(xpath, idxes))
         }
+
+        val rlback = { () => avro.arrayInsert(arr, toRlback) }
+        val commit = { () => avro.arrayRemove(arr, toRemove) }
+        val xpath = n.xpath
+        // in case of delete on array, Deletelog just remember the idxes.
+        actions ::= UpdateAction(commit, rlback, Deletelog(xpath, descendingIdxes))
 
       case n @ MapNode(map: java.util.Map[String, Any], mapSchema, keys, field) =>
         val prev = new java.util.LinkedHashMap[String, Any]()
