@@ -334,9 +334,9 @@ trait Entity extends Actor with Stash with PersistentActor {
   private def doUpdateRecord(binlog: Binlog) {
     binlog match {
       case Clearlog(xpath)            => chana.xpath.clear(record, xpath)
-      case Deletelog(xpath, keys)     => chana.xpath.delete(record, xpath)
+      case Deletelog(xpath, keys)     => chana.xpath.delete(record, xpath, keys)
       case Changelog(xpath, _, bytes) => chana.xpath.updateAvro(record, xpath, bytes)
-      case Insertlog(xpath, _, bytes) => chana.xpath.insertAvro(record, xpath, bytes) // TODO insertAll or insert?
+      case Insertlog(xpath, _, bytes) => chana.xpath.insertAvro(record, xpath, bytes)
     }
   }
 

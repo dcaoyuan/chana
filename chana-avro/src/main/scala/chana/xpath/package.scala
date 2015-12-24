@@ -110,10 +110,33 @@ package object xpath {
   /**
    * Applied on array/map elements only
    */
-  def delete(data: IndexedRecord, path: String): Try[List[UpdateAction]] = delete(parser())(data, path)
-  def delete(parser: XPathParser)(data: IndexedRecord, path: String): Try[List[UpdateAction]] = {
+  def delete(data: IndexedRecord, path: String): Try[List[UpdateAction]] = delete(parser())(data, path, java.util.Collections.emptyList())
+  def delete(data: IndexedRecord, path: String, keys: java.util.Collection[_]): Try[List[UpdateAction]] = delete(parser())(data, path, keys)
+  def delete(parser: XPathParser)(data: IndexedRecord, path: String, keys: java.util.Collection[_]): Try[List[UpdateAction]] = {
     Try {
-      val ast = parser.parse(path)
+      val xpath = if (keys.isEmpty) {
+        path
+      } else {
+        val itr = keys.iterator
+        val first = itr.next
+        val sb = new StringBuilder(path)
+        first match {
+          case x: String =>
+            sb.append("/@*[").append("name()='" + first + "'")
+            while (itr.hasNext) {
+              sb.append(" or name()='" + itr.next + "'")
+            }
+            sb.append("]")
+          case x: Int =>
+            sb.append("[").append("position()=" + first)
+            while (itr.hasNext) {
+              sb.append(" or position()=" + itr.next)
+            }
+            sb.append("]")
+        }
+        sb.toString
+      }
+      val ast = parser.parse(xpath)
       XPathEvaluator.delete(data, ast)
     }
   }

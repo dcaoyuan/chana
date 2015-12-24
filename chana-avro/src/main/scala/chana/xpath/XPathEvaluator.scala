@@ -354,9 +354,12 @@ object XPathEvaluator {
             // There should be only one element
             val rlback = { () => arr.remove(value1) }
             val commit = { () => arr.add(value1) }
+            // always convert to a collection inserting
+            val vs = new java.util.LinkedList[Any]()
+            vs.add(value1)
             val xpath = n.xpath + "/" + field.name
-            val bytes = if (format == Avro) value.asInstanceOf[Array[Byte]] else avro.avroEncode(value1, elemSchema).get
-            actions ::= UpdateAction(commit, rlback, Insertlog(xpath, value1, bytes))
+            val bytes = avro.avroEncode(vs, field.schema).get
+            actions ::= UpdateAction(commit, rlback, Insertlog(xpath, vs, bytes))
 
           case map: java.util.Map[String, Any] @unchecked =>
             val valueSchema = avro.getValueType(field.schema)
@@ -370,8 +373,11 @@ object XPathEvaluator {
                 val prev = map.get(k)
                 val rlback = { () => map.put(k, prev) }
                 val commit = { () => map.put(k, v) }
-                val xpath = n.xpath + "/" + field.name + "/@" + k
-                val bytes = avro.avroEncode(v, valueSchema).get
+                // always convert to a collection inserting
+                val kvs = new java.util.LinkedHashMap[String, Any]()
+                kvs.put(k, v)
+                val xpath = n.xpath + "/" + field.name
+                val bytes = avro.avroEncode(kvs, field.schema).get
                 actions ::= UpdateAction(commit, rlback, Insertlog(xpath, v, bytes))
 
               case kvs: java.util.Map[String, _] @unchecked =>
@@ -385,9 +391,10 @@ object XPathEvaluator {
                   val prev = map.get(k)
                   val rlback = { () => map.put(entry.getKey, prev) }
                   val commit = { () => map.put(entry.getKey, v) }
-                  val xpath = n.xpath + "/" + field.name + "/@" + k
-                  val bytes = avro.avroEncode(v, valueSchema).get
-                  actions ::= UpdateAction(commit, rlback, Insertlog(xpath, v, bytes))
+                  // always convert to a collection inserting
+                  val xpath = n.xpath + "/" + field.name
+                  val bytes = avro.avroEncode(kvs, field.schema).get
+                  actions ::= UpdateAction(commit, rlback, Insertlog(xpath, kvs, bytes))
                 }
 
               case _ =>
