@@ -101,7 +101,7 @@ class XPathSelectSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
 
     }
 
-    "query fields with position() predicates" should {
+    "query array field with position() and map field with name() predicates" should {
       val record = initAccount()
 
       var q = "/chargeRecords[position() = 2]"
@@ -171,6 +171,17 @@ class XPathSelectSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
       q = "/chargeRecords[position() = 1 or position() = 2]"
       select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
         record.get("chargeRecords").asInstanceOf[GenericData.Array[_]].toArray)
+
+      q = "/devApps/@*[name()='a']"
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(
+          record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("a")))
+
+      q = "/devApps/@*[name()='a' or name()='c']"
+      select(record, q).head.asInstanceOf[java.util.Collection[_]].toArray should be(
+        Array(
+          record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("a"),
+          record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("c")))
 
     }
 

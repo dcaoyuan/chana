@@ -1405,13 +1405,32 @@ object XPathEvaluator {
 
     // functions are always applied on ctx.target
     fnName match {
-      case "last"     => XPathFunctions.last(ctx.target.asInstanceOf[java.util.Collection[Any]])
-      case "position" => XPathFunctions.position(ctx.target.asInstanceOf[java.util.Collection[Any]])
+      case "last"     => XPathFunctions.last(_getArrayOfNode(ctx.node))
+      case "position" => XPathFunctions.position(_getArrayOfNode(ctx.node))
+
+      case "name"     => XPathFunctions.name(_getMapOfNode(ctx.node))
 
       case "not"      => XPathFunctions.not(args.head)
       case "true"     => true
       case "false"    => false
-      case _          => throw new XPathRuntimeException(fnName, "is not a supported functon")
+
+      case _          => throw new XPathRuntimeException(fnName, "is not a supported function")
+    }
+  }
+
+  private def _getArrayOfNode(node: AvroNode[_]): java.util.Collection[_] = {
+    node match {
+      case RecordNode(rec, Some(field)) => rec.get(field.pos).asInstanceOf[java.util.Collection[_]]
+      case ArrayNode(arr, _, _, _)      => arr
+      case _                            => throw new XPathRuntimeException(node, "does not contain array target")
+    }
+  }
+
+  private def _getMapOfNode(node: AvroNode[_]): java.util.Map[String, _] = {
+    node match {
+      case RecordNode(rec, Some(field)) => rec.get(field.pos).asInstanceOf[java.util.Map[String, _]]
+      case MapNode(map, _, _, _)        => map
+      case _                            => throw new XPathRuntimeException(node, "does not contain map target")
     }
   }
 

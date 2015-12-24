@@ -627,8 +627,16 @@ transient String doubleLiteral =
 
 generic StringLiteral = stringLiteral ;
 transient String stringLiteral =
-  '"' ( EscapeQuot / !["] Char )* '"' 
-/ "'" ( EscapeApos / !['] Char )* "'"
+  '"' v:doubleQuotedString '"' { yyValue = v; }
+/ "'" v:singleQuotedString "'" { yyValue = v; }
+;
+
+transient String doubleQuotedString =
+  ( EscapeQuot / !["] Char )*
+;
+
+transient String singleQuotedString =
+  ( EscapeApos / !['] Char )*
 ;
 
 generic URIQualifiedName =

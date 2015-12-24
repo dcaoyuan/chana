@@ -372,11 +372,11 @@ object XPathFunctions {
 
   // ----- functions applicable on arrays
 
-  def last(xs: java.util.Collection[Any]): Int = {
+  def last(xs: java.util.Collection[_]): Int = {
     xs.size
   }
 
-  def position(xs: java.util.Collection[Any]): java.util.Collection[Int] = {
+  def position(xs: java.util.Collection[_]): java.util.Collection[Int] = {
     val res = new java.util.LinkedList[Int]()
     val itr = xs.iterator
     var i = 1
@@ -387,4 +387,9 @@ object XPathFunctions {
     }
     res
   }
+
+  def name(xs: java.util.Map[String, _]): java.util.Collection[String] = {
+    xs.keySet
+  }
+
 }
