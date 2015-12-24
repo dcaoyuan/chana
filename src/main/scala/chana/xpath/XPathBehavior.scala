@@ -1,4 +1,4 @@
-package chana.avpath
+package chana.xpath
 
 import chana.Clear
 import chana.Delete
@@ -13,14 +13,13 @@ import chana.SelectJson
 import chana.Update
 import chana.UpdateJson
 import chana.xpath
-import chana.xpath.Context
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
 
 trait XPathBehavior extends Entity {
 
-  def avpathBehavior: Receive = {
+  def xpathBehavior: Receive = {
     case Select(_, path) =>
       resetIdleTimeout()
       val commander = sender()

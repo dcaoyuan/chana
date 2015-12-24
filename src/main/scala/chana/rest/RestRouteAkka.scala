@@ -167,9 +167,9 @@ trait RestRouteAkka extends Directives {
         post {
           entity(as[String]) { body =>
             splitPathAndValue(body) match {
-              case List(avpathExpr, _*) =>
+              case List(xpathExpr, _*) =>
                 complete {
-                  resolver(entityName).ask(chana.SelectJson(id, avpathExpr))(readTimeout).collect {
+                  resolver(entityName).ask(chana.SelectJson(id, xpathExpr))(readTimeout).collect {
                     case Success(jsons: List[Array[Byte]] @unchecked) => jsons.map(new String(_)).mkString("[", ",", "]")
                     case Failure(ex)                                  => "[]"
                   }
@@ -183,9 +183,9 @@ trait RestRouteAkka extends Directives {
         post {
           entity(as[String]) { body =>
             splitPathAndValue(body) match {
-              case List(avpathExpr, valueJson) =>
+              case List(xpathExpr, valueJson) =>
                 complete {
-                  resolver(entityName).ask(chana.UpdateJson(id, avpathExpr, valueJson))(writeTimeout).collect {
+                  resolver(entityName).ask(chana.UpdateJson(id, xpathExpr, valueJson))(writeTimeout).collect {
                     case Success(_)  => StatusCodes.OK
                     case Failure(ex) => StatusCodes.InternalServerError
                   }
@@ -199,9 +199,9 @@ trait RestRouteAkka extends Directives {
         post {
           entity(as[String]) { body =>
             splitPathAndValue(body) match {
-              case List(avpathExpr, json) =>
+              case List(xpathExpr, json) =>
                 complete {
-                  resolver(entityName).ask(chana.InsertJson(id, avpathExpr, json))(writeTimeout).collect {
+                  resolver(entityName).ask(chana.InsertJson(id, xpathExpr, json))(writeTimeout).collect {
                     case Success(_)  => StatusCodes.OK
                     case Failure(ex) => StatusCodes.InternalServerError
                   }
@@ -215,9 +215,9 @@ trait RestRouteAkka extends Directives {
         post {
           entity(as[String]) { body =>
             splitPathAndValue(body) match {
-              case List(avpathExpr, json) =>
+              case List(xpathExpr, json) =>
                 complete {
-                  resolver(entityName).ask(chana.InsertAllJson(id, avpathExpr, json))(writeTimeout).collect {
+                  resolver(entityName).ask(chana.InsertAllJson(id, xpathExpr, json))(writeTimeout).collect {
                     case Success(_)  => StatusCodes.OK
                     case Failure(ex) => StatusCodes.InternalServerError
                   }
@@ -231,9 +231,9 @@ trait RestRouteAkka extends Directives {
         post {
           entity(as[String]) { body =>
             splitPathAndValue(body) match {
-              case List(avpathExpr, _*) =>
+              case List(xpathExpr, _*) =>
                 complete {
-                  resolver(entityName).ask(chana.Delete(id, avpathExpr))(writeTimeout).collect {
+                  resolver(entityName).ask(chana.Delete(id, xpathExpr))(writeTimeout).collect {
                     case Success(_)  => StatusCodes.OK
                     case Failure(ex) => StatusCodes.InternalServerError
                   }
@@ -247,9 +247,9 @@ trait RestRouteAkka extends Directives {
         post {
           entity(as[String]) { body =>
             splitPathAndValue(body) match {
-              case List(avpathExpr, _*) =>
+              case List(xpathExpr, _*) =>
                 complete {
-                  resolver(entityName).ask(chana.Clear(id, avpathExpr))(writeTimeout).collect {
+                  resolver(entityName).ask(chana.Clear(id, xpathExpr))(writeTimeout).collect {
                     case Success(_)  => StatusCodes.OK
                     case Failure(ex) => StatusCodes.InternalServerError
                   }
@@ -288,20 +288,20 @@ trait RestRouteAkka extends Directives {
     var i = body.indexOf('\r')
     if (i > 0) {
       if (i + 1 < len && body.charAt(i + 1) == '\n') {
-        val avpathExpr = body.substring(0, i)
+        val xpathExpr = body.substring(0, i)
         val valueJson = body.substring(i + 2, len)
-        List(avpathExpr, valueJson)
+        List(xpathExpr, valueJson)
       } else {
-        val avpathExpr = body.substring(0, i)
+        val xpathExpr = body.substring(0, i)
         val valueJson = body.substring(i + 1, len)
-        List(avpathExpr, valueJson)
+        List(xpathExpr, valueJson)
       }
     } else {
       i = body.indexOf('\n')
       if (i > 0) {
-        val avpathExpr = body.substring(0, i)
+        val xpathExpr = body.substring(0, i)
         val valueJson = body.substring(i + 1, len)
-        List(avpathExpr, valueJson)
+        List(xpathExpr, valueJson)
       } else {
         List(body)
       }

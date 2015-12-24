@@ -3,11 +3,11 @@ package chana
 import akka.actor.Actor
 import akka.actor.ActorLogging
 import akka.actor.Props
-import chana.avpath.XPathBehavior
 import chana.avro.DefaultRecordBuilder
 import chana.avro.UpdateEvent
 import chana.jpql.JPQLBehavior
 import chana.script.ScriptBehavior
+import chana.xpath.XPathBehavior
 import org.apache.avro.Schema
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
@@ -36,7 +36,7 @@ class AEntity(val entityName: String, val schema: Schema, val builder: DefaultRe
     case _ =>
   }
 
-  override def receiveCommand = accessBehavior orElse persistBehavior orElse avpathBehavior orElse jpqlBehavior
+  override def receiveCommand = accessBehavior orElse persistBehavior orElse xpathBehavior orElse jpqlBehavior
 
   override def onUpdated(event: UpdateEvent) {
     super[ScriptBehavior].onUpdated(event)
