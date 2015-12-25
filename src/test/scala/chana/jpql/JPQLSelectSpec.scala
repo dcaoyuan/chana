@@ -10,7 +10,7 @@ import org.scalatest.Matchers
 import org.scalatest.WordSpecLike
 import xtc.tree.Node
 
-class JPQLEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
+class JPQLSelectSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
   import chana.avro.AvroRecords._
 
   def eval(query: String, record: Record) = {
@@ -36,7 +36,7 @@ class JPQLEvaluatorSpec extends WordSpecLike with Matchers with BeforeAndAfterAl
     res
   }
 
-  "JPQLEvaluator" when {
+  "JPQL select" when {
 
     "query fields" should {
       val record = initAccount()

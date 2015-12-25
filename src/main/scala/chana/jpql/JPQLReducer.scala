@@ -71,7 +71,7 @@ object JPQLReducer {
   def reducerProxy(system: ActorSystem, jpqlKey: String) = system.actorSelection(reducerProxyPath(jpqlKey))
 }
 
-class JPQLReducer(jqplKey: String, meta: JPQLMeta) extends Actor with Stash with ActorLogging {
+class JPQLReducer(jqplKey: String, meta: JPQLSelect) extends Actor with Stash with ActorLogging {
 
   import chana.jpql.JPQLReducer._
   import context.dispatcher

@@ -11,6 +11,8 @@ import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData.Record
 import org.apache.avro.generic.GenericRecord
 
+final case class DeletedRecord(id: String)
+
 /**
  * AvroProjection should extends Serializable to got BinaryProjection/RemoveProjection
  * using custom serializer
@@ -19,9 +21,7 @@ sealed trait AvroProjection extends Serializable { def id: String }
 final case class BinaryProjection(id: String, projection: Array[Byte]) extends AvroProjection
 final case class RemoveProjection(id: String) extends AvroProjection // used to remove
 
-final case class DeletedRecord(id: String)
-
-final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
+final class JPQLMapperSelect(meta: JPQLSelect) extends JPQLEvaluator {
   private val projection = new Record(meta.projectionSchema.head) // TODO multiple projections
 
   protected def asToEntity = meta.asToEntity
@@ -252,7 +252,6 @@ final class JPQLMapperEvaluator(meta: JPQLMeta) extends JPQLEvaluator {
       val joinField = asToJoin.head._2.tail.head
       val recordFlatView = new RecordFlatView(record.asInstanceOf[GenericRecord], joinField)
       val itr = recordFlatView.iterator
-      var hasResult = false
       while (itr.hasNext) {
         val rec = itr.next
         val whereCond = stmt.where.fold(true) { x => whereClause(x, rec) }

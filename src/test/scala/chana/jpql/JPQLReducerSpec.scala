@@ -16,7 +16,7 @@ import org.scalatest.WordSpecLike
 import xtc.tree.Node
 import scala.concurrent.duration._
 
-class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) with ImplicitSender
+class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with ImplicitSender
     with WordSpecLike
     with Matchers
     with BeforeAndAfterAll {
@@ -71,11 +71,11 @@ class JPQLReducerEvaluatorSpec(_system: ActorSystem) extends TestKit(_system) wi
     val metaEval = new JPQLMetaEvaluator("2", schemaBoard)
     val meta = metaEval.collectMeta(stmt, null)
     info("meta:\n" + meta)
-    meta
+    meta.asInstanceOf[JPQLSelect]
   }
 
-  def gatherProjection(entityId: String, meta: JPQLMeta, record: Record) = {
-    val e = new JPQLMapperEvaluator(meta)
+  def gatherProjection(entityId: String, meta: JPQLSelect, record: Record) = {
+    val e = new JPQLMapperSelect(meta)
     val projection = e.gatherProjection(entityId, record)
     projection match {
       case x: BinaryProjection => info("\nCollected: " + x.id + ", " + RecordProjection(chana.avro.avroDecode[Record](x.projection, meta.projectionSchema.head).get))

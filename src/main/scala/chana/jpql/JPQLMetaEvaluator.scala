@@ -8,14 +8,13 @@ import scala.collection.immutable
 
 sealed trait JPQLMeta {
   def stmt: Statement
-  def projectionSchema: List[Schema]
   def asToEntity: Map[String, String]
   def asToJoin: Map[String, List[String]]
 }
-final case class JPQLSelect(stmt: SelectStatement, projectionSchema: List[Schema], asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
-final case class JPQLDelete(stmt: DeleteStatement, projectionSchema: List[Schema], asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
-final case class JPQLInsert(stmt: InsertStatement, projectionSchema: List[Schema], asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
-final case class JPQLUpdate(stmt: UpdateStatement, projectionSchema: List[Schema], asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
+final case class JPQLSelect(stmt: SelectStatement, asToEntity: Map[String, String], asToJoin: Map[String, List[String]], projectionSchema: List[Schema]) extends JPQLMeta
+final case class JPQLDelete(stmt: DeleteStatement, asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
+final case class JPQLInsert(stmt: InsertStatement, asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
+final case class JPQLUpdate(stmt: UpdateStatement, asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
 
 final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends JPQLEvaluator {
 
@@ -54,19 +53,19 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
           case (as, projectionNode) => Projection.visitProjectionNode(jpqlKey, projectionNode, null).endRecord
         }
 
-        JPQLSelect(stmt, projectionSchemas.toList, asToEntity, asToJoin)
+        JPQLSelect(stmt, asToEntity, asToJoin, projectionSchemas.toList)
 
       case stmt @ UpdateStatement(update, set, where) =>
         updateClause(update, record)
-        JPQLUpdate(stmt, List(), asToEntity, asToJoin)
+        JPQLUpdate(stmt, asToEntity, asToJoin)
 
       case stmt @ DeleteStatement(delete, where) =>
         deleteClause(delete, record)
-        JPQLDelete(stmt, List(), asToEntity, asToJoin)
+        JPQLDelete(stmt, asToEntity, asToJoin)
 
       case stmt @ InsertStatement(insert, attributes, values) =>
         insertClause(insert, record)
-        JPQLInsert(stmt, List(), asToEntity, asToJoin)
+        JPQLInsert(stmt, asToEntity, asToJoin)
     }
   }
 

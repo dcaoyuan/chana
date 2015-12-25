@@ -33,29 +33,29 @@ trait JPQLBehavior extends Entity {
     case ReportingTick("") => reportAll(false)
     case ReportingTick(jpqlKey) =>
       DistributedJPQLBoard.keyToStatement.get(jpqlKey) match {
-        case null             =>
-        case (meta, interval) => report(jpqlKey, meta, interval, record)
+        case (meta: JPQLSelect, interval) => report(jpqlKey, meta, interval, record)
+        case _                            =>
       }
 
     case SubscribeAck(Subscribe(JPQLTopic, None, `self`)) =>
       log.debug("Subscribed " + JPQLTopic)
 
-    case jpqlMeta @ JPQLDelete(stmt, projectionSchema, asToEntity, asToJoin) =>
-      val eval = new JPQLMapperEvaluator(jpqlMeta)
+    case jpqlMeta @ JPQLDelete(stmt, asToEntity, asToJoin) =>
+      val eval = new JPQLMapperDelete(jpqlMeta)
       if (eval.deleteEval(stmt, record)) {
         isDeleted(true)
         reportAll(true)
       }
 
-    case jpqlMeta @ JPQLInsert(stmt, projectionSchema, asToEntity, asToJoin) =>
+    case jpqlMeta @ JPQLInsert(stmt, asToEntity, asToJoin) =>
       val commander = sender()
-      val eval = new JPQLMapperEvaluator(jpqlMeta)
+      val eval = new JPQLMapperInsert(jpqlMeta)
       val updateAction = eval.insertEval(stmt, record)
       updateAction foreach { _.commit() }
 
-    case jpqlMeta @ JPQLUpdate(stmt, projectionSchema, asToEntity, asToJoin) =>
+    case jpqlMeta @ JPQLUpdate(stmt, asToEntity, asToJoin) =>
       val commander = sender()
-      val eval = new JPQLMapperEvaluator(jpqlMeta)
+      val eval = new JPQLMapperUpdate(jpqlMeta)
       val updateActions = eval.updateEval(stmt, record)
       for {
         updateActions1 <- updateActions
@@ -73,19 +73,19 @@ trait JPQLBehavior extends Entity {
       val key = entry.getKey
       if (force || !reportingJpqls.contains(key)) {
         val (meta, interval) = entry.getValue
-        report(key, meta, interval, record) // report at once
+        report(key, meta.asInstanceOf[JPQLSelect], interval, record) // report at once
       }
       newReportingJpqls ::= key
     }
     reportingJpqls = newReportingJpqls
   }
 
-  def eval(meta: JPQLMeta, record: Record) = {
-    val e = new JPQLMapperEvaluator(meta)
+  def eval(meta: JPQLSelect, record: Record) = {
+    val e = new JPQLMapperSelect(meta)
     e.gatherProjection(id, record)
   }
 
-  def report(jpqlKey: String, meta: JPQLMeta, interval: FiniteDuration, record: Record) {
+  def report(jpqlKey: String, meta: JPQLSelect, interval: FiniteDuration, record: Record) {
     try {
       if (isDeleted) {
         JPQLReducer.reducerProxy(context.system, jpqlKey) ! DeletedRecord(id)
