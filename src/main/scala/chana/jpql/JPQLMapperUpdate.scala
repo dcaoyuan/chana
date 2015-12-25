@@ -72,7 +72,7 @@ final class JPQLMapperUpdate(meta: JPQLUpdate) extends JPQLEvaluator {
       val path = paths.head
       paths = paths.tail
 
-      schema = schema.getField(path).schema
+      schema = avro.getNonNull(schema.getField(path).schema)
 
       currTarget match {
         case fieldRec: GenericRecord =>
@@ -81,7 +81,7 @@ final class JPQLMapperUpdate(meta: JPQLUpdate) extends JPQLEvaluator {
             val prev = fieldRec.get(field.pos)
             val rlback = { () => fieldRec.put(field.pos, prev) }
             val commit = { () => fieldRec.put(field.pos, v) }
-            val xpath = paths.mkString("/", "/", "") // TODO
+            val xpath = attrPaths.mkString("/", "/", "") // TODO
             val bytes = avro.avroEncode(v, field.schema).get
             action = UpdateAction(commit, rlback, Changelog(xpath, v, bytes))
           } else {

@@ -31,13 +31,15 @@ class JPQLUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
     //info("\nParsed:\n" + stmt)
     val metaEval = new JPQLMetaEvaluator("2", schemaBoard)
     val meta = metaEval.collectMeta(stmt, null)
-    info("meta:\n" + meta)
+    //info("meta:\n" + meta)
     meta
   }
 
   def update(meta: JPQLMeta, record: Record) = {
     val jpql = meta.asInstanceOf[JPQLUpdate]
-    new JPQLMapperUpdate(jpql).updateEval(jpql.stmt, record)
+    val updateActions = new JPQLMapperUpdate(jpql).updateEval(jpql.stmt, record).flatten
+    info("\nUpdate:\n" + updateActions.map(_.binlog).mkString("\n"))
+    updateActions foreach (_.commit())
   }
 
   "JPQL update" when {
@@ -45,9 +47,34 @@ class JPQLUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
     record.put("registerTime", 1L)
 
     var q = "UPDATE account a SET a.registerTime = 100L"
-    val meta = parse(q)
-    update(meta, record).head map (_.commit())
+    var meta = parse(q)
+    update(meta, record)
     record.get("registerTime") should be(100)
+
+    q = "UPDATE account a SET a.registerTime = 1000L WHERE a.registerTime > 200L "
+    meta = parse(q)
+    update(meta, record)
+    record.get("registerTime") should be(100)
+
+    q = "UPDATE account a SET a.registerTime = 1000L WHERE a.registerTime < 200L "
+    meta = parse(q)
+    update(meta, record)
+    record.get("registerTime") should be(1000)
+
+    q = "UPDATE account a SET a.lastChargeRecord.time = 100L"
+    meta = parse(q)
+    update(meta, record)
+    record.get("lastChargeRecord").asInstanceOf[Record].get("time") should be(100)
+
+    q = "UPDATE account a SET a.lastChargeRecord.time = 200L where a.lastChargeRecord.time <> 100L"
+    meta = parse(q)
+    update(meta, record)
+    record.get("lastChargeRecord").asInstanceOf[Record].get("time") should be(100)
+
+    q = "UPDATE account a SET a.lastChargeRecord.time = 200L where a.lastChargeRecord.time = 100L"
+    meta = parse(q)
+    update(meta, record)
+    record.get("lastChargeRecord").asInstanceOf[Record].get("time") should be(200)
   }
 
 }
