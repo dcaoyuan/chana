@@ -44,6 +44,7 @@ class JPQLUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
 
   "JPQL update" when {
     val record = initAccount()
+    record.put("id", 1)
     record.put("registerTime", 1L)
 
     var q = "UPDATE account a SET a.registerTime = 100L"

@@ -98,7 +98,8 @@ body {
       "VALUE",
       "VALUES",
       "WHEN",
-      "WHERE"
+      "WHERE",
+      "JSON"
     });
   }
 }
@@ -189,6 +190,7 @@ ignoringCase void   VALUE             = "value"             :Word ;
 ignoringCase void   VALUES            = "values"            :Word ;
 ignoringCase void   WHEN              = "when"              :Word ;
 ignoringCase void   WHERE             = "where"             :Word ;
+ignoringCase void   JSON              = "json"              :Word ;
 
 
 String Word                = SKIP_N wordChars SKIP_N ;

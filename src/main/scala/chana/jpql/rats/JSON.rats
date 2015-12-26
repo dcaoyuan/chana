@@ -1,0 +1,75 @@
+/*
+ * Definition of JSON Grammar
+ * 
+ * https://www.ietf.org/rfc/rfc4627.txt
+ *
+ * @author Caoyuan Deng
+ */
+module JSON;
+
+generic Json = 
+  SKIP_WS JsonValue SKIP_WS !_
+;
+
+transient void SKIP_WS = ( ' ' / '\t' / '\f' / '\n' / '\r' )* ;
+transient void BG_ARRAY  = SKIP_WS '[' SKIP_WS ;
+transient void ED_ARRAY  = SKIP_WS ']' SKIP_WS ;
+transient void BG_OBJECT = SKIP_WS '{' SKIP_WS ;
+transient void ED_OBJECT = SKIP_WS '}' SKIP_WS ;
+transient void NAME_SEP  = SKIP_WS ':' SKIP_WS ;
+transient void VALUE_SEP = SKIP_WS ',' SKIP_WS ;
+
+generic JsonFalse = SKIP_WS "false" SKIP_WS ;
+generic JsonNull  = SKIP_WS "null"  SKIP_WS ;
+generic JsonTrue  = SKIP_WS "true"  SKIP_WS ;
+
+generic JsonValue = 
+  JsonFalse
+/ JsonNull
+/ JsonTrue
+/ JsonObject
+/ JsonArray
+/ JsonNumber
+/ JsonString
+;
+
+generic JsonObject =
+  BG_OBJECT ED_OBJECT
+/ BG_OBJECT JsonMember ( VALUE_SEP JsonMember )* ED_OBJECT
+;
+
+generic JsonMember = 
+  JsonString NAME_SEP JsonValue
+;
+
+generic JsonArray =
+  BG_ARRAY ED_ARRAY
+/ BG_ARRAY JsonValue ( VALUE_SEP JsonValue )*  ED_ARRAY
+;
+
+generic JsonNumber = 
+  '-'? jsonInt jsonFrac? jsonExp?
+;
+
+transient String jsonExp = [eE] [+\-]? [0-9]+ ;
+transient String jsonFrac = '.' [0-9]+ ;
+transient String jsonInt = '0' / ( [1-9] [0-9]* ) ;
+
+String JsonString =
+  ["] v:jsonString ["]  { yyValue = v; }
+;
+
+String jsonString = 
+  ( jsonEscapedChar / jsonUnescapedChar )*
+;
+
+transient String jsonUnescapedChar = 
+  !["\\] [\u0020-\uFFFF] 
+;
+
+transient String jsonEscapedChar =
+  '\\' ["\\/bfnrt] 
+/ '\\' 'u' jsonHexDigit jsonHexDigit jsonHexDigit jsonHexDigit 
+;
+
+transient String jsonHexDigit = [0-9a-fA-F] ;

@@ -1073,7 +1073,8 @@ final class JPQLParser() {
   def funcsReturningAny(node: Node) = {
     val n = node.getNode(0)
     n.getName match {
-      case "MapValue" => visit(n)(mapValue)
+      case "MapValue"      => visit(n)(mapValue)
+      case "JPQLJsonValue" => visit(n)(jsonValue)
     }
   }
 
@@ -1228,6 +1229,14 @@ final class JPQLParser() {
   def mapValue(node: Node) = {
     val expr = visit(node.getNode(0))(varAccessOrTypeConstant)
     MapValue(expr)
+  }
+
+  /*-
+     JSON LRaren JsonValue RParen;
+   */
+  def jsonValue(node: Node) = {
+    //val expr = visit(node.getNode(0))(varAccessOrTypeConstant)
+    JPQLJsonValue(node.getNode(0))
   }
 
   /*-

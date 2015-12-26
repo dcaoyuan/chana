@@ -12,6 +12,7 @@ import Literal;
 import Separator;
 import Spacing;
 import State;
+import JSON;
 
 // ----- public entrance
 public generic JPQL = 
@@ -465,6 +466,7 @@ generic FuncsReturningString =
 
 generic FuncsReturningAny = 
   MapValue
+/ JPQLJsonValue
 ;
 
 // --- Functions returning string
@@ -542,6 +544,10 @@ generic MapKey =
 
 generic MapValue = 
   VALUE LParen VarAccessOrTypeConstant RParen
+;
+
+generic JPQLJsonValue = 
+  JSON LParen JsonValue RParen
 ;
 
 // --- sub-query
