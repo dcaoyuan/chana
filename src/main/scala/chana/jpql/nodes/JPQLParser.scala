@@ -4,6 +4,9 @@ import chana.jpql.rats.JPQLGrammar
 import java.io.StringReader
 import xtc.tree.Node
 
+object JPQLParser {
+  private val jsonNodeFacatory = org.codehaus.jackson.node.JsonNodeFactory.instance
+}
 final class JPQLParser() {
 
   private var indentLevel = 0
@@ -1074,7 +1077,7 @@ final class JPQLParser() {
     val n = node.getNode(0)
     n.getName match {
       case "MapValue"      => visit(n)(mapValue)
-      case "JPQLJsonValue" => visit(n)(jsonValue)
+      case "JPQLJsonValue" => visit(n)(jsonNode)
     }
   }
 
@@ -1234,9 +1237,9 @@ final class JPQLParser() {
   /*-
      JSON LRaren JsonValue RParen;
    */
-  def jsonValue(node: Node) = {
-    //val expr = visit(node.getNode(0))(varAccessOrTypeConstant)
-    JPQLJsonValue(node.getNode(0))
+  def jsonNode(node: Node) = {
+    val json = visit(node.getNode(0))(jsonValue)
+    JPQLJsonValue(json)
   }
 
   /*-
@@ -1354,6 +1357,101 @@ final class JPQLParser() {
   def ident(node: Node) = {
     val name = node.getString(0)
     Ident(name)
+  }
+
+  // ---------------------- JSON section
+
+  import JPQLParser.jsonNodeFacatory
+
+  /*-
+     JsonFalse
+   / JsonNull
+   / JsonTrue
+   / JsonObject
+   / JsonArray
+   / JsonNumber
+   / JsonString
+   */
+  def jsonValue(node: Node): org.codehaus.jackson.JsonNode = {
+    val n = node.getNode(0)
+    n.getName match {
+      case "JsonFalse"  => jsonNodeFacatory.booleanNode(false)
+      case "JsonNull"   => jsonNodeFacatory.nullNode
+      case "JsonTrue"   => jsonNodeFacatory.booleanNode(true)
+      case "JsonObject" => visit(n)(jsonObject)
+      case "JsonArray"  => visit(n)(jsonArray)
+      case "JsonNumber" => visit(n)(jsonNumber)
+      case "JsonString" => jsonNodeFacatory.textNode(n.getString(0))
+    }
+  }
+
+  /*-
+     BG_OBJECT ED_OBJECT
+   / BG_OBJECT JsonMember ( VALUE_SEP JsonMember )* ED_OBJECT
+  */
+  def jsonObject(node: Node) = {
+    val obj = jsonNodeFacatory.objectNode
+    if (node.size > 0) {
+      val member0 = visit(node.getNode(0))(jsonMember)
+      val members = visitList(node.getList(1))(jsonMember)
+      (member0 :: members).foldLeft(obj) {
+        case (acc, (name, value)) =>
+          acc.put(name, value)
+          acc
+      }
+    }
+    obj
+  }
+
+  /*-
+     jsonString NAME_SEP JsonValue
+   */
+  def jsonMember(node: Node) = {
+    val name = node.getNode(0).getString(0)
+    val value = visit(node.getNode(1))(jsonValue)
+    (name, value)
+  }
+
+  /*-
+     BG_ARRAY ED_ARRAY
+   / BG_ARRAY JsonValue ( VALUE_SEP JsonValue )*  ED_ARRAY
+   */
+  def jsonArray(node: Node) = {
+    val arr = jsonNodeFacatory.arrayNode
+    if (node.size > 0) {
+      val member0 = visit(node.getNode(0))(jsonValue)
+      val members = visitList(node.getList(1))(jsonValue)
+      (member0 :: members).foldLeft(arr) {
+        case (acc, value) =>
+          acc.add(value)
+          acc
+      }
+    }
+    arr
+  }
+
+  /*-
+     '-'? JsonInt JsonFrac? JsonExp?
+   */
+  def jsonNumber(node: Node) = {
+    val minus = node.get(0) ne null
+    val intPart = node.getString(1)
+    val frac = node.getString(2)
+    val exp = node.getString(3)
+    (frac, exp) match {
+      case (null, null) => // Int should not contain frac and exp part
+        val v = java.lang.Integer.parseInt(intPart)
+        jsonNodeFacatory.numberNode(if (minus) -v else v)
+      case (null, y) => // Long should be written as 13211080e0
+        val v = java.lang.Long.parseLong(intPart)
+        jsonNodeFacatory.numberNode(if (minus) -v else v)
+      case (x, null) => // Float should not contain exp part
+        val v = java.lang.Float.parseFloat(intPart + x)
+        jsonNodeFacatory.numberNode(if (minus) -v else v)
+      case (x, y) => // Double should be written as 1.321e3 (1321.0L)
+        val v = java.lang.Double.parseDouble(intPart + x + y)
+        jsonNodeFacatory.numberNode(if (minus) -v else v)
+    }
   }
 
 }

@@ -48,15 +48,15 @@ generic JsonArray =
 ;
 
 generic JsonNumber = 
-  '-'? jsonInt jsonFrac? jsonExp?
+  '-'? JsonInt JsonFrac? JsonExp?
 ;
 
-transient String jsonExp = [eE] [+\-]? [0-9]+ ;
-transient String jsonFrac = '.' [0-9]+ ;
-transient String jsonInt = '0' / ( [1-9] [0-9]* ) ;
+transient String JsonExp = [eE] [+\-]? [0-9]+ ;
+transient String JsonFrac = '.' [0-9]+ ;
+transient String JsonInt = '0' / ( [1-9] [0-9]* ) ;
 
-String JsonString =
-  ["] v:jsonString ["]  { yyValue = v; }
+generic JsonString =
+  void:["] jsonString void:["]
 ;
 
 String jsonString = 
