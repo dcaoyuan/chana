@@ -302,7 +302,7 @@ package object nodes {
 
   sealed trait FuncsReturningAny
   final case class MapValue(expr: VarAccessOrTypeConstant) extends FuncsReturningAny
-  final case class JPQLJsonValue(expr: Any) extends FuncsReturningAny
+  final case class JPQLJsonValue(jsonNode: org.codehaus.jackson.JsonNode) extends FuncsReturningAny
 
   sealed trait TrimSpec
   case object LEADING extends TrimSpec

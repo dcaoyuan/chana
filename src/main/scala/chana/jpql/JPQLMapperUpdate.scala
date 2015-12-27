@@ -7,6 +7,7 @@ import chana.avro.UpdateAction
 import chana.jpql.nodes._
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
+import org.codehaus.jackson.JsonNode
 
 final class JPQLMapperUpdate(meta: JPQLUpdate) extends JPQLEvaluator {
 
@@ -46,20 +47,24 @@ final class JPQLMapperUpdate(meta: JPQLUpdate) extends JPQLEvaluator {
 
             case Right(attr) =>
               val fieldName = attribute(attr, toUpdate) // there should be no AS alias
-              updateValue(fieldName, v, toUpdate)
+              updateValue(fieldName, v, toUpdate, "/" + attr)
           }
       }
     }
   }
 
-  private def updateValue(attr: String, v: Any, record: GenericRecord): UpdateAction = {
+  private def updateValue(attr: String, v: Any, record: GenericRecord, xpath: String): UpdateAction = {
     val field = record.getSchema.getField(attr)
+    val value = v match {
+      case x: JsonNode => avro.FromJson.fromJsonNode(x, field.schema, false)
+      case x           => x
+    }
+
     val prev = record.get(field.pos)
     val rlback = { () => record.put(field.pos, prev) }
-    val commit = { () => record.put(field.pos, v) }
-    val xpath = "/" + field.name
-    val bytes = avro.avroEncode(v, field.schema).get
-    UpdateAction(commit, rlback, Changelog(xpath, v, bytes))
+    val commit = { () => record.put(field.pos, value) }
+    val bytes = avro.avroEncode(value, field.schema).get
+    UpdateAction(commit, rlback, Changelog(xpath, value, bytes))
   }
 
   private def updateValue(attrPaths: List[String], v: Any, record: GenericRecord): UpdateAction = {
@@ -77,13 +82,7 @@ final class JPQLMapperUpdate(meta: JPQLUpdate) extends JPQLEvaluator {
       currTarget match {
         case fieldRec: GenericRecord =>
           if (paths.isEmpty) { // reaches last path
-            val field = fieldRec.getSchema.getField(path)
-            val prev = fieldRec.get(field.pos)
-            val rlback = { () => fieldRec.put(field.pos, prev) }
-            val commit = { () => fieldRec.put(field.pos, v) }
-            val xpath = attrPaths.mkString("/", "/", "") // TODO
-            val bytes = avro.avroEncode(v, field.schema).get
-            action = UpdateAction(commit, rlback, Changelog(xpath, v, bytes))
+            action = updateValue(path, v, fieldRec, attrPaths.mkString("/", "/", ""))
           } else {
             currTarget = fieldRec.get(path)
           }

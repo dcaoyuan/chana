@@ -858,6 +858,7 @@ abstract class JPQLEvaluator {
             fieldValue.getValue
           case x => throw JPQLRuntimeException(x, "is not a map entry")
         }
+      case JPQLJsonValue(jsonNode) => jsonNode
     }
   }
 

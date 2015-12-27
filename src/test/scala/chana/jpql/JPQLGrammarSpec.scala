@@ -227,6 +227,7 @@ class JPQLGrammarSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
           "SELECT JSON({}) FROM Employee e",
           "SELECT JSON({\"name\": 1}) FROM Employee e",
           "SELECT JSON({\"name\": \"str\"}) FROM Employee e",
+          "SELECT JSON({\"name\": \"str\", \"amount\": 100.0}) FROM Employee e",
           "SELECT JSON({\"name\": [\"str\", 2, 2.0, 2e0, -2.0e1]}) FROM Employee e",
           "SELECT JSON([\"str\", 2, 2.0, 2e0, -2.0e1, true, false, null]) FROM Employee e",
           "SELECT json([\"str\", 2, 2.0, 2e0, -2.0e3, {\"name\": 1}]) FROM Employee e")
