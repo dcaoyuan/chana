@@ -83,10 +83,15 @@ class JPQLUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
     record.get("lastChargeRecord").asInstanceOf[Record].get("time") should be(300)
     record.get("lastChargeRecord").asInstanceOf[Record].get("amount") should be(300.0)
 
-    q = "UPDATE account a JOIN a.chargeRecords c SET c.time=400L WHERE INDEX(C) = 2"
+    q = "UPDATE account a JOIN a.chargeRecords c SET c.time=400L WHERE INDEX(c) = 2"
     meta = parse(q)
     update(meta, record)
     record.get("chargeRecords").asInstanceOf[java.util.List[Record]].get(1).get("time") should be(400)
+
+    q = "UPDATE account a JOIN a.devApps d SET d.numBlackApps=4 WHERE KEY(d) = 'a'"
+    meta = parse(q)
+    update(meta, record)
+    record.get("devApps").asInstanceOf[java.util.Map[String, Record]].get("a").get("numBlackApps") should be(4)
   }
 
 }

@@ -78,36 +78,50 @@ final class JPQLMapperUpdate(meta: JPQLUpdate) extends JPQLEvaluator {
       val path = paths.head
       paths = paths.tail
 
-      schema = schema.getType match {
-        case Schema.Type.ARRAY =>
-          val elemSchema = avro.getElementType(schema)
-          avro.getNonNull(elemSchema.getField(path).schema)
-        case Schema.Type.MAP =>
-          val valueSchema = avro.getValueType(schema)
-          avro.getNonNull(valueSchema.getField(path).schema)
-        case Schema.Type.RECORD | Schema.Type.UNION =>
-          avro.getNonNull(schema.getField(path).schema)
-        case _ => schema
-      }
-
       xpath.append("/").append(path)
-      val fieldRec = currTarget match {
-        case fieldRec @ avro.FlattenRecord(_, flatField, _, index) if flatField.name == path =>
-          xpath.append("[").append(index + 1).append("]")
-          fieldRec
-        case fieldRec: GenericRecord =>
-          fieldRec
 
-        case arr: java.util.Collection[_]             => throw JPQLRuntimeException(currTarget, "is an avro array when fetch its attribute: " + path) // TODO
-        case map: java.util.Map[String, _] @unchecked => throw JPQLRuntimeException(currTarget, "is an avro map when fetch its attribute: " + path) // TODO
-        case null                                     => throw JPQLRuntimeException(currTarget, "is null when fetch its attribute: " + paths)
-        case _                                        => throw JPQLRuntimeException(currTarget, "is not a record when fetch its attribute: " + paths)
-      }
+      if (paths.nonEmpty) {
+        //        schema = schema.getType match {
+        //          case Schema.Type.ARRAY =>
+        //            val elemSchema = avro.getElementType(schema)
+        //            avro.getNonNull(elemSchema.getField(path).schema)
+        //
+        //          case Schema.Type.MAP =>
+        //            val valueSchema = avro.getValueType(schema)
+        //            avro.getNonNull(valueSchema.getField(path).schema)
+        //
+        //          case Schema.Type.RECORD | Schema.Type.UNION =>
+        //            avro.getNonNull(schema.getField(path).schema)
+        //
+        //          case _ => schema // what happens here? TODO
+        //        }
 
-      if (paths.isEmpty) { // reaches last path
-        action = updateValue(path, v, fieldRec, xpath.toString)
-      } else {
-        currTarget = fieldRec.get(path)
+        currTarget match {
+          case fieldRec @ avro.FlattenRecord(underlying, flatField, fieldValue, index) if flatField.name == path =>
+            // TODO deep embbed collection fields have the same path(field name), /rec/abc/abc
+            flatField.schema.getType match {
+              case Schema.Type.ARRAY =>
+                xpath.append("[").append(index + 1).append("]")
+                currTarget = fieldValue
+              case Schema.Type.MAP =>
+                val fieldEntry = fieldValue.asInstanceOf[java.util.Map.Entry[CharSequence, _]]
+                xpath.append("/@").append(fieldEntry.getKey)
+                currTarget = fieldEntry.getValue.asInstanceOf[GenericRecord]
+              case _ => throw JPQLRuntimeException(flatField, "is not a collection field: " + path)
+            }
+
+          case fieldRec: GenericRecord =>
+            currTarget = fieldRec.get(path)
+
+          case arr: java.util.Collection[_]             => throw JPQLRuntimeException(currTarget, "is an avro array when fetch its attribute: " + path) // TODO
+          case map: java.util.Map[String, _] @unchecked => throw JPQLRuntimeException(currTarget, "is an avro map when fetch its attribute: " + path) // TODO
+          case null                                     => throw JPQLRuntimeException(currTarget, "is null when fetch its attribute: " + paths)
+          case _                                        => throw JPQLRuntimeException(currTarget, "is not a record when fetch its attribute: " + paths)
+        }
+
+      } else { // reaches the last path, handover to updateValue(attr: String, v: Any, record: GenericRecord, xpath: String)
+        //println("\npath: " + path + ", tar: " + currTarget + ", xpath: " + xpath)
+        action = updateValue(path, v, currTarget.asInstanceOf[GenericRecord], xpath.toString)
       }
 
     }

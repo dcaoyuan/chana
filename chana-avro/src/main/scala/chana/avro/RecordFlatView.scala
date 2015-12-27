@@ -24,6 +24,9 @@ final class IteratorWrapper(record: GenericRecord, flatField: Schema.Field, flat
   }
 }
 
+/**
+ * If flatField is map, the fieldValue is Map.Entry[String, _]
+ */
 final case class FlattenRecord(underlying: GenericRecord, flatField: Schema.Field, fieldValue: AnyRef, index: Int) extends GenericRecord {
   def getSchema() = underlying.getSchema
 
