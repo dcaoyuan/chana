@@ -30,8 +30,9 @@ generic UpdateStatement =
   UpdateClause SetClause WhereClause?
 ;
 
+// 'Join*' is an extention to JPQL
 generic UpdateClause =
-  UPDATE EntityName ( AS? Ident )? 
+  UPDATE EntityName ( AS? Ident )? Join*
 ;
 
 generic SetClause =

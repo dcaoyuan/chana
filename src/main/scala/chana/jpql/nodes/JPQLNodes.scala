@@ -30,7 +30,7 @@ package object nodes {
     attributes: Option[AttributesClause],
     values: ValuesClause) extends Statement
 
-  final case class UpdateClause(entityName: EntityName, as: Option[Ident])
+  final case class UpdateClause(entityName: EntityName, as: Option[Ident], joins: List[Join])
   final case class SetClause(assign: SetAssignClause, assigns: List[SetAssignClause])
   final case class SetAssignClause(target: SetAssignTarget, value: NewValue)
   final case class SetAssignTarget(path: Either[PathExpr, Attribute])

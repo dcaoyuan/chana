@@ -104,12 +104,13 @@ final class JPQLParser() {
   }
 
   /*-
-     UPDATE EntityName ( AS? Ident )? 
+     UPDATE EntityName ( AS? Ident )? Join*
    */
   def updateClause(node: Node) = {
     val entity = visit(node.getNode(0))(entityName)
     val as = visitOpt(node.getNode(1))(ident)
-    UpdateClause(entity, as)
+    val joins = visitList(node.getList(2))(join)
+    UpdateClause(entity, as, joins)
   }
 
   /*-

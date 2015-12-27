@@ -246,7 +246,7 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
         val qual = varAccessOrTypeConstant(expr, record)
         collectLeastProjectionNodes(qual, List())
       case JPQLJsonValue(jsonNode) =>
-        // do nothing?
+      // do nothing?
     }
   }
 

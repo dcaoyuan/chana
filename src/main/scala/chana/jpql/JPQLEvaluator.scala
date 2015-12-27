@@ -137,6 +137,7 @@ abstract class JPQLEvaluator {
   def updateClause(updateClause: UpdateClause, record: Any) = {
     val entityName = updateClause.entityName.ident
     updateClause.as foreach { x => addAsToEntity(x.ident, entityName) }
+    updateClause.joins foreach { x => join(x, record) }
   }
 
   def setClause(setClause: SetClause, record: Any) = {

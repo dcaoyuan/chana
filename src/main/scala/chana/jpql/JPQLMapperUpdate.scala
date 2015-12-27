@@ -68,6 +68,7 @@ final class JPQLMapperUpdate(meta: JPQLUpdate) extends JPQLEvaluator {
   }
 
   private def updateValue(attrPaths: List[String], v: Any, record: GenericRecord): UpdateAction = {
+    val xpath = new StringBuilder()
     var paths = attrPaths
     var currTarget: Any = record
     var action: UpdateAction = null
@@ -77,21 +78,38 @@ final class JPQLMapperUpdate(meta: JPQLUpdate) extends JPQLEvaluator {
       val path = paths.head
       paths = paths.tail
 
-      schema = avro.getNonNull(schema.getField(path).schema)
+      schema = schema.getType match {
+        case Schema.Type.ARRAY =>
+          val elemSchema = avro.getElementType(schema)
+          avro.getNonNull(elemSchema.getField(path).schema)
+        case Schema.Type.MAP =>
+          val valueSchema = avro.getValueType(schema)
+          avro.getNonNull(valueSchema.getField(path).schema)
+        case Schema.Type.RECORD | Schema.Type.UNION =>
+          avro.getNonNull(schema.getField(path).schema)
+        case _ => schema
+      }
 
-      currTarget match {
+      xpath.append("/").append(path)
+      val fieldRec = currTarget match {
+        case fieldRec @ avro.FlattenRecord(_, flatField, _, index) if flatField.name == path =>
+          xpath.append("[").append(index + 1).append("]")
+          fieldRec
         case fieldRec: GenericRecord =>
-          if (paths.isEmpty) { // reaches last path
-            action = updateValue(path, v, fieldRec, attrPaths.mkString("/", "/", ""))
-          } else {
-            currTarget = fieldRec.get(path)
-          }
+          fieldRec
 
         case arr: java.util.Collection[_]             => throw JPQLRuntimeException(currTarget, "is an avro array when fetch its attribute: " + path) // TODO
         case map: java.util.Map[String, _] @unchecked => throw JPQLRuntimeException(currTarget, "is an avro map when fetch its attribute: " + path) // TODO
         case null                                     => throw JPQLRuntimeException(currTarget, "is null when fetch its attribute: " + paths)
         case _                                        => throw JPQLRuntimeException(currTarget, "is not a record when fetch its attribute: " + paths)
       }
+
+      if (paths.isEmpty) { // reaches last path
+        action = updateValue(path, v, fieldRec, xpath.toString)
+      } else {
+        currTarget = fieldRec.get(path)
+      }
+
     }
 
     action
