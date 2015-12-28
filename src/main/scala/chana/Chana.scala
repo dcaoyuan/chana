@@ -3,6 +3,7 @@ package chana
 import akka.actor._
 import akka.io.IO
 import akka.persistence.Persistence
+import akka.routing.RoundRobinPool
 import akka.util.Timeout
 import chana.rest.RestRoute
 import spray.can.Http
@@ -39,12 +40,15 @@ object RestServer {
   def props(route: Route) = Props(classOf[RestServer], route)
 }
 class RestServer(route: Route) extends Actor with ActorLogging {
+
+  val routees = context.actorOf(
+    RoundRobinPool(sys.runtime.availableProcessors()).props(Props(classOf[RestWorker], route)))
+
   def receive = {
     // when a new connection comes in we register a worker actor as the per connection handler
     case Http.Connected(remoteAddress, localAddress) =>
       val serverConnection = sender()
-      val conn = context.actorOf(RestWorker.props(route))
-      serverConnection ! Http.Register(conn)
+      serverConnection ! Http.Register(routees)
   }
 }
 
