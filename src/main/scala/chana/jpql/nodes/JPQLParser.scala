@@ -1,11 +1,11 @@
 package chana.jpql.nodes
 
+import chana.jpql
 import chana.jpql.rats.JPQLGrammar
 import java.io.StringReader
 import xtc.tree.Node
 
 object JPQLParser {
-  private val jsonNodeFacatory = org.codehaus.jackson.node.JsonNodeFactory.instance
 }
 final class JPQLParser() {
 
@@ -202,12 +202,21 @@ final class JPQLParser() {
   }
 
   /*-
-    VALUES LParen NewValue ( COMMA NewValue )* RParen
+    VALUES RowValuesClause ( COMMA RowValuesClause )*
    */
   def valuesClause(node: Node) = {
-    val value = visit(node.getNode(0))(newValue)
+    val row0 = visit(node.getNode(0))(rowValuesClause)
+    val rows = visitList(node.getList(1))(rowValuesClause)
+    ValuesClause(row0, rows)
+  }
+
+  /*-
+    LParen NewValue ( COMMA NewValue )* RParen
+   */
+  def rowValuesClause(node: Node) = {
+    val value0 = visit(node.getNode(0))(newValue)
     val values = visitList(node.getList(1))(newValue)
-    ValuesClause(value, values)
+    RowValuesClause(value0, values)
   }
 
   /*-
@@ -215,9 +224,9 @@ final class JPQLParser() {
    */
   def selectClause(node: Node) = {
     val isDistinct = node.get(0) ne null
-    val item = visit(node.getNode(1))(selectItem)
+    val item0 = visit(node.getNode(1))(selectItem)
     val items = visitList(node.getList(2))(selectItem)
-    SelectClause(isDistinct, item, items)
+    SelectClause(isDistinct, item0, items)
   }
 
   /*-
@@ -303,9 +312,9 @@ final class JPQLParser() {
    */
   def constructorExpr(node: Node) = {
     val name = visit(node.getNode(0))(constructorName)
-    val arg = visit(node.getNode(1))(constructorItem)
+    val arg0 = visit(node.getNode(1))(constructorItem)
     val args = visitList(node.getList(2))(constructorItem)
-    ConstructorExpr(name, arg, args)
+    ConstructorExpr(name, arg0, args)
   }
 
   /*-
@@ -333,14 +342,14 @@ final class JPQLParser() {
      FROM IdentVarDecl ( COMMA ( IdentVarDecl / CollectionMemberDecl) )*
    */
   def fromClause(node: Node) = {
-    val from = visit(node.getNode(0))(identVarDecl)
+    val from0 = visit(node.getNode(0))(identVarDecl)
     val froms = visitList(node.getList(1)) { n =>
       n.getName match {
         case "IdentVarDecl"         => Left(visit(n)(identVarDecl))
         case "CollectionMemberDecl" => Right(visit(n)(collectionMemberDecl))
       }
     }
-    FromClause(from, froms)
+    FromClause(from0, froms)
   }
 
   /*-
@@ -722,28 +731,28 @@ final class JPQLParser() {
      ArithTerm ( ArithTermPlus / ArithTermMinus )* 
    */
   def simpleArithExpr(node: Node) = {
-    val term = visit(node.getNode(0))(arithTerm)
+    val term0 = visit(node.getNode(0))(arithTerm)
     val terms = visitList(node.getList(1)) { n =>
       n.getName match {
         case "ArithTermPlus"  => ArithTerm_Plus(visit(n.getNode(0))(arithTerm))
         case "ArithTermMinus" => ArithTerm_Minus(visit(n.getNode(0))(arithTerm))
       }
     }
-    SimpleArithExpr(term, terms)
+    SimpleArithExpr(term0, terms)
   }
 
   /*-
      ArithFactor ( ArithFactorMultiply / ArithFactorDivide )* 
    */
   def arithTerm(node: Node): ArithTerm = {
-    val factor = visit(node.getNode(0))(arithFactor)
+    val factor0 = visit(node.getNode(0))(arithFactor)
     val factors = visitList(node.getList(1)) { n =>
       n.getName match {
         case "ArithFactorMultiply" => ArithFactor_Multiply(visit(n.getNode(0))(arithFactor))
         case "ArithFactorDivide"   => ArithFactor_Divide(visit(n.getNode(0))(arithFactor))
       }
     }
-    ArithTerm(factor, factors)
+    ArithTerm(factor0, factors)
   }
 
   /*-
@@ -886,29 +895,29 @@ final class JPQLParser() {
    */
   def simpleCaseExpr(node: Node) = {
     val operand = visit(node.getNode(0))(caseOperand)
-    val when = visit(node.getNode(1))(simpleWhenClause)
+    val when0 = visit(node.getNode(1))(simpleWhenClause)
     val whens = visitList(node.getList(2))(simpleWhenClause)
     val elseExpr = visit(node.getNode(3))(scalarExpr)
-    SimpleCaseExpr(operand, when, whens, elseExpr)
+    SimpleCaseExpr(operand, when0, whens, elseExpr)
   }
 
   /*-
      CASE WhenClause WhenClause* ELSE ScalarExpr END
    */
   def generalCaseExpr(node: Node) = {
-    val when = visit(node.getNode(0))(whenClause)
+    val when0 = visit(node.getNode(0))(whenClause)
     val whens = visitList(node.getList(1))(whenClause)
     val elseExpr = visit(node.getNode(2))(scalarExpr)
-    GeneralCaseExpr(when, whens, elseExpr)
+    GeneralCaseExpr(when0, whens, elseExpr)
   }
 
   /*-
      COALESCE LParen ScalarExpr ( COMMA ScalarExpr )+ RParen
    */
   def coalesceExpr(node: Node) = {
-    val expr = visit(node.getNode(0))(scalarExpr)
+    val expr0 = visit(node.getNode(0))(scalarExpr)
     val exprs = visitList(node.getList(1))(scalarExpr)
-    CoalesceExpr(expr, exprs)
+    CoalesceExpr(expr0, exprs)
   }
 
   /*-
@@ -1086,19 +1095,19 @@ final class JPQLParser() {
      CONCAT LParen ScalarExpr (COMMA ScalarExpr)+ RParen
    */
   def concat(node: Node) = {
-    val expr = visit(node.getNode(0))(scalarExpr)
+    val expr0 = visit(node.getNode(0))(scalarExpr)
     val exprs = visitList(node.getList(1))(scalarExpr)
-    Concat(expr, exprs)
+    Concat(expr0, exprs)
   }
 
   /*-
      SUBSTRING LParen ScalarExpr COMMA ScalarExpr ( COMMA ScalarExpr )? RParen
    */
   def substring(node: Node) = {
-    val expr = visit(node.getNode(0))(scalarExpr)
-    val expr2 = visit(node.getNode(1))(scalarExpr)
-    val expr3 = visitOpt(node.getNode(2))(scalarExpr)
-    Substring(expr, expr2, expr3)
+    val expr0 = visit(node.getNode(0))(scalarExpr)
+    val expr1 = visit(node.getNode(1))(scalarExpr)
+    val expr2 = visitOpt(node.getNode(2))(scalarExpr)
+    Substring(expr0, expr1, expr2)
   }
 
   /*-
@@ -1285,14 +1294,14 @@ final class JPQLParser() {
                                 )*
    */
   def subqueryFromClause(node: Node) = {
-    val from = visit(node.getNode(0))(subselectIdentVarDecl)
+    val from0 = visit(node.getNode(0))(subselectIdentVarDecl)
     val froms = visitList(node.getList(1)) { n =>
       n.getName match {
         case "SubselectIdentVarDecl" => Left(visit(n)(subselectIdentVarDecl))
         case "CollectionMemberDecl"  => Right(visit(n)(collectionMemberDecl))
       }
     }
-    SubqueryFromClause(from, froms)
+    SubqueryFromClause(from0, froms)
   }
 
   /*-
@@ -1313,9 +1322,9 @@ final class JPQLParser() {
      ORDER BY OrderbyItem ( COMMA OrderbyItem )*
    */
   def orderbyClause(node: Node) = {
-    val item = visit(node.getNode(0))(orderbyItem)
+    val item0 = visit(node.getNode(0))(orderbyItem)
     val items = visitList(node.getList(1))(orderbyItem)
-    OrderbyClause(item, items)
+    OrderbyClause(item0, items)
   }
 
   /*-
@@ -1339,9 +1348,9 @@ final class JPQLParser() {
      GROUP BY ScalarExpr ( COMMA ScalarExpr )* 
    */
   def groupbyClause(node: Node) = {
-    val expr = visit(node.getNode(0))(scalarExpr)
+    val expr0 = visit(node.getNode(0))(scalarExpr)
     val exprs = visitList(node.getList(1))(scalarExpr)
-    GroupbyClause(expr, exprs)
+    GroupbyClause(expr0, exprs)
   }
 
   /*-
@@ -1362,8 +1371,6 @@ final class JPQLParser() {
 
   // ---------------------- JSON section
 
-  import JPQLParser.jsonNodeFacatory
-
   /*-
      JsonFalse
    / JsonNull
@@ -1376,13 +1383,13 @@ final class JPQLParser() {
   def jsonValue(node: Node): org.codehaus.jackson.JsonNode = {
     val n = node.getNode(0)
     n.getName match {
-      case "JsonFalse"  => jsonNodeFacatory.booleanNode(false)
-      case "JsonNull"   => jsonNodeFacatory.nullNode
-      case "JsonTrue"   => jsonNodeFacatory.booleanNode(true)
+      case "JsonFalse"  => jpql.jsonNodeFacatory.booleanNode(false)
+      case "JsonNull"   => jpql.jsonNodeFacatory.nullNode
+      case "JsonTrue"   => jpql.jsonNodeFacatory.booleanNode(true)
       case "JsonObject" => visit(n)(jsonObject)
       case "JsonArray"  => visit(n)(jsonArray)
       case "JsonNumber" => visit(n)(jsonNumber)
-      case "JsonString" => jsonNodeFacatory.textNode(n.getString(0))
+      case "JsonString" => jpql.jsonNodeFacatory.textNode(n.getString(0))
     }
   }
 
@@ -1391,7 +1398,7 @@ final class JPQLParser() {
    / BG_OBJECT JsonMember ( VALUE_SEP JsonMember )* ED_OBJECT
   */
   def jsonObject(node: Node) = {
-    val obj = jsonNodeFacatory.objectNode
+    val obj = jpql.jsonNodeFacatory.objectNode
     if (node.size > 0) {
       val member0 = visit(node.getNode(0))(jsonMember)
       val members = visitList(node.getList(1))(jsonMember)
@@ -1418,7 +1425,7 @@ final class JPQLParser() {
    / BG_ARRAY JsonValue ( VALUE_SEP JsonValue )*  ED_ARRAY
    */
   def jsonArray(node: Node) = {
-    val arr = jsonNodeFacatory.arrayNode
+    val arr = jpql.jsonNodeFacatory.arrayNode
     if (node.size > 0) {
       val member0 = visit(node.getNode(0))(jsonValue)
       val members = visitList(node.getList(1))(jsonValue)
@@ -1442,16 +1449,16 @@ final class JPQLParser() {
     (frac, exp) match {
       case (null, null) => // Int should not contain frac and exp part
         val v = java.lang.Integer.parseInt(intPart)
-        jsonNodeFacatory.numberNode(if (minus) -v else v)
+        jpql.jsonNodeFacatory.numberNode(if (minus) -v else v)
       case (null, y) => // Long should be written as 13211080e0
         val v = java.lang.Long.parseLong(intPart)
-        jsonNodeFacatory.numberNode(if (minus) -v else v)
+        jpql.jsonNodeFacatory.numberNode(if (minus) -v else v)
       case (x, null) => // Float should not contain exp part
         val v = java.lang.Float.parseFloat(intPart + x)
-        jsonNodeFacatory.numberNode(if (minus) -v else v)
+        jpql.jsonNodeFacatory.numberNode(if (minus) -v else v)
       case (x, y) => // Double should be written as 1.321e3 (1321.0L)
         val v = java.lang.Double.parseDouble(intPart + x + y)
-        jsonNodeFacatory.numberNode(if (minus) -v else v)
+        jpql.jsonNodeFacatory.numberNode(if (minus) -v else v)
     }
   }
 

@@ -145,7 +145,7 @@ trait Entity extends Actor with Stash with PersistentActor {
       val field = schema.getField(fieldName)
       if (field != null) {
         // we return a deep copied field to avoid it's been modified via outside reference
-        commander ! Success(GenericData.get().deepCopy(field.schema(), record.get(field.pos)))
+        commander ! Success(GenericData.get().deepCopy(field.schema, record.get(field.pos)))
       } else {
         val ex = new RuntimeException("Field does not exist: " + fieldName)
         log.error(ex, ex.getMessage)

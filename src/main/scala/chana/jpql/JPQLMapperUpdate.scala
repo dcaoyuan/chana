@@ -43,20 +43,20 @@ final class JPQLMapperUpdate(meta: JPQLUpdate) extends JPQLEvaluator {
               val qual = qualIdentVar(path.qual, toUpdate)
               val attrPaths = path.attributes map (x => attribute(x, toUpdate))
               val attrPaths1 = normalizeEntityAttrs(qual, attrPaths, toUpdate.getSchema)
-              updateValue(attrPaths1, v, toUpdate)
+              opUpdate(attrPaths1, v, toUpdate)
 
             case Right(attr) =>
               val fieldName = attribute(attr, toUpdate) // there should be no AS alias
-              updateValue(fieldName, v, toUpdate, "/" + attr)
+              opUpdate(fieldName, v, toUpdate, "/" + attr)
           }
       }
     }
   }
 
-  private def updateValue(attr: String, v: Any, record: GenericRecord, xpath: String): UpdateAction = {
+  private def opUpdate(attr: String, v: Any, record: GenericRecord, xpath: String): UpdateAction = {
     val field = record.getSchema.getField(attr)
     val value = v match {
-      case x: JsonNode => avro.FromJson.fromJsonNode(x, field.schema, false)
+      case x: JsonNode => avro.FromJson.fromJsonNode(x, field.schema)
       case x           => x
     }
 
@@ -67,7 +67,7 @@ final class JPQLMapperUpdate(meta: JPQLUpdate) extends JPQLEvaluator {
     UpdateAction(commit, rlback, Changelog(xpath, value, bytes))
   }
 
-  private def updateValue(attrPaths: List[String], v: Any, record: GenericRecord): UpdateAction = {
+  private def opUpdate(attrPaths: List[String], v: Any, record: GenericRecord): UpdateAction = {
     val xpath = new StringBuilder()
     var paths = attrPaths
     var currTarget: Any = record
@@ -81,21 +81,6 @@ final class JPQLMapperUpdate(meta: JPQLUpdate) extends JPQLEvaluator {
       xpath.append("/").append(path)
 
       if (paths.nonEmpty) {
-        //        schema = schema.getType match {
-        //          case Schema.Type.ARRAY =>
-        //            val elemSchema = avro.getElementType(schema)
-        //            avro.getNonNull(elemSchema.getField(path).schema)
-        //
-        //          case Schema.Type.MAP =>
-        //            val valueSchema = avro.getValueType(schema)
-        //            avro.getNonNull(valueSchema.getField(path).schema)
-        //
-        //          case Schema.Type.RECORD | Schema.Type.UNION =>
-        //            avro.getNonNull(schema.getField(path).schema)
-        //
-        //          case _ => schema // what happens here? TODO
-        //        }
-
         currTarget match {
           case fieldRec @ avro.FlattenRecord(underlying, flatField, fieldValue, index) if flatField.name == path =>
             // TODO deep embbed collection fields have the same path(field name), /rec/abc/abc
@@ -119,13 +104,30 @@ final class JPQLMapperUpdate(meta: JPQLUpdate) extends JPQLEvaluator {
           case _                                        => throw JPQLRuntimeException(currTarget, "is not a record when fetch its attribute: " + paths)
         }
 
-      } else { // reaches the last path, handover to updateValue(attr: String, v: Any, record: GenericRecord, xpath: String)
+      } else { // reaches the last path, handover to opUpdate(attr: String, v: Any, record: GenericRecord, xpath: String)
         //println("\npath: " + path + ", tar: " + currTarget + ", xpath: " + xpath)
-        action = updateValue(path, v, currTarget.asInstanceOf[GenericRecord], xpath.toString)
+        action = opUpdate(path, v, currTarget.asInstanceOf[GenericRecord], xpath.toString)
       }
 
     }
 
     action
+  }
+
+  private def getNextSchema(schema: Schema, path: String) = {
+    schema.getType match {
+      case Schema.Type.ARRAY =>
+        val elemSchema = avro.getElementType(schema)
+        avro.getNonNull(elemSchema.getField(path).schema)
+
+      case Schema.Type.MAP =>
+        val valueSchema = avro.getValueType(schema)
+        avro.getNonNull(valueSchema.getField(path).schema)
+
+      case Schema.Type.RECORD | Schema.Type.UNION =>
+        avro.getNonNull(schema.getField(path).schema)
+
+      case _ => schema // what happens here? TODO
+    }
   }
 }

@@ -372,7 +372,7 @@ package object avro {
         case _ =>
           val values = arr.iterator
           var i = 0
-          val xs = new java.util.ArrayList[Any]()
+          val xs = new java.util.LinkedList[Any]()
           xs.add(value)
           while (values.hasNext) {
             val value = values.next
@@ -428,7 +428,7 @@ package object avro {
         }
 
       case _ =>
-        val xs = new java.util.ArrayList[Any](arr)
+        val xs = new java.util.LinkedList[Any](arr)
         arr.clear
 
         var toInsert = idxToValue

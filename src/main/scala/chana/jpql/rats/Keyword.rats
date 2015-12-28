@@ -55,6 +55,7 @@ body {
       "INDEX",
       "INNER",
       "INSERT",
+      "INTO",
       "IS",
       "JOIN",
       "KEY",
@@ -146,6 +147,7 @@ ignoringCase void   IN                = "in"                :Word ;
 ignoringCase void   INDEX             = "index"             :Word ;
 ignoringCase String INNER             = "inner"             :Word ;
 ignoringCase void   INSERT            = "insert"            :Word ;
+ignoringCase void   INTO              = "into"              :Word ;
 ignoringCase void   IS                = "is"                :Word ;
 ignoringCase String JOIN              = "join"              :Word ;
 ignoringCase void   KEY               = "key"               :Word ;

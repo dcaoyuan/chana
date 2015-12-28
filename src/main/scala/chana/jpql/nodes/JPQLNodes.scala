@@ -45,7 +45,8 @@ package object nodes {
 
   final case class InsertClause(entityName: EntityName)
   final case class AttributesClause(attr: Attribute, attrs: List[Attribute])
-  final case class ValuesClause(value: NewValue, values: List[NewValue])
+  final case class ValuesClause(row: RowValuesClause, rows: List[RowValuesClause])
+  final case class RowValuesClause(value: NewValue, values: List[NewValue])
 
   sealed trait SelectExpr
   final case class SelectExpr_AggregateExpr(expr: AggregateExpr) extends SelectExpr

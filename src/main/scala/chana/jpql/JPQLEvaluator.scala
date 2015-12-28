@@ -190,6 +190,10 @@ abstract class JPQLEvaluator {
   }
 
   def valuesClause(clause: ValuesClause, record: Any) = {
+    rowValuesClause(clause.row, record) :: (clause.rows map (x => rowValuesClause(x, record)))
+  }
+
+  def rowValuesClause(clause: RowValuesClause, record: Any) = {
     newValue(clause.value, record) :: (clause.values map (x => newValue(x, record)))
   }
 

@@ -42,6 +42,13 @@ class JPQLUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
     updateActions foreach (_.commit())
   }
 
+  def insert(meta: JPQLMeta, record: Record) = {
+    val jpql = meta.asInstanceOf[JPQLInsert]
+    val updateActions = new JPQLMapperInsert(jpql).insertEval(jpql.stmt, record)
+    info("\nUpdate:\n" + updateActions.map(_.binlog).mkString("\n"))
+    updateActions foreach (_.commit())
+  }
+
   "JPQL update" when {
     val record = initAccount()
     record.put("id", 1)
@@ -92,6 +99,23 @@ class JPQLUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
     meta = parse(q)
     update(meta, record)
     record.get("devApps").asInstanceOf[java.util.Map[String, Record]].get("a").get("numBlackApps") should be(4)
+  }
+
+  "JPQL insert" when {
+    val record = initAccount()
+    record.put("id", 1)
+    record.put("registerTime", 1L)
+
+    var q = "INSERT INTO account (chargeRecords) VALUES (JSON({\"time\": 500e0, \"amount\": 500.0}))"
+    var meta = parse(q)
+    insert(meta, record)
+    record.get("chargeRecords").asInstanceOf[java.util.List[Record]].get(2).get("time") should be(500)
+
+    q = "INSERT INTO account (devApps) VALUES (JSON({\"f\": {\"numBlackApps\": 4}}))"
+    meta = parse(q)
+    insert(meta, record)
+    record.get("devApps").asInstanceOf[java.util.Map[String, Record]].get("f").get("numBlackApps") should be(4)
+
   }
 
 }
