@@ -56,14 +56,17 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
         JPQLSelect(stmt, asToEntity, asToJoin, projectionSchemas.toList)
 
       case stmt @ UpdateStatement(update, set, where) =>
+        // visit updateClause is enough for meta
         updateClause(update, record)
         JPQLUpdate(stmt, asToEntity, asToJoin)
 
-      case stmt @ DeleteStatement(delete, attributes, where) =>
+      case stmt @ DeleteStatement(delete, where) =>
+        // visit deleteClause is enough for meta
         deleteClause(delete, record)
         JPQLDelete(stmt, asToEntity, asToJoin)
 
       case stmt @ InsertStatement(insert, attributes, values) =>
+        // visit insertClause is enough for meta
         insertClause(insert, record)
         JPQLInsert(stmt, asToEntity, asToJoin)
     }

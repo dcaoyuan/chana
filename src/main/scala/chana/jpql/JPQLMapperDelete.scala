@@ -2,7 +2,9 @@ package chana.jpql
 
 import chana.avro
 import chana.avro.Deletelog
+import chana.avro.UpdateAction
 import chana.jpql.nodes._
+import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
 
 final class JPQLMapperDelete(meta: JPQLDelete) extends JPQLEvaluator {
@@ -10,7 +12,7 @@ final class JPQLMapperDelete(meta: JPQLDelete) extends JPQLEvaluator {
   protected def asToEntity = meta.asToEntity
   protected def asToJoin = meta.asToJoin
 
-  def deleteEval(stmt: DeleteStatement, record: GenericRecord) = {
+  def deleteEval(stmt: DeleteStatement, record: GenericRecord): List[UpdateAction] = {
     var toDeletes = List[GenericRecord]()
     if (asToJoin.nonEmpty) {
       val joinField = asToJoin.head._2.tail.head
@@ -31,15 +33,38 @@ final class JPQLMapperDelete(meta: JPQLDelete) extends JPQLEvaluator {
       }
     }
 
-    if (toDeletes.nonEmpty) {
-      stmt.attributes match {
-        case Some(x) =>
-          val fields = attributesClause(x, record).map { attr => record.getSchema.getField(attr) }.iterator
-        case None =>
-          Deletelog("/", java.util.Collections.EMPTY_LIST)
-      }
-    }
+    toDeletes map {
+      case fieldRec @ avro.FlattenRecord(underlying, flatField, fieldValue, index) =>
 
-    false // TODO
+        flatField.schema.getType match {
+          case Schema.Type.ARRAY =>
+            val arr = underlying.get(flatField.pos).asInstanceOf[java.util.Collection[Any]]
+
+            val xpath = "/" + flatField.name
+            val keys = java.util.Arrays.asList(index + 1)
+
+            val rlback = { () => () }
+            val commit = { () => avro.arrayRemove(arr, List(index)) }
+            UpdateAction(commit, rlback, Deletelog(xpath, keys))
+
+          case Schema.Type.MAP =>
+            val map = underlying.get(flatField.pos).asInstanceOf[java.util.Map[String, Any]]
+
+            val xpath = "/" + flatField.name
+            val fieldEntry = fieldValue.asInstanceOf[java.util.Map.Entry[CharSequence, Any]]
+            val k = fieldEntry.getKey.toString
+            val keys = java.util.Arrays.asList(k)
+            val prev = fieldEntry.getValue
+
+            val rlback = { () => map.put(k, prev) }
+            val commit = { () => map.remove(k) }
+            UpdateAction(commit, rlback, Deletelog(xpath, keys))
+
+          case _ => throw JPQLRuntimeException(flatField, "is not a collection field: ")
+        }
+
+      case x =>
+        UpdateAction(null, null, Deletelog("/", java.util.Collections.EMPTY_LIST))
+    }
   }
 }

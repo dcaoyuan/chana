@@ -45,7 +45,14 @@ class JPQLUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
   def insert(meta: JPQLMeta, record: Record) = {
     val jpql = meta.asInstanceOf[JPQLInsert]
     val updateActions = new JPQLMapperInsert(jpql).insertEval(jpql.stmt, record)
-    info("\nUpdate:\n" + updateActions.map(_.binlog).mkString("\n"))
+    info("\nInsert:\n" + updateActions.map(_.binlog).mkString("\n"))
+    updateActions foreach (_.commit())
+  }
+
+  def delete(meta: JPQLMeta, record: Record) = {
+    val jpql = meta.asInstanceOf[JPQLDelete]
+    val updateActions = new JPQLMapperDelete(jpql).deleteEval(jpql.stmt, record)
+    info("\nDelete:\n" + updateActions.map(_.binlog).mkString("\n"))
     updateActions foreach (_.commit())
   }
 
@@ -115,7 +122,24 @@ class JPQLUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
     meta = parse(q)
     insert(meta, record)
     record.get("devApps").asInstanceOf[java.util.Map[String, Record]].get("f").get("numBlackApps") should be(4)
+  }
 
+  "JPQL delete" when {
+    val record = initAccount()
+    record.put("id", 1)
+    record.put("registerTime", 1L)
+
+    record.get("chargeRecords").asInstanceOf[java.util.List[Record]].size should be(2)
+    var q = "DELETE FROM account a JOIN a.chargeRecords c WHERE INDEX(c) = 1"
+    var meta = parse(q)
+    delete(meta, record)
+    record.get("chargeRecords").asInstanceOf[java.util.List[Record]].size should be(1)
+
+    record.get("devApps").asInstanceOf[java.util.Map[String, Record]].keySet.contains("a") should be(true)
+    q = "DELETE FROM account a JOIN a.devApps d WHERE KEY(d) = 'a'"
+    meta = parse(q)
+    delete(meta, record)
+    record.get("devApps").asInstanceOf[java.util.Map[String, Record]].keySet.contains("a") should be(false)
   }
 
 }

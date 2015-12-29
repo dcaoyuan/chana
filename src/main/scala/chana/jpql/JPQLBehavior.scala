@@ -2,6 +2,7 @@ package chana.jpql
 
 import akka.contrib.pattern.DistributedPubSubMediator.{ Subscribe, SubscribeAck }
 import chana.Entity
+import chana.avro.UpdateAction
 import chana.avro.UpdateEvent
 import org.apache.avro.generic.GenericData.Record
 import scala.concurrent.duration._
@@ -41,28 +42,26 @@ trait JPQLBehavior extends Entity {
       log.debug("Subscribed " + JPQLTopic)
 
     case jpqlMeta @ JPQLDelete(stmt, asToEntity, asToJoin) =>
-      val eval = new JPQLMapperDelete(jpqlMeta)
-      if (eval.deleteEval(stmt, record)) {
-        isDeleted(true)
-        reportAll(true)
+      val commander = sender()
+      val updateActions = new JPQLMapperDelete(jpqlMeta).deleteEval(stmt, record)
+      updateActions foreach {
+        case UpdateAction(null, null, _) => isDeleted(true)
+        case x                           => x.commit()
       }
+
+      reportAll(true)
 
     case jpqlMeta @ JPQLInsert(stmt, asToEntity, asToJoin) =>
       val commander = sender()
-      val eval = new JPQLMapperInsert(jpqlMeta)
-      val updateAction = eval.insertEval(stmt, record)
+      val updateAction = new JPQLMapperInsert(jpqlMeta).insertEval(stmt, record)
       updateAction foreach { _.commit() }
+      reportAll(true)
 
     case jpqlMeta @ JPQLUpdate(stmt, asToEntity, asToJoin) =>
       val commander = sender()
-      val eval = new JPQLMapperUpdate(jpqlMeta)
-      val updateActions = eval.updateEval(stmt, record)
-      for {
-        updateActions1 <- updateActions
-        updateAction <- updateActions1
-      } {
-        updateAction.commit()
-      }
+      val updateActions = new JPQLMapperUpdate(jpqlMeta).updateEval(stmt, record)
+      updateActions foreach { xs => xs foreach { _.commit() } }
+      reportAll(true)
   }
 
   def reportAll(force: Boolean) {
@@ -81,19 +80,16 @@ trait JPQLBehavior extends Entity {
     reportingJpqls = newReportingJpqls
   }
 
-  def eval(meta: JPQLSelect, record: Record) = {
-    val e = new JPQLMapperSelect(meta)
-    e.gatherProjection(id, record)
-  }
-
   def report(jpqlKey: String, meta: JPQLSelect, interval: FiniteDuration, record: Record) {
     try {
       if (isDeleted) {
-        JPQLReducer.reducerProxy(context.system, jpqlKey) ! DeletedRecord(id)
+        val deleted = DeletedRecord(id)
+        JPQLReducer.reducerProxy(context.system, jpqlKey) ! deleted
       } else {
-        val projection = eval(meta, record)
+        val projection = new JPQLMapperSelect(meta).gatherProjection(id, record)
         JPQLReducer.reducerProxy(context.system, jpqlKey) ! projection
       }
+
       context.system.scheduler.scheduleOnce(interval, self, ReportingTick(jpqlKey))
     } catch {
       case ex: Throwable => log.error(ex, ex.getMessage)

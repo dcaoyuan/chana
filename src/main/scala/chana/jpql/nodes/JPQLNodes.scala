@@ -23,7 +23,6 @@ package object nodes {
 
   final case class DeleteStatement(
     delete: DeleteClause,
-    attributes: Option[AttributesClause],
     where: Option[WhereClause]) extends Statement
 
   final case class InsertStatement(
@@ -38,7 +37,7 @@ package object nodes {
 
   final case class NewValue(v: ScalarExpr) // could be null
 
-  final case class DeleteClause(from: EntityName, as: Option[Ident])
+  final case class DeleteClause(from: EntityName, as: Option[Ident], joins: List[Join])
 
   final case class SelectClause(isDistinct: Boolean, item: SelectItem, items: List[SelectItem])
 

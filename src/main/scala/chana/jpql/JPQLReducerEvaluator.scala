@@ -24,10 +24,9 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
     meta.stmt match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         groupby.fold(List[Any]()) { x => groupbyClause(x, record) }
-
-      case UpdateStatement(update, set, where)        => null // NOT YET
-      case DeleteStatement(delete, attributes, where) => null // NOT YET
-      case InsertStatement(_, _, _)                   => null // NOT YET
+      case _ =>
+        // not applicable for INSERT/UPDATE/DELETE
+        throw new UnsupportedOperationException()
     }
   }
 
@@ -69,9 +68,9 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
           }
         }
 
-      case UpdateStatement(update, set, where)        => null // NOT YET
-      case DeleteStatement(delete, attribtues, where) => null // NOT YET
-      case _: InsertStatement                         => throw new UnsupportedOperationException()
+      case _ =>
+        // not applicable for INSERT/UPDATE/DELETE
+        throw new UnsupportedOperationException()
     }
   }
 

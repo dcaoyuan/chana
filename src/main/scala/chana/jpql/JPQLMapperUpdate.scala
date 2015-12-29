@@ -107,8 +107,8 @@ final class JPQLMapperUpdate(meta: JPQLUpdate) extends JPQLEvaluator {
           case _                                        => throw JPQLRuntimeException(currTarget, "is not a record when fetch its attribute: " + paths)
         }
 
-      } else { // reaches the last path, handover to opUpdate(attr: String, v: Any, record: GenericRecord, xpath: String)
-        //println("\npath: " + path + ", tar: " + currTarget + ", xpath: " + xpath)
+      } else {
+        // reaches the last path, handover to opUpdate(attr: String, v: Any, record: GenericRecord, xpath: String)
         action = opUpdate(path, v, currTarget.asInstanceOf[GenericRecord], xpath.toString)
       }
 

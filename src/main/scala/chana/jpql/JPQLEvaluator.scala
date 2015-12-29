@@ -77,7 +77,7 @@ abstract class JPQLEvaluator {
         }
 
       case UpdateStatement(update, set, where)         => List() // NOT YET
-      case DeleteStatement(delete, attributes, where)  => List() // NOT YET
+      case DeleteStatement(delete, where)              => List() // NOT YET
       case InsertStatement(insert, attributes, values) => List() // NOT YET
     }
   }
@@ -165,7 +165,7 @@ abstract class JPQLEvaluator {
   def deleteClause(deleteClause: DeleteClause, record: Any) = {
     val from = deleteClause.from.ident
     deleteClause.as foreach { x => addAsToEntity(x.ident, from) }
-    from
+    deleteClause.joins foreach { x => join(x, record) }
   }
 
   def selectClause(select: SelectClause, record: Any): Unit = {
