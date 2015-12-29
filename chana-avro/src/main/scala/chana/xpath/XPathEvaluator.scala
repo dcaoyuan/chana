@@ -260,6 +260,7 @@ object XPathEvaluator {
 
         //println(ctx.node)
         val itr = idxes.iterator
+
         while (itr.hasNext) {
           val idx = itr.next
           val ix = idx - 1
@@ -299,6 +300,7 @@ object XPathEvaluator {
 
         //println(ctx.node)
         val itr = keys.iterator
+
         while (itr.hasNext) {
           val key = itr.next
           val target = map.get(key)
@@ -446,6 +448,7 @@ object XPathEvaluator {
                 val prev = new java.util.LinkedHashMap[String, Any]()
                 val toPut = new java.util.LinkedHashMap[String, Any]()
                 val itr = xs.iterator
+
                 while (itr.hasNext) {
                   val entry = itr.next
                   val (k, v) = entry
@@ -461,6 +464,7 @@ object XPathEvaluator {
               case xs: java.util.Map[String, Any] @unchecked =>
                 val prev = new java.util.HashMap[String, Any]()
                 val itr = xs.entrySet.iterator
+
                 while (itr.hasNext) {
                   val entry = itr.next
                   val k = entry.getKey
@@ -503,8 +507,10 @@ object XPathEvaluator {
         var toRlback = List[(Int, Any)]()
         var i = 0
         var arrItr = arr.iterator
+
         while (prev.hasNext) {
           val ix = prev.next - 1
+
           while (arrItr.hasNext && i <= ix) {
             if (i == ix) {
               toRemove ::= i
@@ -525,6 +531,7 @@ object XPathEvaluator {
       case n @ MapNode(map: java.util.Map[String, Any], mapSchema, keys, field) =>
         val prev = new java.util.LinkedHashMap[String, Any]()
         val itr = keys.iterator
+
         while (itr.hasNext) {
           val k = itr.next
           val v = map.get(k)
@@ -599,6 +606,7 @@ object XPathEvaluator {
             val keys = new java.util.LinkedList[Any]()
             val idx = ix.intValue
             var i = 1
+
             while (arr.hasNext && i <= idx) {
               val value = arr.next
               val key = origKeys.next
@@ -622,6 +630,7 @@ object XPathEvaluator {
             val keys = new java.util.LinkedList[Any]()
             var i = 0
             val conds = boolOrInts.iterator
+
             while (arr.hasNext && conds.hasNext) {
               val value = arr.next
               val key = origKeys.next
@@ -658,6 +667,7 @@ object XPathEvaluator {
             val values = new java.util.LinkedHashMap[String, Any]()
             val keys = new java.util.LinkedList[Any]()
             val conds = bools.iterator
+
             while (map.hasNext && conds.hasNext) {
               val entry = map.next
               val key = origKeys.next
@@ -697,6 +707,7 @@ object XPathEvaluator {
             val itr = arr.iterator
             val keys = new java.util.LinkedList[Int]()
             var i = 1
+
             while (itr.hasNext) {
               itr.next
               keys.add(i)
@@ -762,6 +773,7 @@ object XPathEvaluator {
                 val field = elemSchema.getField(local)
                 val fieldSchema = avro.getNonNull(field.schema)
                 val itr = arr.iterator
+
                 while (itr.hasNext) {
                   val elem = itr.next
                   val value = elem.get(field.pos)
@@ -773,6 +785,7 @@ object XPathEvaluator {
                     val itr = arr.iterator
                     val keys = new java.util.LinkedList[Int]()
                     var i = 1
+
                     while (itr.hasNext) {
                       itr.next
                       keys.add(i)
@@ -795,6 +808,7 @@ object XPathEvaluator {
                 val field = valueSchema.getField(local)
                 val fieldSchema = avro.getNonNull(field.schema)
                 val itr = map.entrySet.iterator
+
                 while (itr.hasNext) {
                   val entry = itr.next
                   val value = entry.getValue.get(field.pos)

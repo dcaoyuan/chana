@@ -54,7 +54,7 @@ generic NewValue =
 ;
 
 generic DeleteStatement =
-  DeleteClause WhereClause?
+  DeleteClause AttributesClause? WhereClause?
 ;
 
 generic DeleteClause =

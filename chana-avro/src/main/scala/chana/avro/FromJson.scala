@@ -81,6 +81,7 @@ object FromJson {
           if (json.isArray) {
             val arr = newGenericArray(0, schema)
             val itr = json.getElements
+
             while (itr.hasNext) {
               val element = itr.next
               addGenericArray(arr, fromJsonNode(element, schema.getElementType, specific))
@@ -99,6 +100,7 @@ object FromJson {
             //assert json instanceof ObjectNode; // Help findbugs out.
             val map = new java.util.HashMap[String, Any]()
             val itr = json.asInstanceOf[ObjectNode].getFields
+
             while (itr.hasNext) {
               val entry = itr.next
               map.put(entry.getKey, fromJsonNode(entry.getValue, schema.getValueType, specific))
@@ -118,6 +120,7 @@ object FromJson {
             var fields = json.getFieldNames.toSet
             val record = if (specific) newSpecificRecord(schema.getFullName) else newGenericRecord(schema)
             val itr = schema.getFields.iterator
+
             while (itr.hasNext) {
               val field = itr.next
               val name = field.name
@@ -201,6 +204,7 @@ object FromJson {
     /** Map from Avro schema type to list of schemas of this type in the union. */
     val typeToSchemas = new java.util.HashMap[Type, java.util.List[Schema]]()
     val typesIter = schema.getTypes.iterator
+
     while (typesIter.hasNext) {
       val tpe = typesIter.next
       var types = typeToSchemas.get(tpe.getType)
@@ -217,6 +221,7 @@ object FromJson {
       val actualNode = entry.getValue
 
       val typesIter = schema.getTypes.iterator
+
       while (typesIter.hasNext) {
         val tpe = typesIter.next
         if (tpe.getFullName == typeName) {
@@ -226,6 +231,7 @@ object FromJson {
     }
 
     val typesIter1 = schema.getTypes.iterator
+
     while (typesIter1.hasNext) {
       val tpe = typesIter1.next
       try {
@@ -371,6 +377,7 @@ object FromJson {
   def getFirstNonNullTypeOfUnion(schema: Schema) = {
     val tpes = schema.getTypes.iterator
     var firstNonNullType: Schema = null
+
     while (tpes.hasNext && firstNonNullType == null) {
       val tpe = tpes.next
       if (tpe.getType != Type.NULL) {

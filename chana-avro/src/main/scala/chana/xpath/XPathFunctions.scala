@@ -13,6 +13,7 @@ object XPathFunctions {
   def map[A, R](xs: java.util.Collection[A])(f: A => R): java.util.Collection[R] = {
     val res = new java.util.LinkedList[R]()
     val itr = xs.iterator
+
     while (itr.hasNext) {
       res.add(f(itr.next))
     }
@@ -23,6 +24,7 @@ object XPathFunctions {
     val res = new java.util.LinkedList[R]()
     val itrX = xs.iterator
     val itrY = ys.iterator
+
     while (itrX.hasNext && itrY.hasNext) {
       res.add(f(itrX.next, itrY.next))
     }
@@ -380,6 +382,7 @@ object XPathFunctions {
     val res = new java.util.LinkedList[Int]()
     val itr = xs.iterator
     var i = 1
+
     while (itr.hasNext) {
       itr.next
       res.add(i)

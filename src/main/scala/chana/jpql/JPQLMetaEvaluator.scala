@@ -59,7 +59,7 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
         updateClause(update, record)
         JPQLUpdate(stmt, asToEntity, asToJoin)
 
-      case stmt @ DeleteStatement(delete, where) =>
+      case stmt @ DeleteStatement(delete, attributes, where) =>
         deleteClause(delete, record)
         JPQLDelete(stmt, asToEntity, asToJoin)
 
@@ -82,6 +82,7 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
           var currNode: Projection.Node = projectionNode
 
           var paths = attrPaths1
+
           while (paths.nonEmpty) {
             val path = paths.head
             paths = paths.tail

@@ -33,10 +33,10 @@ final class JPQLMapperSelect(meta: JPQLSelect) extends JPQLEvaluator {
         if (asToJoin.nonEmpty) {
           val joinField = asToJoin.head._2.tail.head
           val recordFlatView = new RecordFlatView(record.asInstanceOf[GenericRecord], joinField)
-          val itr = recordFlatView.iterator
+          val flatRecs = recordFlatView.iterator
           var hasResult = false
-          while (itr.hasNext) {
-            val rec = itr.next
+          while (flatRecs.hasNext) {
+            val rec = flatRecs.next
             // aggregate function can not be applied in WhereClause, so we can decide here
             val whereCond = where.fold(true) { x => whereClause(x, rec) }
             if (whereCond) {
@@ -87,6 +87,7 @@ final class JPQLMapperSelect(meta: JPQLSelect) extends JPQLEvaluator {
 
       var currSchema = record.getSchema
       var currGather: Any = projection
+
       while (paths.nonEmpty) {
         val path = paths.head
         paths = paths.tail

@@ -139,6 +139,7 @@ class JPQLReducer(jqplKey: String, meta: JPQLSelect) extends Actor with Stash wi
         val n = reduced.length
         val res = Array.ofDim[List[Any]](n)
         var i = 0
+
         while (i < n) {
           res(i) = reduced(i).selectedItems
           i += 1
@@ -163,6 +164,7 @@ class JPQLReducer(jqplKey: String, meta: JPQLSelect) extends Actor with Stash wi
     evaluator.reset(datasets)
     var reduced = List[WorkSet]()
     val itr = datasets.iterator
+
     while (itr.hasNext) {
       val entry = itr.next
       reduced :::= evaluator.visitOneRecord(entry.projection)

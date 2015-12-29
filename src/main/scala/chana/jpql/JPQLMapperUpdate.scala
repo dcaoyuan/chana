@@ -19,9 +19,10 @@ final class JPQLMapperUpdate(meta: JPQLUpdate) extends JPQLEvaluator {
     if (asToJoin.nonEmpty) {
       val joinField = asToJoin.head._2.tail.head
       val recordFlatView = new RecordFlatView(record.asInstanceOf[GenericRecord], joinField)
-      val itr = recordFlatView.iterator
-      while (itr.hasNext) {
-        val rec = itr.next
+      val flatRecs = recordFlatView.iterator
+
+      while (flatRecs.hasNext) {
+        val rec = flatRecs.next
         val whereCond = stmt.where.fold(true) { x => whereClause(x, rec) }
         if (whereCond) {
           toUpdates ::= rec
@@ -34,21 +35,23 @@ final class JPQLMapperUpdate(meta: JPQLUpdate) extends JPQLEvaluator {
       }
     }
 
-    toUpdates map { toUpdate =>
-      stmt.set.assign :: stmt.set.assigns map {
-        case SetAssignClause(target, value) =>
-          val v = newValue(value, toUpdate)
-          target.path match {
-            case Left(path) =>
-              val qual = qualIdentVar(path.qual, toUpdate)
-              val attrPaths = path.attributes map (x => attribute(x, toUpdate))
-              val attrPaths1 = normalizeEntityAttrs(qual, attrPaths, toUpdate.getSchema)
-              opUpdate(attrPaths1, v, toUpdate)
+    val assigns = stmt.set.assign :: stmt.set.assigns
+    for (toUpdate <- toUpdates) yield {
+      for {
+        SetAssignClause(target, value) <- assigns
+        v = newValue(value, toUpdate)
+      } yield {
+        target.path match {
+          case Left(path) =>
+            val qual = qualIdentVar(path.qual, toUpdate)
+            val attrPaths = path.attributes map (attribute(_, toUpdate))
+            val attrPaths1 = normalizeEntityAttrs(qual, attrPaths, toUpdate.getSchema)
+            opUpdate(attrPaths1, v, toUpdate)
 
-            case Right(attr) =>
-              val fieldName = attribute(attr, toUpdate) // there should be no AS alias
-              opUpdate(fieldName, v, toUpdate, "/" + attr)
-          }
+          case Right(attr) =>
+            val fieldName = attribute(attr, toUpdate) // there should be no AS alias
+            opUpdate(fieldName, v, toUpdate, "/" + attr)
+        }
       }
     }
   }
@@ -114,6 +117,9 @@ final class JPQLMapperUpdate(meta: JPQLUpdate) extends JPQLEvaluator {
     action
   }
 
+  /**
+   * Not used yet, keep for reference.
+   */
   private def getNextSchema(schema: Schema, path: String) = {
     schema.getType match {
       case Schema.Type.ARRAY =>

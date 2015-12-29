@@ -68,6 +68,7 @@ trait JPQLBehavior extends Entity {
   def reportAll(force: Boolean) {
     var newReportingJpqls = List[String]()
     val jpqls = DistributedJPQLBoard.keyToStatement.entrySet.iterator
+
     while (jpqls.hasNext) {
       val entry = jpqls.next
       val key = entry.getKey

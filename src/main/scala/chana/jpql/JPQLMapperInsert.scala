@@ -32,6 +32,7 @@ final class JPQLMapperInsert(meta: JPQLInsert) extends JPQLEvaluator {
 
       for (row <- rows) {
         var values = row
+
         while (fields.hasNext) {
           val field = fields.next
           if (values.nonEmpty) {

@@ -255,6 +255,7 @@ package object avro {
         case arr: GenericData.Array[T] =>
           val xs = new GenericData.Array[T](size, arr.getSchema)
           var i = l - size
+
           while (i < l) {
             xs.add(arr.get(i))
             i += 1
@@ -264,6 +265,7 @@ package object avro {
           val xs = new java.util.ArrayList[T](size)
           val itr = values.iterator
           var i = 0
+
           while (i < size && itr.hasNext) {
             xs.add(itr.next)
             i += 1
@@ -285,6 +287,7 @@ package object avro {
   def getNonNullOfUnion(schema: Schema): Schema = {
     var nonNull: Schema = null
     val tpes = schema.getTypes.iterator
+
     while (tpes.hasNext && nonNull == null) {
       val tpe = tpes.next
       if (tpe.getType != Type.NULL) {
@@ -330,6 +333,7 @@ package object avro {
       case Type.UNION =>
         val unions = arrSchema.getTypes.iterator
         var res: Schema = null
+
         while (unions.hasNext && res == null) {
           val union = unions.next
           if (union.getType == Type.ARRAY) {
@@ -351,6 +355,7 @@ package object avro {
       case Type.UNION =>
         val unions = mapSchema.getTypes.iterator
         var res: Schema = null
+
         while (unions.hasNext && res == null) {
           val union = unions.next
           if (union.getType == Type.MAP) {
@@ -374,6 +379,7 @@ package object avro {
           var i = 0
           val xs = new java.util.LinkedList[Any]()
           xs.add(value)
+
           while (values.hasNext) {
             val value = values.next
             if (i == idx) {
@@ -403,6 +409,7 @@ package object avro {
           val values = arr.iterator
           var i = 0
           var break = false
+
           while (values.hasNext && !break) {
             if (i == idx) {
               res = values.next
@@ -421,6 +428,7 @@ package object avro {
     arr match {
       case xs: java.util.List[Any] @unchecked =>
         var toInsert = idxToValue
+
         while (toInsert.nonEmpty) {
           val (idx, value) = toInsert.head
           toInsert = toInsert.tail
@@ -432,6 +440,7 @@ package object avro {
         arr.clear
 
         var toInsert = idxToValue
+
         while (toInsert.nonEmpty) {
           val (idx, value) = toInsert.head
           toInsert = toInsert.tail
@@ -446,6 +455,7 @@ package object avro {
     arr match {
       case xs: java.util.List[Any] @unchecked =>
         var toRemove = idxsRemove
+
         while (toRemove.nonEmpty) {
           val idx = toRemove.head
           toRemove = toRemove.tail
@@ -456,9 +466,11 @@ package object avro {
         val arrItr = arr.iterator
         var toRemove = idxsRemove
         var i = 0
+
         while (toRemove.nonEmpty) {
           val idx = toRemove.head
           toRemove = toRemove.tail
+
           while (arrItr.hasNext && i <= idx) {
             if (i == idx) {
               arrItr.remove
@@ -474,6 +486,7 @@ package object avro {
   def replace(dst: IndexedRecord, src: IndexedRecord) {
     if (dst.getSchema == src.getSchema) {
       val fields = dst.getSchema.getFields.iterator
+
       while (fields.hasNext) {
         val field = fields.next
         val value = src.get(field.pos)

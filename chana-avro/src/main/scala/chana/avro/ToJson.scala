@@ -54,6 +54,7 @@ object ToJson {
         case Type.ARRAY =>
           val jsonArray = JSON_NODE_FACTORY.arrayNode()
           val javaArray = value.asInstanceOf[java.lang.Iterable[_]].iterator
+
           while (javaArray.hasNext) {
             val element = javaArray.next
             jsonArray.add(toJsonNode(element, schema.getElementType))
@@ -63,6 +64,7 @@ object ToJson {
         case Type.MAP =>
           val jsonObject = JSON_NODE_FACTORY.objectNode()
           val javaMap = value.asInstanceOf[java.util.Map[String, Any]].entrySet.iterator
+
           while (javaMap.hasNext) {
             val entry = javaMap.next
             jsonObject.put(entry.getKey, toJsonNode(entry.getValue, schema.getValueType))
@@ -76,6 +78,7 @@ object ToJson {
           //  throw new IOException("Avro schema specifies record type '%s' but got '%s'.".format(schema.getFullName, record.getSchema.getFullName))
           //}
           val fields = schema.getFields.iterator
+
           while (fields.hasNext) {
             val field = fields.next
             val fieldValue = record.get(field.pos)
@@ -119,6 +122,7 @@ object ToJson {
 
     val typeMap = new java.util.HashMap[Schema.Type, java.util.List[Schema]]()
     val tpes = schema.getTypes.iterator
+
     while (tpes.hasNext) {
       val tpe = tpes.next
       val typeList = typeMap.get(tpe.getType) match {
@@ -141,6 +145,7 @@ object ToJson {
 
     val union = JSON_NODE_FACTORY.objectNode
     val tpes2 = schema.getTypes.iterator
+
     while (tpes2.hasNext) {
       val tpe = tpes2.next
       try {

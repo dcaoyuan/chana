@@ -174,6 +174,7 @@ final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) exte
       b.sizeHintBounded(elems, this)
       var i = 0
       val it = iterator drop lo
+
       while (i < elems && it.hasNext) {
         b += it.next
         i += 1
@@ -190,6 +191,7 @@ final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) exte
       b.sizeHintBounded(n, this)
       var i = 0
       val it = iterator
+
       while (i < n && it.hasNext) {
         b += it.next
         i += 1
@@ -204,6 +206,7 @@ final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) exte
     b.sizeHint(this, -lo)
     var i = 0
     val it = iterator
+
     while (i < n && it.hasNext) {
       it.next()
       i += 1
@@ -214,6 +217,7 @@ final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) exte
   override def takeWhile(p: GenericRecord => Boolean): Iterable[GenericRecord] = {
     val b = newBuilder
     val it = iterator
+
     while (it.hasNext) {
       val x = it.next()
       if (!p(x)) return b.result()
@@ -243,10 +247,12 @@ final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) exte
     b.sizeHintBounded(n, this)
     val lead = this.iterator drop n
     val it = this.iterator
+
     while (lead.hasNext) {
       lead.next()
       it.next()
     }
+
     while (it.hasNext) b += it.next()
     b.result()
   }
@@ -256,6 +262,7 @@ final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) exte
     if (n >= 0) b.sizeHint(this, -n)
     val lead = iterator drop n
     val it = iterator
+
     while (lead.hasNext) {
       b += it.next
       lead.next()
@@ -267,6 +274,7 @@ final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) exte
     var i = start
     val end = (start + len) min xs.length
     val it = iterator
+
     while (i < end && it.hasNext) {
       xs(i) = it.next()
       i += 1
@@ -277,6 +285,7 @@ final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) exte
     val b = bf(repr)
     val these = this.iterator
     val those = that.iterator
+
     while (these.hasNext && those.hasNext)
       b += ((these.next(), those.next()))
     b.result()
@@ -286,10 +295,13 @@ final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) exte
     val b = bf(repr)
     val these = this.iterator
     val those = that.iterator
+
     while (these.hasNext && those.hasNext)
       b += ((these.next(), those.next()))
+
     while (these.hasNext)
       b += ((these.next(), thatElem))
+
     while (those.hasNext)
       b += ((thisElem, those.next()))
     b.result()
@@ -308,6 +320,7 @@ final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) exte
   override def sameElements[B >: GenericRecord](that: GenIterable[B]): Boolean = {
     val these = this.iterator
     val those = that.iterator
+
     while (these.hasNext && those.hasNext)
       if (these.next != those.next)
         return false

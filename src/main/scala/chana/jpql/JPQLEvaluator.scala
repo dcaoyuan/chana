@@ -24,6 +24,7 @@ object JPQLEvaluator {
   def keyOf(qual: String, attrPaths: List[String]) = {
     val key = new StringBuilder(qual)
     var paths = attrPaths
+
     while (paths.nonEmpty) {
       key.append(".").append(paths.head)
       paths = paths.tail
@@ -76,7 +77,7 @@ abstract class JPQLEvaluator {
         }
 
       case UpdateStatement(update, set, where)         => List() // NOT YET
-      case DeleteStatement(delete, where)              => List() // NOT YET
+      case DeleteStatement(delete, attributes, where)  => List() // NOT YET
       case InsertStatement(insert, attributes, values) => List() // NOT YET
     }
   }
@@ -931,7 +932,7 @@ abstract class JPQLEvaluator {
     }
     orderingItem match {
       case x: CharSequence  => (item.isAsc, x)
-      case x: Number        => if (item.isAsc) x else JPQLFunctions.neg(x)
+      case x: Number        => (if (item.isAsc) x else JPQLFunctions.neg(x))
       case x: LocalTime     => (if (item.isAsc) 1 else -1) * (x.toNanoOfDay)
       case x: LocalDate     => (if (item.isAsc) 1 else -1) * (x.getYear * 12 * 31 + x.getMonthValue * 12 + x.getDayOfMonth)
       case x: LocalDateTime => (if (item.isAsc) 1 else -1) * (x.atZone(JPQLEvaluator.timeZone).toInstant.toEpochMilli)

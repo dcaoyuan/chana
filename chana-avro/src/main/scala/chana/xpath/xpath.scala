@@ -123,12 +123,14 @@ package object xpath {
         first match {
           case x: String =>
             sb.append("/@*[").append("name()='" + first + "'")
+
             while (itr.hasNext) {
               sb.append(" or name()='" + itr.next + "'")
             }
             sb.append("]")
           case x: Int =>
             sb.append("[").append("position()=" + first)
+
             while (itr.hasNext) {
               sb.append(" or position()=" + itr.next)
             }

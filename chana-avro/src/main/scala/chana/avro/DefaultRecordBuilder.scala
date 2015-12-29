@@ -42,6 +42,7 @@ object DefaultRecordBuilder {
     val builder = new DefaultRecordBuilder(record, data)
     // Set all fields in the RecordBuilder that are set in the record
     val fields = record.getSchema.getFields.iterator
+
     while (fields.hasNext) {
       val f = fields.next
       val value = other.get(f.pos)

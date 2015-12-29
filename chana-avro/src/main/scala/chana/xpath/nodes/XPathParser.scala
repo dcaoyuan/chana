@@ -42,6 +42,7 @@ final class XPathParser {
     else {
       var rs = List[T]()
       val xs = nodes.iterator
+
       while (xs.hasNext) {
         rs ::= visit(xs.next)(body)
       }

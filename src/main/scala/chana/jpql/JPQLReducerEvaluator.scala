@@ -25,9 +25,9 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         groupby.fold(List[Any]()) { x => groupbyClause(x, record) }
 
-      case UpdateStatement(update, set, where) => null // NOT YET
-      case DeleteStatement(delete, where)      => null // NOT YET
-      case InsertStatement(_, _, _)            => null // NOT YET
+      case UpdateStatement(update, set, where)        => null // NOT YET
+      case DeleteStatement(delete, attributes, where) => null // NOT YET
+      case InsertStatement(_, _, _)                   => null // NOT YET
     }
   }
 
@@ -37,13 +37,13 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
       case SelectStatement(select, from, where, groupby, having, orderby) =>
 
         if (meta.asToJoin.nonEmpty) {
+          var res = List[WorkSet]()
           val joinField = meta.asToJoin.head._2.tail.head
           val recordFlatView = new RecordFlatView(record.asInstanceOf[GenericRecord], joinField)
-          val itr = recordFlatView.iterator
+          val flatRecs = recordFlatView.iterator
 
-          var res = List[WorkSet]()
-          while (itr.hasNext) {
-            val rec = itr.next
+          while (flatRecs.hasNext) {
+            val rec = flatRecs.next
             val havingCond = having.fold(true) { x => havingClause(x, record) }
             if (havingCond) {
               selectClause(select, rec)
@@ -69,9 +69,9 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
           }
         }
 
-      case UpdateStatement(update, set, where) => null // NOT YET
-      case DeleteStatement(delete, where)      => null // NOT YET
-      case _: InsertStatement                  => throw new UnsupportedOperationException()
+      case UpdateStatement(update, set, where)        => null // NOT YET
+      case DeleteStatement(delete, attribtues, where) => null // NOT YET
+      case _: InsertStatement                         => throw new UnsupportedOperationException()
     }
   }
 
@@ -83,6 +83,7 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
           var sum = 0.0
           var count = 0
           val itr = idToProjection.iterator
+
           while (itr.hasNext) {
             val dataset = itr.next
             count += 1
@@ -96,6 +97,7 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
         case AggregateExpr_MAX(isDistinct, expr) =>
           var max = 0.0
           val itr = idToProjection.iterator
+
           while (itr.hasNext) {
             val dataset = itr.next
             scalarExpr(expr, dataset.projection) match {
@@ -108,6 +110,7 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
         case AggregateExpr_MIN(isDistinct, expr) =>
           var min = 0.0
           val itr = idToProjection.iterator
+
           while (itr.hasNext) {
             val dataset = itr.next
             scalarExpr(expr, dataset.projection) match {
@@ -120,6 +123,7 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
         case AggregateExpr_SUM(isDistinct, expr) =>
           var sum = 0.0
           val itr = idToProjection.iterator
+
           while (itr.hasNext) {
             val dataset = itr.next
             scalarExpr(expr, dataset.projection) match {

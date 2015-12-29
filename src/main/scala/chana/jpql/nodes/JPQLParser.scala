@@ -61,6 +61,7 @@ final class JPQLParser() {
     else {
       var rs = List[T]()
       val xs = nodes.iterator
+
       while (xs.hasNext) {
         rs ::= visit(xs.next)(body)
       }
@@ -157,12 +158,13 @@ final class JPQLParser() {
   }
 
   /*-
-     DeleteClause WhereClause?
+     DeleteClause AttributesClause? WhereClause?
    */
   def deleteStatement(node: Node) = {
     val delete = visit(node.getNode(0))(deleteClause)
-    val where = visitOpt(node.getNode(1))(whereClause)
-    DeleteStatement(delete, where)
+    val attributes = visitOpt(node.getNode(1))(attributesClause)
+    val where = visitOpt(node.getNode(2))(whereClause)
+    DeleteStatement(delete, attributes, where)
   }
 
   /*-
@@ -179,13 +181,13 @@ final class JPQLParser() {
    */
   def insertStatement(node: Node) = {
     val insert = visit(node.getNode(0))(insertClause)
-    val attrbutes = visitOpt(node.getNode(1))(attributesClause)
+    val attributes = visitOpt(node.getNode(1))(attributesClause)
     val values = visit(node.getNode(2))(valuesClause)
-    InsertStatement(insert, attrbutes, values)
+    InsertStatement(insert, attributes, values)
   }
 
   /*-
-    INSERT EntityName   
+    INSERT INTO EntityName   
    */
   def insertClause(node: Node) = {
     val name = visit(node.getNode(0))(entityName)
