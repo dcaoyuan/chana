@@ -7,7 +7,7 @@ import chana.jpql
 import chana.jpql.nodes._
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData
-import org.apache.avro.generic.GenericRecord
+import org.apache.avro.generic.IndexedRecord
 import org.codehaus.jackson.JsonNode
 import org.codehaus.jackson.node.ObjectNode
 
@@ -16,7 +16,7 @@ final class JPQLMapperInsert(meta: JPQLInsert) extends JPQLEvaluator {
   protected def asToEntity = meta.asToEntity
   protected def asToJoin = meta.asToJoin
 
-  def insertEval(stmt: InsertStatement, record: GenericRecord) = {
+  def insertEval(stmt: InsertStatement, record: IndexedRecord) = {
     var fieldToValues = List[(Schema.Field, Any)]()
 
     val entityName = insertClause(stmt.insert, record)
@@ -50,7 +50,7 @@ final class JPQLMapperInsert(meta: JPQLInsert) extends JPQLEvaluator {
     opInsert(fieldToValues, record)
   }
 
-  private def opInsert(fieldToValues: List[(Schema.Field, Any)], record: GenericRecord) = {
+  private def opInsert(fieldToValues: List[(Schema.Field, Any)], record: IndexedRecord) = {
     var actions = List[UpdateAction]()
 
     for ((field, v) <- fieldToValues) yield {

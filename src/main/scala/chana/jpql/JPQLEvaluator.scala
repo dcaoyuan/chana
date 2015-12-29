@@ -8,7 +8,7 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.temporal.Temporal
 import org.apache.avro.Schema
-import org.apache.avro.generic.GenericRecord
+import org.apache.avro.generic.IndexedRecord
 import org.apache.avro.util.Utf8
 
 case class JPQLRuntimeException(value: Any, message: String)
@@ -102,16 +102,16 @@ abstract class JPQLEvaluator {
 
   def valueOf(qual: String, attrPaths: List[String], record: Any): Any = {
     record match {
-      case rec: GenericRecord => valueOfRecord(qual, attrPaths, rec)
+      case rec: IndexedRecord => valueOfRecord(qual, attrPaths, rec)
     }
   }
 
-  def valueOfRecord(qual: String, attrs: List[String], record: GenericRecord): Any = {
+  def valueOfRecord(qual: String, attrs: List[String], record: IndexedRecord): Any = {
     val attrs1 = normalizeEntityAttrs(qual, attrs, record.getSchema)
     valueOfRecord(attrs1, record, toGather = true)
   }
 
-  def valueOfRecord(attrs: List[String], record: GenericRecord, toGather: Boolean): Any = {
+  def valueOfRecord(attrs: List[String], record: IndexedRecord, toGather: Boolean): Any = {
     var paths = attrs
     var currValue: Any = record
 
@@ -120,7 +120,9 @@ abstract class JPQLEvaluator {
       paths = paths.tail
 
       currValue match {
-        case fieldRec: GenericRecord                  => currValue = fieldRec.get(path)
+        case fieldRec: IndexedRecord =>
+          val pathField = fieldRec.getSchema.getField(path)
+          currValue = fieldRec.get(pathField.pos)
         case arr: java.util.Collection[_]             => throw JPQLRuntimeException(currValue, "is an avro array when fetch its attribute: " + path) // TODO
         case map: java.util.Map[String, _] @unchecked => throw JPQLRuntimeException(currValue, "is an avro map when fetch its attribute: " + path) // TODO
         case null                                     => throw JPQLRuntimeException(currValue, "is null when fetch its attribute: " + paths)
@@ -221,7 +223,7 @@ abstract class JPQLEvaluator {
         valueOf(qualx, paths, record)
       case PathExprOrVarAccess_FuncsReturingAny(expr, attrs) =>
         funcsReturningAny(expr, record) match {
-          case rec: GenericRecord =>
+          case rec: IndexedRecord =>
             val paths = attrs map { x => attribute(x, record) }
             valueOfRecord(paths, rec, toGather = false) // return fieldRec's attribute, but do not gather 
           case v if (attrs.nonEmpty) => throw new JPQLRuntimeException(v, "is not a record, can not be applied attributes")

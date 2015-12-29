@@ -3,7 +3,7 @@ package chana.jpql
 import akka.event.LoggingAdapter
 import chana.avro.RecordFlatView
 import chana.jpql.nodes._
-import org.apache.avro.generic.GenericRecord
+import org.apache.avro.generic.IndexedRecord
 
 final case class WorkSet(selectedItems: List[Any], orderbys: List[Any])
 
@@ -20,7 +20,7 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
     aggrCaches = Map()
   }
 
-  def visitGroupbys(record: GenericRecord): List[Any] = {
+  def visitGroupbys(record: IndexedRecord): List[Any] = {
     meta.stmt match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         groupby.fold(List[Any]()) { x => groupbyClause(x, record) }
@@ -30,15 +30,16 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
     }
   }
 
-  def visitOneRecord(record: GenericRecord): List[WorkSet] = {
+  def visitOneRecord(record: IndexedRecord): List[WorkSet] = {
     selectedItems = List()
     meta.stmt match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
 
         if (meta.asToJoin.nonEmpty) {
           var res = List[WorkSet]()
-          val joinField = meta.asToJoin.head._2.tail.head
-          val recordFlatView = new RecordFlatView(record.asInstanceOf[GenericRecord], joinField)
+          val joinFieldName = meta.asToJoin.head._2.tail.head
+          val joinField = record.getSchema.getField(joinFieldName)
+          val recordFlatView = new RecordFlatView(record, joinField)
           val flatRecs = recordFlatView.iterator
 
           while (flatRecs.hasNext) {

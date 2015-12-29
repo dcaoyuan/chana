@@ -4,9 +4,12 @@ import akka.contrib.pattern.DistributedPubSubMediator.{ Subscribe, SubscribeAck 
 import chana.Entity
 import chana.avro.UpdateAction
 import chana.avro.UpdateEvent
+import chana.jpql
 import org.apache.avro.generic.GenericData.Record
 import scala.concurrent.duration._
 import scala.concurrent.forkjoin.ThreadLocalRandom
+import scala.util.Failure
+import scala.util.Success
 
 object JPQLBehavior {
   final case class ReportingTick(key: String)
@@ -41,27 +44,44 @@ trait JPQLBehavior extends Entity {
     case SubscribeAck(Subscribe(JPQLTopic, None, `self`)) =>
       log.debug("Subscribed " + JPQLTopic)
 
-    case jpqlMeta @ JPQLDelete(stmt, asToEntity, asToJoin) =>
+    case jpqlMeta @ JPQLUpdate(stmt, asToEntity, asToJoin) =>
+      resetIdleTimeout()
       val commander = sender()
-      val updateActions = new JPQLMapperDelete(jpqlMeta).deleteEval(stmt, record)
-      updateActions foreach {
-        case UpdateAction(null, null, _) => isDeleted(true)
-        case x                           => x.commit()
+      jpql.update(record, jpqlMeta) match {
+        case Success(actions) =>
+          actions.flatten
+          commit(id, actions.flatten, commander)
+        case x @ Failure(ex) =>
+          log.error(ex, ex.getMessage)
+          commander ! x
       }
 
-      reportAll(true)
-
     case jpqlMeta @ JPQLInsert(stmt, asToEntity, asToJoin) =>
+      resetIdleTimeout()
       val commander = sender()
-      val updateAction = new JPQLMapperInsert(jpqlMeta).insertEval(stmt, record)
-      updateAction foreach { _.commit() }
-      reportAll(true)
+      jpql.insert(record, jpqlMeta) match {
+        case Success(actions) =>
+          commit(id, actions, commander)
+        case x @ Failure(ex) =>
+          log.error(ex, ex.getMessage)
+          commander ! x
+      }
 
-    case jpqlMeta @ JPQLUpdate(stmt, asToEntity, asToJoin) =>
+    case jpqlMeta @ JPQLDelete(stmt, asToEntity, asToJoin) =>
+      resetIdleTimeout()
       val commander = sender()
-      val updateActions = new JPQLMapperUpdate(jpqlMeta).updateEval(stmt, record)
-      updateActions foreach { xs => xs foreach { _.commit() } }
-      reportAll(true)
+      jpql.delete(record, jpqlMeta) match {
+        case Success(actions) =>
+          if (actions.collectFirst { case UpdateAction(null, _, binlog) => true }.isDefined) {
+            isDeleted(true) // TODO persist log
+          } else {
+            commit(id, actions, commander)
+          }
+        case x @ Failure(ex) =>
+          log.error(ex, ex.getMessage)
+          commander ! x
+      }
+
   }
 
   def reportAll(force: Boolean) {

@@ -9,7 +9,7 @@ import akka.actor.Stash
 import akka.contrib.pattern.{ ClusterReceptionistExtension, ClusterSingletonManager, ClusterSingletonProxy }
 import chana.jpql.nodes.SelectStatement
 import java.time.LocalDate
-import org.apache.avro.generic.GenericRecord
+import org.apache.avro.generic.IndexedRecord
 import scala.concurrent.duration._
 import scala.util.Failure
 import scala.util.Success
@@ -36,7 +36,7 @@ object ResultItemOrdering extends Ordering[WorkSet] {
   }
 }
 
-final case class RecordProjection(projection: GenericRecord)
+final case class RecordProjection(projection: IndexedRecord)
 
 object JPQLReducer {
   def props(jpqlKey: String, meta: JPQLMeta): Props = Props(classOf[JPQLReducer], jpqlKey, meta)
@@ -98,7 +98,7 @@ class JPQLReducer(jqplKey: String, meta: JPQLSelect) extends Actor with Stash wi
 
   def receive: Receive = {
     case BinaryProjection(id, bytes) =>
-      chana.avro.avroDecode[GenericRecord](bytes, meta.projectionSchema.head) match { // TODO multiple projectionSchema
+      chana.avro.avroDecode[IndexedRecord](bytes, meta.projectionSchema.head) match { // TODO multiple projectionSchema
         case Success(projection) => idToProjection += (id -> RecordProjection(projection))
         case Failure(ex)         => log.warning("Failed to decode projection bytes: " + ex.getMessage)
       }

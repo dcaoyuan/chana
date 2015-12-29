@@ -4,6 +4,7 @@ import org.apache.avro.AvroRuntimeException
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData
 import org.apache.avro.generic.GenericRecord
+import org.apache.avro.generic.IndexedRecord
 import scala.collection.AbstractIterable
 import scala.collection.AbstractIterator
 import scala.collection.GenIterable
@@ -14,7 +15,7 @@ import scala.collection.generic.TraversableFactory
 import scala.collection.immutable
 import scala.collection.mutable.Builder
 
-final class IteratorWrapper(record: GenericRecord, flatField: Schema.Field, flatFieldIterator: java.util.Iterator[_]) extends AbstractIterator[GenericRecord] with Iterator[GenericRecord] {
+final class IteratorWrapper(record: IndexedRecord, flatField: Schema.Field, flatFieldIterator: java.util.Iterator[_]) extends AbstractIterator[IndexedRecord] with Iterator[IndexedRecord] {
   var i = 0
   def hasNext = flatFieldIterator.hasNext
   def next() = {
@@ -27,13 +28,13 @@ final class IteratorWrapper(record: GenericRecord, flatField: Schema.Field, flat
 /**
  * If flatField is map, the fieldValue is Map.Entry[String, _]
  */
-final case class FlattenRecord(underlying: GenericRecord, flatField: Schema.Field, fieldValue: AnyRef, index: Int) extends GenericRecord {
+final case class FlattenRecord(underlying: IndexedRecord, flatField: Schema.Field, fieldValue: AnyRef, index: Int) extends GenericRecord {
   def getSchema() = underlying.getSchema
 
   def put(key: String, value: Any) {
     if (key == flatField.name) {
       // we should add value to this collection field instead of just put it
-      underlying.get(key) match {
+      underlying.get(flatField.pos) match {
         case null =>
           val fieldSchema = flatField.schema
           fieldSchema.getType match {
@@ -62,7 +63,7 @@ final case class FlattenRecord(underlying: GenericRecord, flatField: Schema.Fiel
         case x => throw new AvroRuntimeException("field (" + key + ") is not collection: " + x)
       }
     } else {
-      underlying.put(key, value)
+      underlying.asInstanceOf[GenericRecord].put(key, value)
     }
   }
 
@@ -104,7 +105,7 @@ final case class FlattenRecord(underlying: GenericRecord, flatField: Schema.Fiel
     if (key == flatField.name) {
       fieldValue
     } else {
-      underlying.get(key)
+      underlying.asInstanceOf[GenericRecord].get(key)
     }
   }
 
@@ -117,10 +118,10 @@ final case class FlattenRecord(underlying: GenericRecord, flatField: Schema.Fiel
     }
   }
 
-  def compareTo(that: GenericRecord): Int = GenericData.get().compare(this, that, getSchema)
+  def compareTo(that: IndexedRecord): Int = GenericData.get().compare(this, that, getSchema)
   override def equals(o: Any): Boolean = {
     o match {
-      case that: GenericRecord =>
+      case that: IndexedRecord =>
         if (that eq this) {
           true
         } else if (!this.getSchema.equals(that.getSchema)) {
@@ -135,37 +136,30 @@ final case class FlattenRecord(underlying: GenericRecord, flatField: Schema.Fiel
   override def toString(): String = GenericData.get().toString(this)
 }
 
-final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) extends AbstractIterable[GenericRecord] {
-  def fieldIterable = underlying.get(flatFieldKey) match {
+final class RecordFlatView(underlying: IndexedRecord, val flatField: Schema.Field) extends AbstractIterable[IndexedRecord] {
+  def fieldIterable = underlying.get(flatField.pos) match {
     case iterable: java.lang.Iterable[AnyRef] @unchecked => iterable
     case map: java.util.Map[String, AnyRef] @unchecked => map.entrySet()
-    case x => throw new AvroRuntimeException("Not an iterable field: " + flatFieldKey + " which class is: " + x.getClass.getName)
-  }
-
-  def flatField = {
-    underlying.getSchema.getField(flatFieldKey) match {
-      case null => throw new AvroRuntimeException("Non existed field: " + flatFieldKey)
-      case x    => x
-    }
+    case x => throw new AvroRuntimeException("Not an iterable field: " + flatField + " which class is: " + x.getClass.getName)
   }
 
   override def companion: GenericCompanion[Iterable] = RecordFlatView
 
   override def seq = this
 
-  override def iterator: Iterator[GenericRecord] = new IteratorWrapper(underlying, flatField, fieldIterable.iterator)
+  override def iterator: Iterator[IndexedRecord] = new IteratorWrapper(underlying, flatField, fieldIterable.iterator)
 
-  override def foreach[U](f: GenericRecord => U): Unit = iterator.foreach(f)
-  override def forall(p: GenericRecord => Boolean): Boolean = iterator.forall(p)
-  override def exists(p: GenericRecord => Boolean): Boolean = iterator.exists(p)
-  override def find(p: GenericRecord => Boolean): Option[GenericRecord] = iterator.find(p)
+  override def foreach[U](f: IndexedRecord => U): Unit = iterator.foreach(f)
+  override def forall(p: IndexedRecord => Boolean): Boolean = iterator.forall(p)
+  override def exists(p: IndexedRecord => Boolean): Boolean = iterator.exists(p)
+  override def find(p: IndexedRecord => Boolean): Option[IndexedRecord] = iterator.find(p)
   override def isEmpty: Boolean = !iterator.hasNext
-  override def foldRight[B](z: B)(op: (GenericRecord, B) => B): B = iterator.foldRight(z)(op)
-  override def reduceRight[B >: GenericRecord](op: (GenericRecord, B) => B): B = iterator.reduceRight(op)
-  override def toIterable: Iterable[GenericRecord] = thisCollection
-  override def head: GenericRecord = iterator.next()
+  override def foldRight[B](z: B)(op: (IndexedRecord, B) => B): B = iterator.foldRight(z)(op)
+  override def reduceRight[B >: IndexedRecord](op: (IndexedRecord, B) => B): B = iterator.reduceRight(op)
+  override def toIterable: Iterable[IndexedRecord] = thisCollection
+  override def head: IndexedRecord = iterator.next()
 
-  override def slice(from: Int, until: Int): Iterable[GenericRecord] = {
+  override def slice(from: Int, until: Int): Iterable[IndexedRecord] = {
     val lo = math.max(from, 0)
     val elems = until - lo
     val b = newBuilder
@@ -183,7 +177,7 @@ final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) exte
     }
   }
 
-  override def take(n: Int): Iterable[GenericRecord] = {
+  override def take(n: Int): Iterable[IndexedRecord] = {
     val b = newBuilder
 
     if (n <= 0) b.result()
@@ -200,7 +194,7 @@ final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) exte
     }
   }
 
-  override def drop(n: Int): Iterable[GenericRecord] = {
+  override def drop(n: Int): Iterable[IndexedRecord] = {
     val b = newBuilder
     val lo = math.max(0, n)
     b.sizeHint(this, -lo)
@@ -214,7 +208,7 @@ final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) exte
     (b ++= it).result()
   }
 
-  override def takeWhile(p: GenericRecord => Boolean): Iterable[GenericRecord] = {
+  override def takeWhile(p: IndexedRecord => Boolean): Iterable[IndexedRecord] = {
     val b = newBuilder
     val it = iterator
 
@@ -226,23 +220,23 @@ final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) exte
     b.result()
   }
 
-  override def grouped(size: Int): Iterator[Iterable[GenericRecord]] =
+  override def grouped(size: Int): Iterator[Iterable[IndexedRecord]] =
     for (xs <- iterator grouped size) yield {
       val b = newBuilder
       b ++= xs
       b.result()
     }
 
-  override def sliding(size: Int): Iterator[Iterable[GenericRecord]] = sliding(size, 1)
+  override def sliding(size: Int): Iterator[Iterable[IndexedRecord]] = sliding(size, 1)
 
-  override def sliding(size: Int, step: Int): Iterator[Iterable[GenericRecord]] =
+  override def sliding(size: Int, step: Int): Iterator[Iterable[IndexedRecord]] =
     for (xs <- iterator.sliding(size, step)) yield {
       val b = newBuilder
       b ++= xs
       b.result()
     }
 
-  override def takeRight(n: Int): Iterable[GenericRecord] = {
+  override def takeRight(n: Int): Iterable[IndexedRecord] = {
     val b = newBuilder
     b.sizeHintBounded(n, this)
     val lead = this.iterator drop n
@@ -257,7 +251,7 @@ final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) exte
     b.result()
   }
 
-  override def dropRight(n: Int): Iterable[GenericRecord] = {
+  override def dropRight(n: Int): Iterable[IndexedRecord] = {
     val b = newBuilder
     if (n >= 0) b.sizeHint(this, -n)
     val lead = iterator drop n
@@ -270,7 +264,7 @@ final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) exte
     b.result()
   }
 
-  override def copyToArray[B >: GenericRecord](xs: Array[B], start: Int, len: Int) {
+  override def copyToArray[B >: IndexedRecord](xs: Array[B], start: Int, len: Int) {
     var i = start
     val end = (start + len) min xs.length
     val it = iterator
@@ -281,7 +275,7 @@ final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) exte
     }
   }
 
-  override def zip[A1 >: GenericRecord, B, That](that: GenIterable[B])(implicit bf: CanBuildFrom[Iterable[GenericRecord], (A1, B), That]): That = {
+  override def zip[A1 >: IndexedRecord, B, That](that: GenIterable[B])(implicit bf: CanBuildFrom[Iterable[IndexedRecord], (A1, B), That]): That = {
     val b = bf(repr)
     val these = this.iterator
     val those = that.iterator
@@ -291,7 +285,7 @@ final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) exte
     b.result()
   }
 
-  override def zipAll[B, A1 >: GenericRecord, That](that: GenIterable[B], thisElem: A1, thatElem: B)(implicit bf: CanBuildFrom[Iterable[GenericRecord], (A1, B), That]): That = {
+  override def zipAll[B, A1 >: IndexedRecord, That](that: GenIterable[B], thisElem: A1, thatElem: B)(implicit bf: CanBuildFrom[Iterable[IndexedRecord], (A1, B), That]): That = {
     val b = bf(repr)
     val these = this.iterator
     val those = that.iterator
@@ -307,7 +301,7 @@ final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) exte
     b.result()
   }
 
-  override def zipWithIndex[A1 >: GenericRecord, That](implicit bf: CanBuildFrom[Iterable[GenericRecord], (A1, Int), That]): That = {
+  override def zipWithIndex[A1 >: IndexedRecord, That](implicit bf: CanBuildFrom[Iterable[IndexedRecord], (A1, Int), That]): That = {
     val b = bf(repr)
     var i = 0
     for (x <- this) {
@@ -317,7 +311,7 @@ final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) exte
     b.result()
   }
 
-  override def sameElements[B >: GenericRecord](that: GenIterable[B]): Boolean = {
+  override def sameElements[B >: IndexedRecord](that: GenIterable[B]): Boolean = {
     val these = this.iterator
     val those = that.iterator
 
@@ -328,12 +322,12 @@ final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) exte
     !these.hasNext && !those.hasNext
   }
 
-  override def toStream: Stream[GenericRecord] = iterator.toStream
+  override def toStream: Stream[IndexedRecord] = iterator.toStream
 
   override def canEqual(that: Any) = true
 
-  override def view = new IterableView[GenericRecord, Iterable[GenericRecord]] {
-    protected lazy val underlying = this.repr.asInstanceOf[Iterable[GenericRecord]]
+  override def view = new IterableView[IndexedRecord, Iterable[IndexedRecord]] {
+    protected lazy val underlying = this.repr.asInstanceOf[Iterable[IndexedRecord]]
     def iterator = RecordFlatView.this.iterator
   }
 
@@ -353,8 +347,7 @@ final class RecordFlatView(underlying: GenericRecord, flatFieldKey: String) exte
 object RecordFlatView extends TraversableFactory[Iterable] {
 
   /** $genericCanBuildFromInfo */
-  implicit def canBuildFrom[GenericRecord]: CanBuildFrom[Coll, GenericRecord, Iterable[GenericRecord]] = ReusableCBF.asInstanceOf[GenericCanBuildFrom[GenericRecord]]
+  implicit def canBuildFrom[IndexedRecord]: CanBuildFrom[Coll, IndexedRecord, Iterable[IndexedRecord]] = ReusableCBF.asInstanceOf[GenericCanBuildFrom[IndexedRecord]]
 
-  def newBuilder[GenericRecord]: Builder[GenericRecord, Iterable[GenericRecord]] = immutable.Iterable.newBuilder[GenericRecord]
+  def newBuilder[IndexedRecord]: Builder[IndexedRecord, Iterable[IndexedRecord]] = immutable.Iterable.newBuilder[IndexedRecord]
 }
-

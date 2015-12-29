@@ -129,10 +129,13 @@ class JPQLUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
     record.put("id", 1)
     record.put("registerTime", 1L)
 
+    val rec_idx1 = record.get("chargeRecords").asInstanceOf[java.util.List[Record]].get(0)
+    record.get("chargeRecords").asInstanceOf[java.util.List[Record]].contains(rec_idx1) should be(true)
     record.get("chargeRecords").asInstanceOf[java.util.List[Record]].size should be(2)
     var q = "DELETE FROM account a JOIN a.chargeRecords c WHERE INDEX(c) = 1"
     var meta = parse(q)
     delete(meta, record)
+    record.get("chargeRecords").asInstanceOf[java.util.List[Record]].contains(rec_idx1) should be(false)
     record.get("chargeRecords").asInstanceOf[java.util.List[Record]].size should be(1)
 
     record.get("devApps").asInstanceOf[java.util.Map[String, Record]].keySet.contains("a") should be(true)

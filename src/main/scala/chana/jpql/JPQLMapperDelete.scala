@@ -5,18 +5,19 @@ import chana.avro.Deletelog
 import chana.avro.UpdateAction
 import chana.jpql.nodes._
 import org.apache.avro.Schema
-import org.apache.avro.generic.GenericRecord
+import org.apache.avro.generic.IndexedRecord
 
 final class JPQLMapperDelete(meta: JPQLDelete) extends JPQLEvaluator {
 
   protected def asToEntity = meta.asToEntity
   protected def asToJoin = meta.asToJoin
 
-  def deleteEval(stmt: DeleteStatement, record: GenericRecord): List[UpdateAction] = {
-    var toDeletes = List[GenericRecord]()
+  def deleteEval(stmt: DeleteStatement, record: IndexedRecord): List[UpdateAction] = {
+    var toDeletes = List[IndexedRecord]()
     if (asToJoin.nonEmpty) {
-      val joinField = asToJoin.head._2.tail.head
-      val recordFlatView = new avro.RecordFlatView(record.asInstanceOf[GenericRecord], joinField)
+      val joinFieldName = asToJoin.head._2.tail.head
+      val joinField = record.getSchema.getField(joinFieldName)
+      val recordFlatView = new avro.RecordFlatView(record, joinField)
       val flatRecs = recordFlatView.iterator
 
       while (flatRecs.hasNext) {

@@ -5,7 +5,7 @@ import chana.avro.RecordFlatView
 import chana.jpql.nodes._
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData.Record
-import org.apache.avro.generic.GenericRecord
+import org.apache.avro.generic.IndexedRecord
 
 final case class DeletedRecord(id: String)
 
@@ -26,13 +26,14 @@ final class JPQLMapperSelect(meta: JPQLSelect) extends JPQLEvaluator {
   /**
    * Main Entrance for select statement during mapping.
    */
-  def gatherProjection(entityId: String, record: Any): AvroProjection = {
+  def gatherProjection(entityId: String, record: IndexedRecord): AvroProjection = {
     meta.stmt match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
 
         if (asToJoin.nonEmpty) {
-          val joinField = asToJoin.head._2.tail.head
-          val recordFlatView = new RecordFlatView(record.asInstanceOf[GenericRecord], joinField)
+          val joinFieldName = asToJoin.head._2.tail.head
+          val joinField = record.getSchema.getField(joinFieldName)
+          val recordFlatView = new RecordFlatView(record, joinField)
           val flatRecs = recordFlatView.iterator
           var hasResult = false
           while (flatRecs.hasNext) {
@@ -52,7 +53,7 @@ final class JPQLMapperSelect(meta: JPQLSelect) extends JPQLEvaluator {
             }
           }
           if (hasResult) {
-            BinaryProjection(entityId, chana.avro.avroEncode(projection, meta.projectionSchema.head).get)
+            BinaryProjection(entityId, avro.avroEncode(projection, meta.projectionSchema.head).get)
           } else {
             RemoveProjection(entityId)
           }
@@ -70,7 +71,7 @@ final class JPQLMapperSelect(meta: JPQLSelect) extends JPQLEvaluator {
             having foreach { x => havingClause(x, record) }
             orderby foreach { x => orderbyClause(x, record) }
 
-            BinaryProjection(entityId, chana.avro.avroEncode(projection, meta.projectionSchema.head).get)
+            BinaryProjection(entityId, avro.avroEncode(projection, meta.projectionSchema.head).get)
           } else {
             RemoveProjection(entityId) // an empty data may be used to COUNT, but null won't
           }
@@ -80,98 +81,109 @@ final class JPQLMapperSelect(meta: JPQLSelect) extends JPQLEvaluator {
     }
   }
 
-  override def valueOfRecord(attrs: List[String], record: GenericRecord, toGather: Boolean): Any = {
+  override def valueOfRecord(attrs: List[String], record: IndexedRecord, toGather: Boolean): Any = {
     if (isToGather && toGather) {
       var paths = attrs
       var currValue: Any = record
+      var valueSchema = record.getSchema
 
-      var currSchema = record.getSchema
       var currGather: Any = projection
+      var gatherSchema = projection.getSchema
 
       while (paths.nonEmpty) {
         val path = paths.head
         paths = paths.tail
 
         currValue match {
-          case fieldRec: GenericRecord =>
-            val field = currSchema.getField(path)
-            currSchema = field.schema.getType match {
-              case Schema.Type.RECORD => field.schema
-              case Schema.Type.UNION  => chana.avro.getNonNullOfUnion(field.schema)
-              case Schema.Type.ARRAY  => field.schema // TODO should be ArrayField ?
-              case Schema.Type.MAP    => field.schema // TODO should be MapKeyField/MapValueField ?
-              case _                  => field.schema
+          case fieldRec: IndexedRecord =>
+            // Note: value's schema and field is not same as gather's,
+            // since later is projection only
+            val valueField = valueSchema.getField(path)
+            valueSchema = valueField.schema.getType match {
+              case Schema.Type.RECORD => valueField.schema
+              case Schema.Type.UNION  => avro.getNonNullOfUnion(valueField.schema)
+              case Schema.Type.ARRAY  => valueField.schema // TODO should be ArrayField ?
+              case Schema.Type.MAP    => valueField.schema // TODO should be MapKeyField/MapValueField ?
+              case _                  => valueField.schema
+            }
+            val gatherField = gatherSchema.getField(path)
+            gatherSchema = gatherField.schema.getType match {
+              case Schema.Type.RECORD => gatherField.schema
+              case Schema.Type.UNION  => avro.getNonNullOfUnion(gatherField.schema)
+              case Schema.Type.ARRAY  => gatherField.schema // TODO should be ArrayField ?
+              case Schema.Type.MAP    => gatherField.schema // TODO should be MapKeyField/MapValueField ?
+              case _                  => gatherField.schema
             }
 
-            currValue = fieldRec.get(path)
+            currValue = fieldRec.get(valueField.pos)
 
-            field.schema.getType match {
+            valueField.schema.getType match {
               case Schema.Type.RECORD =>
-                currGather = if (paths.isEmpty) { // at tail, put clone?
-                  currGather.asInstanceOf[GenericRecord].put(path, currValue)
-                  currValue
+                if (paths.isEmpty) { // at tail, put clone?
+                  currGather.asInstanceOf[IndexedRecord].put(gatherField.pos, currValue)
+                  currGather = currValue
                 } else {
-                  val rec = currGather.asInstanceOf[GenericRecord].get(path) match {
-                    case null => new Record(field.schema)
+                  val rec = currGather.asInstanceOf[IndexedRecord].get(gatherField.pos) match {
+                    case null => new Record(gatherField.schema)
                     case x    => x
                   }
-                  currGather.asInstanceOf[GenericRecord].put(path, rec)
-                  rec
+                  currGather.asInstanceOf[IndexedRecord].put(gatherField.pos, rec)
+                  currGather = rec
                 }
 
               case Schema.Type.ARRAY =>
-                currGather = if (paths.isEmpty) { // at tail, put clone?
+                if (paths.isEmpty) { // at tail, put clone?
                   currValue match {
                     case xs: java.util.Collection[_] =>
-                      currGather.asInstanceOf[GenericRecord].put(path, currValue)
+                      currGather.asInstanceOf[IndexedRecord].put(gatherField.pos, currValue)
                     case x =>
                       // may access a record flat view's collection field value
-                      val arr = currGather.asInstanceOf[GenericRecord].get(path) match {
-                        case null                        => chana.avro.newGenericArray(0, currSchema)
+                      val arr = currGather.asInstanceOf[IndexedRecord].get(gatherField.pos) match {
+                        case null                        => avro.newGenericArray(0, valueSchema)
                         case xs: java.util.Collection[_] => xs
                         case wrong                       => throw JPQLRuntimeException(wrong, "is not a avro array: " + path)
                       }
-                      chana.avro.addArray(arr, x)
-                      currGather.asInstanceOf[GenericRecord].put(path, arr)
+                      avro.addArray(arr, x)
+                      currGather.asInstanceOf[IndexedRecord].put(gatherField.pos, arr)
                   }
-                  currValue
+                  currGather = currValue
                 } else {
-                  val arr = currGather.asInstanceOf[GenericRecord].get(path) match {
-                    case null                        => chana.avro.newGenericArray(0, currSchema)
+                  val arr = currGather.asInstanceOf[IndexedRecord].get(gatherField.pos) match {
+                    case null                        => avro.newGenericArray(0, valueSchema)
                     case xs: java.util.Collection[_] => xs
                   }
-                  currGather.asInstanceOf[GenericRecord].put(path, arr)
-                  arr
+                  currGather.asInstanceOf[IndexedRecord].put(gatherField.pos, arr)
+                  currGather = arr
                 }
 
               case Schema.Type.MAP =>
-                currGather = if (paths.isEmpty) { // at tail, put clone?
+                if (paths.isEmpty) { // at tail, put clone?
                   currValue match {
                     case xs: java.util.Map[String, _] @unchecked =>
-                      currGather.asInstanceOf[GenericRecord].put(path, currValue)
+                      currGather.asInstanceOf[IndexedRecord].put(gatherField.pos, currValue)
                     case x: java.util.Map.Entry[String, _] @unchecked =>
                       // may access a record flat view's collection field value
-                      val map = currGather.asInstanceOf[GenericRecord].get(path) match {
+                      val map = currGather.asInstanceOf[IndexedRecord].get(gatherField.pos) match {
                         case null                                      => new java.util.HashMap[String, Any]()
                         case xs: java.util.Map[String, Any] @unchecked => xs
                         case wrong                                     => throw JPQLRuntimeException(wrong, "is not a avro map: " + path)
                       }
                       map.put(x.getKey, x.getValue)
-                      currGather.asInstanceOf[GenericRecord].put(path, map)
+                      currGather.asInstanceOf[IndexedRecord].put(gatherField.pos, map)
                   }
-                  currValue
+                  currGather = currValue
                 } else {
-                  val map = currGather.asInstanceOf[GenericRecord].get(path) match {
+                  val map = currGather.asInstanceOf[IndexedRecord].get(gatherField.pos) match {
                     case null => new java.util.HashMap[String, Any]()
                     case xs   => xs.asInstanceOf[java.util.HashMap[String, Any]]
                   }
-                  currGather.asInstanceOf[GenericRecord].put(path, map)
-                  map
+                  currGather.asInstanceOf[IndexedRecord].put(gatherField.pos, map)
+                  currGather = map
                 }
 
               case _ =>
                 // TODO when currGather is map or array
-                currGather.asInstanceOf[GenericRecord].put(path, currValue)
+                currGather.asInstanceOf[IndexedRecord].put(gatherField.pos, currValue)
                 currGather = currValue
 
             }

@@ -6,7 +6,7 @@ import chana.avro.RecordFlatView
 import chana.avro.UpdateAction
 import chana.jpql.nodes._
 import org.apache.avro.Schema
-import org.apache.avro.generic.GenericRecord
+import org.apache.avro.generic.IndexedRecord
 import org.codehaus.jackson.JsonNode
 
 final class JPQLMapperUpdate(meta: JPQLUpdate) extends JPQLEvaluator {
@@ -14,11 +14,12 @@ final class JPQLMapperUpdate(meta: JPQLUpdate) extends JPQLEvaluator {
   protected def asToEntity = meta.asToEntity
   protected def asToJoin = meta.asToJoin
 
-  def updateEval(stmt: UpdateStatement, record: GenericRecord): List[List[UpdateAction]] = {
-    var toUpdates = List[GenericRecord]()
+  def updateEval(stmt: UpdateStatement, record: IndexedRecord): List[List[UpdateAction]] = {
+    var toUpdates = List[IndexedRecord]()
     if (asToJoin.nonEmpty) {
-      val joinField = asToJoin.head._2.tail.head
-      val recordFlatView = new RecordFlatView(record.asInstanceOf[GenericRecord], joinField)
+      val joinFieldName = asToJoin.head._2.tail.head
+      val joinField = record.getSchema.getField(joinFieldName)
+      val recordFlatView = new RecordFlatView(record, joinField)
       val flatRecs = recordFlatView.iterator
 
       while (flatRecs.hasNext) {
@@ -56,7 +57,7 @@ final class JPQLMapperUpdate(meta: JPQLUpdate) extends JPQLEvaluator {
     }
   }
 
-  private def opUpdate(attr: String, v: Any, record: GenericRecord, xpath: String): UpdateAction = {
+  private def opUpdate(attr: String, v: Any, record: IndexedRecord, xpath: String): UpdateAction = {
     val field = record.getSchema.getField(attr)
     val value = v match {
       case x: JsonNode => avro.FromJson.fromJsonNode(x, field.schema)
@@ -70,7 +71,7 @@ final class JPQLMapperUpdate(meta: JPQLUpdate) extends JPQLEvaluator {
     UpdateAction(commit, rlback, Changelog(xpath, value, bytes))
   }
 
-  private def opUpdate(attrPaths: List[String], v: Any, record: GenericRecord): UpdateAction = {
+  private def opUpdate(attrPaths: List[String], v: Any, record: IndexedRecord): UpdateAction = {
     val xpath = new StringBuilder()
     var paths = attrPaths
     var currTarget: Any = record
@@ -94,12 +95,13 @@ final class JPQLMapperUpdate(meta: JPQLUpdate) extends JPQLEvaluator {
               case Schema.Type.MAP =>
                 val fieldEntry = fieldValue.asInstanceOf[java.util.Map.Entry[CharSequence, _]]
                 xpath.append("/@").append(fieldEntry.getKey)
-                currTarget = fieldEntry.getValue.asInstanceOf[GenericRecord]
+                currTarget = fieldEntry.getValue
               case _ => throw JPQLRuntimeException(flatField, "is not a collection field: " + path)
             }
 
-          case fieldRec: GenericRecord =>
-            currTarget = fieldRec.get(path)
+          case fieldRec: IndexedRecord =>
+            val pathField = fieldRec.getSchema.getField(path)
+            currTarget = fieldRec.get(pathField.pos)
 
           case arr: java.util.Collection[_]             => throw JPQLRuntimeException(currTarget, "is an avro array when fetch its attribute: " + path) // TODO
           case map: java.util.Map[String, _] @unchecked => throw JPQLRuntimeException(currTarget, "is an avro map when fetch its attribute: " + path) // TODO
@@ -109,7 +111,7 @@ final class JPQLMapperUpdate(meta: JPQLUpdate) extends JPQLEvaluator {
 
       } else {
         // reaches the last path, handover to opUpdate(attr: String, v: Any, record: GenericRecord, xpath: String)
-        action = opUpdate(path, v, currTarget.asInstanceOf[GenericRecord], xpath.toString)
+        action = opUpdate(path, v, currTarget.asInstanceOf[IndexedRecord], xpath.toString)
       }
 
     }
