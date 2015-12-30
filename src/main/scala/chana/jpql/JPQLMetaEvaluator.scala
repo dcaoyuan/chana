@@ -6,16 +6,6 @@ import chana.schema.SchemaBoard
 import org.apache.avro.Schema
 import scala.collection.immutable
 
-sealed trait JPQLMeta {
-  def stmt: Statement
-  def asToEntity: Map[String, String]
-  def asToJoin: Map[String, List[String]]
-}
-final case class JPQLSelect(stmt: SelectStatement, asToEntity: Map[String, String], asToJoin: Map[String, List[String]], projectionSchema: List[Schema]) extends JPQLMeta
-final case class JPQLDelete(stmt: DeleteStatement, asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
-final case class JPQLInsert(stmt: InsertStatement, asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
-final case class JPQLUpdate(stmt: UpdateStatement, asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
-
 final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends JPQLEvaluator {
 
   protected var asToEntity = Map[String, String]()

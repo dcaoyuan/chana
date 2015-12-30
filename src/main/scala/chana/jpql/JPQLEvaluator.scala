@@ -94,7 +94,7 @@ abstract class JPQLEvaluator {
       case None        => (qual, attrs)
     }
 
-    asToEntity.get(qual1) match {
+    asToEntity.get(qual1.toLowerCase) match {
       case Some(EntityName) => attrs1
       case _                => throw JPQLRuntimeException(qual1, "is not an AS alias of entity: " + EntityName)
     }
@@ -138,8 +138,8 @@ abstract class JPQLEvaluator {
   }
 
   def updateClause(updateClause: UpdateClause, record: Any) = {
-    val entityName = updateClause.entityName.ident
-    updateClause.as foreach { x => addAsToEntity(x.ident, entityName) }
+    val entityName = updateClause.entityName.ident.toLowerCase
+    updateClause.as foreach { x => addAsToEntity(x.ident.toLowerCase, entityName) }
     updateClause.joins foreach { x => join(x, record) }
   }
 
@@ -165,8 +165,8 @@ abstract class JPQLEvaluator {
   }
 
   def deleteClause(deleteClause: DeleteClause, record: Any) = {
-    val from = deleteClause.from.ident
-    deleteClause.as foreach { x => addAsToEntity(x.ident, from) }
+    val from = deleteClause.from.ident.toLowerCase
+    deleteClause.as foreach { x => addAsToEntity(x.ident.toLowerCase, from) }
     deleteClause.joins foreach { x => join(x, record) }
   }
 

@@ -93,23 +93,30 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
             case Success(x: InvalidUsage)  => commander ! Failure(x)
             case Success(x: ModifyFailure) => commander ! Failure(x)
             case Success(x)                => log.warning("Got {}", x)
-            case ex: Failure[_]            => commander ! ex
+            case failure: Failure[_]       => commander ! failure
           }
-
-        case Success(meta: JPQLDelete) =>
-          // check if whereClause has id
-          mediator ! Publish(JPQLBehavior.JPQLTopic, meta)
 
         case Success(meta: JPQLUpdate) =>
           // check if whereClause has id
+          log.info("put jpql [{}]:\n{} ", key, jpql)
           mediator ! Publish(JPQLBehavior.JPQLTopic, meta)
+          commander ! Success(key)
 
         case Success(meta: JPQLInsert) =>
           // check id and sent to entity with id only
+          log.info("put jpql [{}]:\n{} ", key, jpql)
           mediator ! Publish(JPQLBehavior.JPQLTopic, meta)
+          commander ! Success(key)
 
-        case Failure(ex) =>
+        case Success(meta: JPQLDelete) =>
+          // check if whereClause has id
+          log.info("put jpql [{}]:\n{} ", key, jpql)
+          mediator ! Publish(JPQLBehavior.JPQLTopic, meta)
+          commander ! Success(key)
+
+        case failure @ Failure(ex) =>
           log.error(ex, ex.getMessage)
+          commander ! failure
       }
 
     case chana.RemoveJPQL(key) =>

@@ -450,6 +450,38 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
         enterBarrier("ask-jpql-done")
       }
 
+    }
+
+    "jpql update" in within(30.seconds) {
+
+      runOn(client1) {
+        import spray.httpx.RequestBuilding._
+
+        awaitAssert {
+          IO(Http) ! Post(baseUrl1 + "/putjpql/JPQL_NO_2", "UPDATE PersonInfo p SET p.age = 999 WHERE p.age > 800")
+          expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
+        }
+
+        awaitAssert {
+          IO(Http) ! Get(baseUrl1 + "/personinfo/get/2/age")
+          expectMsgType[HttpResponse](5.seconds).entity.asString should be("999")
+        }
+        awaitAssert {
+          IO(Http) ! Get(baseUrl1 + "/personinfo/get/1/age")
+          expectMsgType[HttpResponse](5.seconds).entity.asString should be("100")
+        }
+
+        enterBarrier("jpql-update-done")
+      }
+
+      runOn(entity1, entity2) {
+        enterBarrier("jpql-update-done")
+      }
+
+      runOn(controller) {
+        enterBarrier("jpql-update-done")
+      }
+
       enterBarrier("done")
     }
   }
