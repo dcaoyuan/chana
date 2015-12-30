@@ -260,7 +260,7 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
         IO(Http) ! Get(baseUrl1 + "/ping")
         expectMsgType[HttpResponse](5.seconds).entity.asString should be("pong")
 
-        IO(Http) ! Post(baseUrl1 + "/putschema/personinfo", avsc)
+        IO(Http) ! Post(baseUrl1 + "/schema/put/personinfo", avsc)
         expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
 
         // Waiting for sharding singleton manager actor ready, which need to identify the oldest node. 
@@ -338,7 +338,7 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
     print("Current thread id: " + java.lang.Thread.currentThread().getId())
   """
 
-        IO(Http) ! Post(baseUrl1 + "/personinfo/putscript/name/SCRIPT_NO_1", script)
+        IO(Http) ! Post(baseUrl1 + "/personinfo/script/put/name/SCRIPT_NO_1", script)
         expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
 
         IO(Http) ! Post(baseUrl1 + "/personinfo/update/1", ".\n{'name':'James Not Bond','age':60}")
@@ -362,7 +362,7 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
         IO(Http) ! Post(baseUrl2 + "/personinfo/put/1/age", "100")
         expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
 
-        IO(Http) ! Get(baseUrl1 + "/personinfo/delscript/name/SCRIPT_NO_1")
+        IO(Http) ! Get(baseUrl1 + "/personinfo/script/del/name/SCRIPT_NO_1")
         expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
 
         enterBarrier("script-done")
@@ -388,12 +388,12 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
 
     }
 
-    "put jpql" in within(60.seconds) {
+    "put jpql select" in within(60.seconds) {
 
       runOn(client1) {
         import spray.httpx.RequestBuilding._
         // put jpql
-        IO(Http) ! Post(baseUrl1 + "/putjpql/JPQL_NO_1", "SELECT AVG(p.age), p.age FROM PersonInfo p WHERE p.age >= 100 ORDER BY p.age")
+        IO(Http) ! Post(baseUrl1 + "/jpql/put/JPQL_NO_1", "SELECT AVG(p.age), p.age FROM PersonInfo p WHERE p.age >= 100 ORDER BY p.age")
         expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
 
         enterBarrier("put-jpql")
@@ -434,7 +434,7 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
 
         awaitAssert {
           // ask jpql
-          IO(Http) ! Get(baseUrl1 + "/askjpql/JPQL_NO_1")
+          IO(Http) ! Get(baseUrl1 + "/jpql/ask/JPQL_NO_1")
           val ret = expectMsgType[HttpResponse](10.seconds).entity.asString
           ret should be("Array(List(494.0, 100),List(494.0, 888))")
         }
@@ -458,7 +458,7 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
         import spray.httpx.RequestBuilding._
 
         awaitAssert {
-          IO(Http) ! Post(baseUrl1 + "/putjpql/JPQL_NO_2", "UPDATE PersonInfo p SET p.age = 999 WHERE p.age > 800")
+          IO(Http) ! Post(baseUrl1 + "/jpql", "UPDATE PersonInfo p SET p.age = 999 WHERE p.age > 800")
           expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
         }
 

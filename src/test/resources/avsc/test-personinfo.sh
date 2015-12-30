@@ -1,6 +1,6 @@
 #/bin/sh
 
-curl --data @PersonInfo.avsc 'http://localhost:8080/putschema/personinfo'
+curl --data @PersonInfo.avsc 'http://localhost:8080/schema/put/personinfo'
 # OK
 printf "\n"
 
@@ -20,7 +20,7 @@ curl 'http://localhost:8080/personinfo/get/1/name'
 # "James Bond"
 printf "\n"
 
-curl --data-binary @on_name.js 'http://localhost:8080/personinfo/putscript/name/SCRIPT_NO_1'
+curl --data-binary @on_name.js 'http://localhost:8080/personinfo/script/put/name/SCRIPT_NO_1'
 # OK
 printf "\n"
 
@@ -33,6 +33,6 @@ curl 'http://localhost:8080/personinfo/get/2/age'
 # 888
 printf "\n"
 
-curl 'http://localhost:8080/personinfo/delscript/name/SCRIPT_NO_1'
+curl 'http://localhost:8080/personinfo/script/del/name/SCRIPT_NO_1'
 # OK
 printf "\n"

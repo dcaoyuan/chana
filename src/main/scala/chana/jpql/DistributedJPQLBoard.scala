@@ -11,8 +11,6 @@ import akka.actor.ExtensionIdProvider
 import akka.actor.Props
 import akka.contrib.datareplication.DataReplication
 import akka.contrib.datareplication.LWWMap
-import akka.contrib.pattern.DistributedPubSubExtension
-import akka.contrib.pattern.DistributedPubSubMediator.Publish
 import akka.pattern.ask
 import akka.cluster.Cluster
 import chana.jpql.nodes.JPQLParser
@@ -75,8 +73,6 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
     x
   }
 
-  val mediator = DistributedPubSubExtension(context.system).mediator
-
   def receive = {
     case chana.PutJPQL(key, jpql, interval) =>
       val commander = sender()
@@ -95,24 +91,6 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
             case Success(x)                => log.warning("Got {}", x)
             case failure: Failure[_]       => commander ! failure
           }
-
-        case Success(meta: JPQLUpdate) =>
-          // check if whereClause has id
-          log.info("put jpql [{}]:\n{} ", key, jpql)
-          mediator ! Publish(JPQLBehavior.JPQLTopic, meta)
-          commander ! Success(key)
-
-        case Success(meta: JPQLInsert) =>
-          // check id and sent to entity with id only
-          log.info("put jpql [{}]:\n{} ", key, jpql)
-          mediator ! Publish(JPQLBehavior.JPQLTopic, meta)
-          commander ! Success(key)
-
-        case Success(meta: JPQLDelete) =>
-          // check if whereClause has id
-          log.info("put jpql [{}]:\n{} ", key, jpql)
-          mediator ! Publish(JPQLBehavior.JPQLTopic, meta)
-          commander ! Success(key)
 
         case failure @ Failure(ex) =>
           log.error(ex, ex.getMessage)

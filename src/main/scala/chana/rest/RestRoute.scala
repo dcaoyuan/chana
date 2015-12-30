@@ -2,8 +2,11 @@ package chana.rest
 
 import akka.actor.ActorSystem
 import akka.contrib.pattern.ClusterSharding
+import akka.contrib.pattern.DistributedPubSubExtension
+import akka.contrib.pattern.DistributedPubSubMediator.Publish
 import akka.pattern.ask
 import akka.util.Timeout
+import chana.jpql
 import chana.jpql.DistributedJPQLBoard
 import chana.schema.DistributedSchemaBoard
 import chana.script.DistributedScriptBoard
@@ -17,6 +20,8 @@ import spray.routing.Directives
 trait RestRoute extends Directives {
   val system: ActorSystem
   import system.dispatcher
+
+  protected val mediator = DistributedPubSubExtension(system).mediator
 
   def readTimeout: Timeout
   def writeTimeout: Timeout
@@ -36,7 +41,7 @@ trait RestRoute extends Directives {
   private def nextRandomId(min: Int, max: Int) = ThreadLocalRandom.current.nextInt(max - min + 1) + min
 
   final def schemaApi = {
-    path("putschema" / Segment ~ Slash.?) { entityName =>
+    path("schema" / "put" / Segment ~ Slash.?) { entityName =>
       post {
         parameters('fullname.as[String].?, 'timeout.as[Long].?) { (fullname, idleTimeout) =>
           entity(as[String]) { schemaStr =>
@@ -48,7 +53,7 @@ trait RestRoute extends Directives {
           }
         }
       }
-    } ~ path("delschema" / Segment ~ Slash.?) { entityName =>
+    } ~ path("schema" / "del" / Segment ~ Slash.?) { entityName =>
       get {
         complete {
           withStatusCode {
@@ -60,7 +65,17 @@ trait RestRoute extends Directives {
   }
 
   final def jpqlApi = {
-    path("putjpql" / Segment ~ Slash.?) { key =>
+    path("jpql") { // update/insert/delete 
+      post {
+        entity(as[String]) { jpql =>
+          complete {
+            withStatusCode {
+              processJPQL("", jpql)
+            }
+          }
+        }
+      }
+    } ~ path("jpql" / "put" / Segment ~ Slash.?) { key => // put select
       post {
         parameters('interval.as[Long].?) { interval =>
           entity(as[String]) { jpql =>
@@ -72,7 +87,7 @@ trait RestRoute extends Directives {
           }
         }
       }
-    } ~ path("deljpql" / Segment ~ Slash.?) { key =>
+    } ~ path("jpql" / "del" / Segment ~ Slash.?) { key => // del select
       get {
         complete {
           withStatusCode {
@@ -80,7 +95,7 @@ trait RestRoute extends Directives {
           }
         }
       }
-    } ~ path("askjpql" / Segment ~ Slash.?) { key =>
+    } ~ path("jpql" / "ask" / Segment ~ Slash.?) { key => // ask select
       get {
         complete {
           jpqlBoard.ask(chana.AskJPQL(key))(writeTimeout).collect {
@@ -247,7 +262,7 @@ trait RestRoute extends Directives {
             }
           }
         }
-      } ~ path("putscript" / Segment / Segment ~ Slash.?) { (field, scriptId) =>
+      } ~ path("script" / "put" / Segment / Segment ~ Slash.?) { (field, scriptId) =>
         post {
           entity(as[String]) { script =>
             complete {
@@ -257,7 +272,7 @@ trait RestRoute extends Directives {
             }
           }
         }
-      } ~ path("delscript" / Segment / Segment ~ Slash.?) { (field, scriptId) =>
+      } ~ path("script" / "del" / Segment / Segment ~ Slash.?) { (field, scriptId) =>
         get {
           complete {
             withStatusCode {
@@ -302,6 +317,36 @@ trait RestRoute extends Directives {
   private def withJson(f: => Future[Any]): Future[String] = f.mapTo[Try[Array[Byte]]].map {
     case Success(json: Array[Byte]) => new String(json)
     case Failure(_)                 => ""
+  }
+
+  private def processJPQL(key: String, jpqlQuery: String): Future[Try[_]] = {
+    jpql.parseJPQL(key, jpqlQuery) match {
+      case Success(meta: jpql.JPQLSelect) =>
+        // TODO will it happen? for select, we'll send to jpql board directly
+        Future { Success(key) }
+
+      case Success(meta: jpql.JPQLUpdate) =>
+        // check if whereClause has id
+        //log.info("put jpql [{}]:\n{} ", key, jpql)
+        mediator ! Publish(jpql.JPQLBehavior.JPQLTopic, meta)
+        Future { Success(key) }
+
+      case Success(meta: jpql.JPQLInsert) =>
+        // check id and sent to entity with id only
+        //log.info("put jpql [{}]:\n{} ", key, jpql)
+        mediator ! Publish(jpql.JPQLBehavior.JPQLTopic, meta)
+        Future { Success(key) }
+
+      case Success(meta: jpql.JPQLDelete) =>
+        // check if whereClause has id
+        //log.info("put jpql [{}]:\n{} ", key, jpql)
+        mediator ! Publish(jpql.JPQLBehavior.JPQLTopic, meta)
+        Future { Success(key) }
+
+      case failure @ Failure(ex) =>
+        //log.error(ex, ex.getMessage)
+        Future { failure }
+    }
   }
 
 }

@@ -86,7 +86,7 @@ Try it:
 
     $ cd src/test/resources/avsc
 
-    $ curl --data @PersonInfo.avsc 'http://127.0.0.1:8080/putschema/personinfo'
+    $ curl --data @PersonInfo.avsc 'http://127.0.0.1:8080/schema/put/personinfo'
     OK
 
     $ curl 'http://127.0.0.1:8080/personinfo/get/1'
@@ -108,14 +108,14 @@ JPQL example
 .. code:: shell
 
     #### JPQL Simple test
-    $ echo 'SELECT COUNT(p.age), AVG(p.age), p.age FROM PersonInfo p WHERE p.age >= 30 ORDER BY p.age' | curl -d @- 'http://127.0.0.1:8080/putjpql/JPQL_NO_1'
+    $ echo 'SELECT COUNT(p.age), AVG(p.age), p.age FROM PersonInfo p WHERE p.age >= 30 ORDER BY p.age' | curl -d @- 'http://127.0.0.1:8080/jpql/put/JPQL_NO_1'
    
     #### watching jpql results
     $ cat ./jpql.ask
     while :
     do
        sleep 1s
-       curl 'http://127.0.0.1:8080/askjpql/JPQL_NO_1'
+       curl 'http://127.0.0.1:8080/jpql/ask/JPQL_NO_1'
        echo -e '\n'
     done
     
@@ -169,7 +169,7 @@ Try it:
 .. code:: shell
 
     $ curl --data-binary @on_name.js \
-     'http://127.0.0.1:8080/personinfo/putscript/name/SCRIPT_NO_1'
+     'http://127.0.0.1:8080/personinfo/script/put/name/SCRIPT_NO_1'
     OK
 
     $ curl --data '"John"' 'http://127.0.0.1:8080/personinfo/put/1/name'
@@ -226,7 +226,7 @@ Try it:
 
     $ cd src/test/resources/avsc
 
-    $ curl --data @hatInventory.avsc 'http://127.0.0.1:8080/putschema/hatinv'
+    $ curl --data @hatInventory.avsc 'http://127.0.0.1:8080/schema/put/hatinv'
     OK
 
     $ curl 'http://127.0.0.1:8080/hatinv/get/1'
@@ -351,7 +351,7 @@ Put schema
 
 ::
 
-    POST /putschema/$entityName?fullname=entity_full_name&timeout=1000
+    POST /schema/put/$entityName?fullname=entity_full_name&timeout=1000
 
     Host: status.wandoujia.com  
     Content-Type: application/octet-stream 
@@ -371,7 +371,7 @@ Del schema
 
 ::
 
-    GET /delschema/$entityName/ 
+    GET /schema/del/$entityName/ 
 
     Host: status.wandoujia.com  
 
@@ -567,7 +567,7 @@ Put Script (apply on all instances of this entity)
 
 ::
 
-    POST /$entity/putscript/$field/$scriptid/
+    POST /$entity/script/put/$field/$scriptid/
 
     Host: status.wandoujia.com 
     Content-Type: application/octet-stream 
@@ -581,7 +581,7 @@ Del Script (apply on all instances of this entity)
 
 ::
 
-    GET /$entity/delscript/$field/$scriptid/
+    GET /$entity/script/del/$field/$scriptid/
 
     Host: status.wandoujia.com 
 

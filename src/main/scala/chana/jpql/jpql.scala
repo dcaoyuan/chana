@@ -16,7 +16,7 @@ import scala.util.Try
 package object jpql {
   val jsonNodeFacatory = org.codehaus.jackson.node.JsonNodeFactory.instance
 
-  sealed trait JPQLMeta {
+  sealed trait JPQLMeta extends Serializable {
     def stmt: Statement
     def asToEntity: Map[String, String]
     def asToJoin: Map[String, List[String]]

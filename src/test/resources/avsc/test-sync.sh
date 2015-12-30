@@ -9,17 +9,17 @@ ITEM=${1-'item'}
 NUM=${2-10}
 
 # put schema
-curl 'http://localhost:8080/putschema/a'\
+curl 'http://localhost:8080/schema/put/a'\
 	--data '{"name":"RecordA", "type":"record", "fields":[{ "name": "steps", "type": { "type": "map", "values": "int" } }]}'
 #sleep 5s
-curl 'http://localhost:8080/putschema/b'\
+curl 'http://localhost:8080/schema/put/b'\
 	--data '{"name":"RecordB", "type":"record", "fields":[{ "name": "status", "type": "string" }]}'
 sleep 5s
 
 # put script
-curl 'http://localhost:8080/a/putscript/steps/steps_on_update'\
+curl 'http://localhost:8080/a/script/put/steps/steps_on_update'\
 	--data 'print("SSM", unescape(id), record.get("steps"));'
-curl 'http://localhost:8080/b/putscript/status/status_on_update'\
+curl 'http://localhost:8080/b/script/put/status/status_on_update'\
 	--data 'var ff=unescape(id), f=ff.split(":"); print("TSM", ff); http_post.apply("http://localhost:8080/a/insert/"+f[0], "/steps\n{\""+f[1]+"\":1}", 5);'
 sleep 5s
 

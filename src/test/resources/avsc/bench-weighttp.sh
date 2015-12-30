@@ -3,7 +3,7 @@
 OPGET=http://127.0.0.1:8080/personinfo/get/
 OPPUT=http://127.0.0.1:8080/personinfo/update/
 
-curl --data @PersonInfo.avsc 'http://127.0.0.1:8080/putschema/personinfo'
+curl --data @PersonInfo.avsc 'http://127.0.0.1:8080/schema/put/personinfo'
 
 #for((i=1;i<=1000;i++)); do 
 #    curl --data-binary @PersonInfo.update ${OPPUT}${i};

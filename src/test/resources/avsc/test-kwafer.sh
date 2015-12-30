@@ -1,6 +1,6 @@
 #/bin/sh
 
-curl --data @Kwafer.avsc 'http://localhost:8080/putschema/kwafer/?fullname=com.wandoujia.kwaf.schema.Kwafer'
+curl --data @Kwafer.avsc 'http://localhost:8080/schema/put/kwafer/?fullname=com.wandoujia.kwaf.schema.Kwafer'
 # OK
 printf "\n"
 
