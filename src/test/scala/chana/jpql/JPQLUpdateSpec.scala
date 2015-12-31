@@ -58,7 +58,7 @@ class JPQLUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
 
   "JPQL update" when {
     val record = initAccount()
-    record.put("id", 1)
+    record.put("id", "1")
     record.put("registerTime", 1L)
 
     var q = "UPDATE account a SET a.registerTime = 100L"
@@ -110,7 +110,7 @@ class JPQLUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
 
   "JPQL insert" when {
     val record = initAccount()
-    record.put("id", 1)
+    record.put("id", "1")
     record.put("registerTime", 1L)
 
     var q = "INSERT INTO account (chargeRecords) VALUES (JSON({\"time\": 500e0, \"amount\": 500.0}))"
@@ -126,7 +126,7 @@ class JPQLUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
 
   "JPQL delete" when {
     val record = initAccount()
-    record.put("id", 1)
+    record.put("id", "1")
     record.put("registerTime", 1L)
 
     val rec_idx1 = record.get("chargeRecords").asInstanceOf[java.util.List[Record]].get(0)
@@ -143,6 +143,16 @@ class JPQLUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
     meta = parse(q)
     delete(meta, record)
     record.get("devApps").asInstanceOf[java.util.Map[String, Record]].keySet.contains("a") should be(false)
+
+    q = "DELETE FROM account a (chargeRecords) WHERE a.id = '1'"
+    meta = parse(q)
+    delete(meta, record)
+    record.get("chargeRecords").asInstanceOf[java.util.List[Record]].isEmpty should be(true)
+
+    q = "DELETE FROM account a (devApps) WHERE a.id = '1'"
+    meta = parse(q)
+    delete(meta, record)
+    record.get("devApps").asInstanceOf[java.util.Map[_, _]].isEmpty should be(true)
   }
 
 }

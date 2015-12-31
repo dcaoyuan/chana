@@ -34,38 +34,81 @@ final class JPQLMapperDelete(meta: JPQLDelete) extends JPQLEvaluator {
       }
     }
 
-    toDeletes map {
-      case fieldRec @ avro.FlattenRecord(underlying, flatField, fieldValue, index) =>
+    var actions = List[UpdateAction]()
+    // If attributes is set, we'll clear this collection field 
+    stmt.attributes match {
+      case Some(x) =>
+        val willDelete = toDeletes.find {
+          case avro.FlattenRecord(underlying, _, _, _) => underlying eq record
+          case x                                       => x eq record
+        } isDefined
 
-        flatField.schema.getType match {
-          case Schema.Type.ARRAY =>
-            val arr = underlying.get(flatField.pos).asInstanceOf[java.util.Collection[Any]]
+        if (willDelete) {
+          val fields = attributesClause(x, record).map { attr => record.getSchema.getField(attr) }.iterator
 
-            val xpath = "/" + flatField.name
-            val keys = java.util.Arrays.asList(index + 1)
+          while (fields.hasNext) {
+            val field = fields.next
+            field.schema.getType match {
+              case Schema.Type.ARRAY =>
+                record.get(field.pos) match {
+                  case null => // Do nothing
+                  case arr: java.util.Collection[_] =>
+                    val commit = { () => arr.clear }
+                    val xpath = "/" + field.name
+                    actions ::= UpdateAction(commit, { () => () }, avro.Clearlog(xpath))
+                }
 
-            val rlback = { () => () }
-            val commit = { () => avro.arrayRemove(arr, List(index)) }
-            UpdateAction(commit, rlback, Deletelog(xpath, keys))
+              case Schema.Type.MAP =>
+                record.get(field.pos) match {
+                  case null => // Do nothing
+                  case map: java.util.Map[String, _] @unchecked =>
+                    val commit = { () => map.clear }
+                    val xpath = "/" + field.name
+                    actions ::= UpdateAction(commit, { () => () }, avro.Clearlog(xpath))
+                }
 
-          case Schema.Type.MAP =>
-            val map = underlying.get(flatField.pos).asInstanceOf[java.util.Map[String, Any]]
-
-            val xpath = "/" + flatField.name
-            val fieldEntry = fieldValue.asInstanceOf[java.util.Map.Entry[CharSequence, Any]]
-            val k = fieldEntry.getKey.toString
-            val keys = java.util.Arrays.asList(k)
-            val prev = fieldEntry.getValue
-
-            val rlback = { () => map.put(k, prev) }
-            val commit = { () => map.remove(k) }
-            UpdateAction(commit, rlback, Deletelog(xpath, keys))
-
-          case _ => throw JPQLRuntimeException(flatField, "is not a collection field: ")
+              case _ => throw JPQLRuntimeException(field, "is not a collection field: ")
+            }
+          }
         }
 
-      case x =>
-        UpdateAction(null, null, Deletelog("/", java.util.Collections.EMPTY_LIST))
+      case None =>
+
+        toDeletes map {
+          case fieldRec @ avro.FlattenRecord(underlying, flatField, fieldValue, index) =>
+
+            flatField.schema.getType match {
+              case Schema.Type.ARRAY =>
+                val arr = underlying.get(flatField.pos).asInstanceOf[java.util.Collection[Any]]
+
+                val xpath = "/" + flatField.name
+                val keys = java.util.Arrays.asList(index + 1)
+
+                val rlback = { () => () }
+                val commit = { () => avro.arrayRemove(arr, List(index)) }
+                actions ::= UpdateAction(commit, rlback, Deletelog(xpath, keys))
+
+              case Schema.Type.MAP =>
+                val map = underlying.get(flatField.pos).asInstanceOf[java.util.Map[String, Any]]
+
+                val xpath = "/" + flatField.name
+                val fieldEntry = fieldValue.asInstanceOf[java.util.Map.Entry[CharSequence, Any]]
+                val k = fieldEntry.getKey.toString
+                val keys = java.util.Arrays.asList(k)
+                val prev = fieldEntry.getValue
+
+                val rlback = { () => map.put(k, prev) }
+                val commit = { () => map.remove(k) }
+                actions ::= UpdateAction(commit, rlback, Deletelog(xpath, keys))
+
+              case _ => throw JPQLRuntimeException(flatField, "is not a collection field: ")
+            }
+
+          case x =>
+            actions ::= UpdateAction(null, null, Deletelog("/", java.util.Collections.EMPTY_LIST))
+        }
     }
+
+    actions.reverse
   }
 }

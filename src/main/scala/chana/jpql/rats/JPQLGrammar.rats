@@ -53,8 +53,9 @@ generic NewValue =
 / NULL
 ;
 
+// Attributes can only be applied collection field, which will clear this field
 generic DeleteStatement =
-  DeleteClause WhereClause?
+  DeleteClause AttributesClause? WhereClause?
 ;
 
 generic DeleteClause =

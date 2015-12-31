@@ -77,7 +77,7 @@ abstract class JPQLEvaluator {
         }
 
       case UpdateStatement(update, set, where)         => List() // NOT YET
-      case DeleteStatement(delete, where)              => List() // NOT YET
+      case DeleteStatement(delete, attributes, where)  => List() // NOT YET
       case InsertStatement(insert, attributes, values) => List() // NOT YET
     }
   }

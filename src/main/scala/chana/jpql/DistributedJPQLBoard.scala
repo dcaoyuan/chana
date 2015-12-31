@@ -92,6 +92,9 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
             case failure: Failure[_]       => commander ! failure
           }
 
+        case Success(meta) =>
+          log.warning("{} should be processed by rest actor ", meta)
+
         case failure @ Failure(ex) =>
           log.error(ex, ex.getMessage)
           commander ! failure

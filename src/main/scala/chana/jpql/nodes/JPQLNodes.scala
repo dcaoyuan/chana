@@ -23,6 +23,7 @@ package object nodes {
 
   final case class DeleteStatement(
     delete: DeleteClause,
+    attributes: Option[AttributesClause],
     where: Option[WhereClause]) extends Statement
 
   final case class InsertStatement(

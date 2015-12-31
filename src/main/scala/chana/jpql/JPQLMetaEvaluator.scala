@@ -50,7 +50,7 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
         updateClause(update, record)
         JPQLUpdate(stmt, asToEntity, asToJoin)
 
-      case stmt @ DeleteStatement(delete, where) =>
+      case stmt @ DeleteStatement(delete, attributes, where) =>
         // visit deleteClause is enough for meta
         deleteClause(delete, record)
         JPQLDelete(stmt, asToEntity, asToJoin)

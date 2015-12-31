@@ -158,12 +158,13 @@ final class JPQLParser() {
   }
 
   /*-
-     DeleteClause WhereClause?
+     DeleteClause AttributesClause? WhereClause?
    */
   def deleteStatement(node: Node) = {
     val delete = visit(node.getNode(0))(deleteClause)
-    val where = visitOpt(node.getNode(1))(whereClause)
-    DeleteStatement(delete, where)
+    val attributes = visitOpt(node.getNode(1))(attributesClause)
+    val where = visitOpt(node.getNode(2))(whereClause)
+    DeleteStatement(delete, attributes, where)
   }
 
   /*-
