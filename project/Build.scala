@@ -216,7 +216,7 @@ object Packaging {
 
   val settings = packagerSettings ++ deploymentSettings ++
     packageArchetype.java_application ++ Seq(
-      mainClass in Compile := Some("chana.Chana"),
+      mainClass in Compile := Some("chana.ChanaAkkaHttp"),
       name := "chana",
       NativePackagerKeys.packageName := "chana",
       bashScriptConfigLocation := Some("${app_home}/../conf/jvmopts"),

@@ -86,7 +86,7 @@ Try it:
 
     $ cd src/test/resources/avsc
 
-    $ curl --data @PersonInfo.avsc 'http://127.0.0.1:8080/schema/put/personinfo'
+    $ curl --data @PersonInfo.avsc 'http://127.0.0.1:8080/putschema/personinfo'
     OK
 
     $ curl 'http://127.0.0.1:8080/personinfo/get/1'
@@ -108,14 +108,14 @@ JPQL example
 .. code:: shell
 
     #### JPQL Simple test
-    $ echo 'SELECT COUNT(p.age), AVG(p.age), p.age FROM PersonInfo p WHERE p.age >= 30 ORDER BY p.age' | curl -d @- 'http://127.0.0.1:8080/jpql/put/JPQL_NO_1'
+    $ echo 'SELECT COUNT(p.age), AVG(p.age), p.age FROM PersonInfo p WHERE p.age >= 30 ORDER BY p.age' | curl -d @- 'http://127.0.0.1:8080/putjpql/JPQL_NO_1'
    
     #### watching jpql results
     $ cat ./jpql.ask
     while :
     do
        sleep 1s
-       curl 'http://127.0.0.1:8080/jpql/ask/JPQL_NO_1'
+       curl 'http://127.0.0.1:8080/askjpql/JPQL_NO_1'
        echo -e '\n'
     done
     
