@@ -76,9 +76,9 @@ abstract class JPQLEvaluator {
           List()
         }
 
-      case UpdateStatement(update, set, where)         => List() // NOT YET
-      case DeleteStatement(delete, attributes, where)  => List() // NOT YET
-      case InsertStatement(insert, attributes, values) => List() // NOT YET
+      case UpdateStatement(update, set, where)                => List() // NOT YET
+      case DeleteStatement(delete, attributes, where)         => List() // NOT YET
+      case InsertStatement(insert, attributes, values, where) => List() // NOT YET
     }
   }
 
@@ -164,10 +164,10 @@ abstract class JPQLEvaluator {
     scalarExpr(expr.v, record)
   }
 
-  def deleteClause(deleteClause: DeleteClause, record: Any) = {
-    val from = deleteClause.from.ident.toLowerCase
-    deleteClause.as foreach { x => addAsToEntity(x.ident.toLowerCase, from) }
-    deleteClause.joins foreach { x => join(x, record) }
+  def deleteClause(delete: DeleteClause, record: Any) = {
+    val from = delete.from.ident.toLowerCase
+    delete.as foreach { x => addAsToEntity(x.ident.toLowerCase, from) }
+    delete.joins foreach { x => join(x, record) }
   }
 
   def selectClause(select: SelectClause, record: Any): Unit = {
@@ -179,13 +179,15 @@ abstract class JPQLEvaluator {
   }
 
   def selectItem(item: SelectItem, record: Any): Any = {
-    val item1 = selectExpr(item.expr, record)
-    item.as foreach { x => asToItem += (x.ident -> item1) }
-    item1
+    val item0 = selectExpr(item.expr, record)
+    item.as foreach { x => asToItem += (x.ident -> item0) }
+    item0
   }
 
-  def insertClause(clause: InsertClause, record: Any) = {
-    clause.entityName.ident
+  def insertClause(insert: InsertClause, record: Any) = {
+    val to = insert.entityName.ident
+    insert.as foreach { x => addAsToEntity(x.ident.toLowerCase, to) }
+    insert.joins foreach { x => join(x, record) }
   }
 
   def attributesClause(clause: AttributesClause, record: Any) = {

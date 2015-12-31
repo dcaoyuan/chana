@@ -17,43 +17,72 @@ final class JPQLMapperInsert(meta: JPQLInsert) extends JPQLEvaluator {
   protected def asToJoin = meta.asToJoin
 
   def insertEval(stmt: InsertStatement, record: IndexedRecord) = {
-    var fieldToValues = List[(Schema.Field, Any)]()
+    var toInserts = List[IndexedRecord]()
+    if (asToJoin.nonEmpty) {
+      val joinFieldName = asToJoin.head._2.tail.head
+      val joinField = record.getSchema.getField(joinFieldName)
+      val recordFlatView = new avro.RecordFlatView(record, joinField)
+      val flatRecs = recordFlatView.iterator
 
-    val entityName = insertClause(stmt.insert, record)
-    if (entityName.equalsIgnoreCase(record.getSchema.getName)) {
-      val rows = valuesClause(stmt.values, record)
-      import scala.collection.JavaConversions._
-      val fields = stmt.attributes match {
-        case Some(x) =>
-          attributesClause(x, record).map { attr => record.getSchema.getField(attr) }.iterator
-        case None =>
-          record.getSchema.getFields.iterator.toIterator
-      }
-
-      for (row <- rows) {
-        var values = row
-
-        while (fields.hasNext) {
-          val field = fields.next
-          if (values.nonEmpty) {
-            fieldToValues ::= (field, values.head)
-            values = values.tail
-          } else {
-            throw JPQLRuntimeException(field, "does not have coresponding value.")
-          }
+      while (flatRecs.hasNext) {
+        val rec = flatRecs.next
+        val whereCond = stmt.where.fold(true) { x => whereClause(x, rec) }
+        if (whereCond) {
+          toInserts ::= rec
         }
       }
     } else {
-      // do nothing 
+      val whereCond = stmt.where.fold(true) { x => whereClause(x, record) }
+      if (whereCond) {
+        toInserts ::= record
+      }
     }
 
-    opInsert(fieldToValues, record)
-  }
-
-  private def opInsert(fieldToValues: List[(Schema.Field, Any)], record: IndexedRecord) = {
     var actions = List[UpdateAction]()
 
-    for ((field, v) <- fieldToValues) yield {
+    // insert always happens to non flattern record
+    val willInsert = toInserts.find {
+      case avro.FlattenRecord(underlying, _, _, _) => underlying eq record
+      case x                                       => x eq record
+    } isDefined
+
+    if (willInsert) {
+      val recFields = stmt.attributes match {
+        case Some(x) =>
+          attributesClause(x, record).map { attr => record.getSchema.getField(attr) }
+        case None =>
+          import scala.collection.JavaConversions._
+          record.getSchema.getFields.toList
+      }
+
+      val rows = valuesClause(stmt.values, record)
+
+      for (row <- rows) {
+        var fieldToValue = List[(Schema.Field, Any)]()
+        var values = row
+        var fields = recFields
+
+        while (fields.nonEmpty) {
+          if (values.nonEmpty) {
+            fieldToValue ::= (fields.head, values.head)
+            fields = fields.tail
+            values = values.tail
+          } else {
+            throw JPQLRuntimeException(fields.head, "does not have coresponding value.")
+          }
+        }
+
+        actions :::= opInsert(fieldToValue, record)
+      }
+    }
+
+    actions.reverse
+  }
+
+  private def opInsert(fieldToValue: List[(Schema.Field, Any)], record: IndexedRecord) = {
+    var actions = List[UpdateAction]()
+
+    for ((field, v) <- fieldToValue) yield {
       field.schema.getType match {
         case Schema.Type.ARRAY =>
           val elemSchema = avro.getElementType(field.schema)
@@ -122,7 +151,7 @@ final class JPQLMapperInsert(meta: JPQLInsert) extends JPQLEvaluator {
       }
     }
 
-    actions.reverse
+    actions
   }
 
 }

@@ -178,21 +178,24 @@ final class JPQLParser() {
   }
 
   /*-
-    InsertClause AttributesClause? ValuesClause 
+    InsertClause AttributesClause? ValuesClause WhereClause?
    */
   def insertStatement(node: Node) = {
     val insert = visit(node.getNode(0))(insertClause)
     val attributes = visitOpt(node.getNode(1))(attributesClause)
     val values = visit(node.getNode(2))(valuesClause)
-    InsertStatement(insert, attributes, values)
+    val where = visitOpt(node.getNode(3))(whereClause)
+    InsertStatement(insert, attributes, values, where)
   }
 
   /*-
-    INSERT INTO EntityName   
+    INSERT INTO EntityName ( AS? Ident )? Join* 
    */
   def insertClause(node: Node) = {
     val name = visit(node.getNode(0))(entityName)
-    InsertClause(name)
+    val as = visitOpt(node.getNode(1))(ident)
+    val joins = visitList(node.getList(2))(join)
+    InsertClause(name, as, joins)
   }
 
   /*-

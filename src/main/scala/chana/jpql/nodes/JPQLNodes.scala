@@ -29,7 +29,8 @@ package object nodes {
   final case class InsertStatement(
     insert: InsertClause,
     attributes: Option[AttributesClause],
-    values: ValuesClause) extends Statement
+    values: ValuesClause,
+    where: Option[WhereClause]) extends Statement
 
   final case class UpdateClause(entityName: EntityName, as: Option[Ident], joins: List[Join])
   final case class SetClause(assign: SetAssignClause, assigns: List[SetAssignClause])
@@ -44,7 +45,7 @@ package object nodes {
 
   final case class SelectItem(expr: SelectExpr, as: Option[Ident])
 
-  final case class InsertClause(entityName: EntityName)
+  final case class InsertClause(entityName: EntityName, as: Option[Ident], joins: List[Join])
   final case class AttributesClause(attr: Attribute, attrs: List[Attribute])
   final case class ValuesClause(row: RowValuesClause, rows: List[RowValuesClause])
   final case class RowValuesClause(value: NewValue, values: List[NewValue])

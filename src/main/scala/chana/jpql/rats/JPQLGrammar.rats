@@ -64,11 +64,11 @@ generic DeleteClause =
 
 // INSERT is an extention to JPQL, it's used to insert elements of collection field
 generic InsertStatement =
-  InsertClause AttributesClause? ValuesClause
+  InsertClause AttributesClause? ValuesClause WhereClause?
 ;
 
 generic InsertClause =
-  INSERT INTO EntityName
+  INSERT INTO EntityName ( AS? Ident )? Join*
 ;
 
 generic AttributesClause =

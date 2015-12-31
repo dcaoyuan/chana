@@ -35,7 +35,8 @@ final class JPQLMapperDelete(meta: JPQLDelete) extends JPQLEvaluator {
     }
 
     var actions = List[UpdateAction]()
-    // If attributes is set, we'll clear this collection field 
+
+    // If attributes is set (should be collection fields), we'll clear these collection fields 
     stmt.attributes match {
       case Some(x) =>
         val willDelete = toDeletes.find {

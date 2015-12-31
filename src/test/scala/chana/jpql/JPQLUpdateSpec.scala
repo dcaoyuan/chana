@@ -102,6 +102,12 @@ class JPQLUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
     update(meta, record)
     record.get("chargeRecords").asInstanceOf[java.util.List[Record]].get(1).get("time") should be(400)
 
+    q = "UPDATE account a JOIN a.chargeRecords c SET c.time=500L WHERE INDEX(c) < 3"
+    meta = parse(q)
+    update(meta, record)
+    record.get("chargeRecords").asInstanceOf[java.util.List[Record]].get(0).get("time") should be(500)
+    record.get("chargeRecords").asInstanceOf[java.util.List[Record]].get(1).get("time") should be(500)
+
     q = "UPDATE account a JOIN a.devApps d SET d.numBlackApps=4 WHERE KEY(d) = 'a'"
     meta = parse(q)
     update(meta, record)
@@ -113,11 +119,31 @@ class JPQLUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
     record.put("id", "1")
     record.put("registerTime", 1L)
 
-    var q = "INSERT INTO account (chargeRecords) VALUES (JSON({\"time\": 500e0, \"amount\": 500.0}))"
+    // insert to an array field
+    var q = "INSERT INTO account (chargeRecords) VALUES (JSON({\"time\": 3e0, \"amount\": 300.0}))"
     var meta = parse(q)
     insert(meta, record)
-    record.get("chargeRecords").asInstanceOf[java.util.List[Record]].get(2).get("time") should be(500)
+    record.get("chargeRecords").asInstanceOf[java.util.List[Record]].get(2).get("time") should be(3)
 
+    q = "INSERT INTO account a (chargeRecords) VALUES (JSON({\"time\": 4e0, \"amount\": 400.0})) WHERE a.id = '1'"
+    meta = parse(q)
+    insert(meta, record)
+    record.get("chargeRecords").asInstanceOf[java.util.List[Record]].get(3).get("time") should be(4)
+    record.get("chargeRecords").asInstanceOf[java.util.List[Record]].size should be(4)
+
+    q = "INSERT INTO account a (chargeRecords) VALUES (JSON({\"time\": 5e0, \"amount\": 500.0})) WHERE a.id <> '1'"
+    meta = parse(q)
+    insert(meta, record)
+    record.get("chargeRecords").asInstanceOf[java.util.List[Record]].size should be(4)
+
+    q = "INSERT INTO account a (chargeRecords) VALUES (JSON({\"time\": 5e0, \"amount\": 500.0})), (JSON({\"time\": 6e0, \"amount\": 600.0})) WHERE a.id = '1'"
+    meta = parse(q)
+    insert(meta, record)
+    println("chargeRecords: " + record.get("chargeRecords"))
+    record.get("chargeRecords").asInstanceOf[java.util.List[Record]].get(4).get("time") should be(5)
+    record.get("chargeRecords").asInstanceOf[java.util.List[Record]].get(5).get("time") should be(6)
+
+    // insert to a map field
     q = "INSERT INTO account (devApps) VALUES (JSON({\"f\": {\"numBlackApps\": 4}}))"
     meta = parse(q)
     insert(meta, record)
