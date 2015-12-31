@@ -40,7 +40,7 @@ package object chana {
    * @param   jpql name
    * @param   jpql string
    */
-  final case class PutJPQL(key: String, schema: String, reportInterval: FiniteDuration) extends Event
+  final case class PutJPQL(key: String, jpql: String, reportInterval: FiniteDuration) extends Event
   final case class RemoveJPQL(key: String) extends Event
   final case class AskJPQL(key: String) extends Event
 

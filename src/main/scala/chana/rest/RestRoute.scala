@@ -6,6 +6,7 @@ import akka.contrib.pattern.DistributedPubSubExtension
 import akka.contrib.pattern.DistributedPubSubMediator.Publish
 import akka.pattern.ask
 import akka.util.Timeout
+import chana.PutJPQL
 import chana.jpql
 import chana.jpql.DistributedJPQLBoard
 import chana.schema.DistributedSchemaBoard
@@ -67,21 +68,23 @@ trait RestRoute extends Directives {
   final def jpqlApi = {
     path("jpql") { // update/insert/delete 
       post {
-        entity(as[String]) { jpql =>
+        entity(as[String]) { jpqlQuery =>
           complete {
             withStatusCode {
-              processJPQL("", jpql)
+              processJPQL("", jpqlQuery)
             }
           }
         }
       }
     } ~ path("jpql" / "put" / Segment ~ Slash.?) { key => // put select
       post {
-        parameters('interval.as[Long].?) { interval =>
-          entity(as[String]) { jpql =>
+        parameters('interval.as[Long].?) { intervalOpt =>
+          entity(as[String]) { jpqlQuery =>
             complete {
               withStatusCode {
-                jpqlBoard.ask(chana.PutJPQL(key, jpql, interval.fold(10.second)(_.milliseconds)))(writeTimeout)
+                val interval = intervalOpt.fold(10.second)(_.milliseconds)
+                mediator ! Publish(jpql.JPQLBehavior.JPQLTopic, PutJPQL(key, jpqlQuery, interval))
+                jpqlBoard.ask(chana.PutJPQL(key, jpqlQuery, interval))(writeTimeout)
               }
             }
           }
@@ -319,6 +322,11 @@ trait RestRoute extends Directives {
     case Failure(_)                 => ""
   }
 
+  /**
+   * We have to publish plain jpql query string instead of parsed AST, since:
+   *   1. It's not efficient to serialize the AST
+   *   2. When JsonNode is in AST, some of them is not be serializable
+   */
   private def processJPQL(key: String, jpqlQuery: String): Future[Try[_]] = {
     jpql.parseJPQL(key, jpqlQuery) match {
       case Success(meta: jpql.JPQLSelect) =>
@@ -327,20 +335,17 @@ trait RestRoute extends Directives {
 
       case Success(meta: jpql.JPQLUpdate) =>
         // check if whereClause has id
-        //log.info("put jpql [{}]:\n{} ", key, jpql)
-        mediator ! Publish(jpql.JPQLBehavior.JPQLTopic, meta)
+        mediator ! Publish(jpql.JPQLBehavior.JPQLTopic, PutJPQL(key, jpqlQuery, Duration.Zero))
         Future { Success(key) }
 
       case Success(meta: jpql.JPQLInsert) =>
         // check id and sent to entity with id only
-        //log.info("put jpql [{}]:\n{} ", key, jpql)
-        mediator ! Publish(jpql.JPQLBehavior.JPQLTopic, meta)
+        mediator ! Publish(jpql.JPQLBehavior.JPQLTopic, PutJPQL(key, jpqlQuery, Duration.Zero))
         Future { Success(key) }
 
       case Success(meta: jpql.JPQLDelete) =>
         // check if whereClause has id
-        //log.info("put jpql [{}]:\n{} ", key, jpql)
-        mediator ! Publish(jpql.JPQLBehavior.JPQLTopic, meta)
+        mediator ! Publish(jpql.JPQLBehavior.JPQLTopic, PutJPQL(key, jpqlQuery, Duration.Zero))
         Future { Success(key) }
 
       case failure @ Failure(ex) =>

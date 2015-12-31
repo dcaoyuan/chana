@@ -457,6 +457,7 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
       runOn(client1) {
         import spray.httpx.RequestBuilding._
 
+        // update
         awaitAssert {
           IO(Http) ! Post(baseUrl1 + "/jpql", "UPDATE PersonInfo p SET p.age = 999 WHERE p.age > 800")
           expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
@@ -469,6 +470,36 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
         awaitAssert {
           IO(Http) ! Get(baseUrl1 + "/personinfo/get/1/age")
           expectMsgType[HttpResponse](5.seconds).entity.asString should be("100")
+        }
+
+        // insert
+        awaitAssert {
+          IO(Http) ! Post(baseUrl1 + "/jpql", "INSERT INTO PersonInfo p (emails) VALUES (JSON(\"bond1@abc.com\")), (JSON(\"bond2@abc.com\")) WHERE p.name = 'James Not Bond'")
+          expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
+        }
+
+        awaitAssert {
+          IO(Http) ! Get(baseUrl1 + "/personinfo/get/1/emails")
+          expectMsgType[HttpResponse](5.seconds).entity.asString should be("[\"bond1@abc.com\",\"bond2@abc.com\"]")
+        }
+        awaitAssert {
+          IO(Http) ! Get(baseUrl1 + "/personinfo/get/2/emails")
+          expectMsgType[HttpResponse](5.seconds).entity.asString should be("[]")
+        }
+
+        // delete
+        awaitAssert {
+          IO(Http) ! Post(baseUrl1 + "/jpql", "DELETE FROM PersonInfo p (emails) WHERE p.name = 'James Not Bond'")
+          expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
+        }
+
+        awaitAssert {
+          IO(Http) ! Get(baseUrl1 + "/personinfo/get/1/emails")
+          expectMsgType[HttpResponse](5.seconds).entity.asString should be("[]")
+        }
+        awaitAssert {
+          IO(Http) ! Get(baseUrl1 + "/personinfo/get/2/emails")
+          expectMsgType[HttpResponse](5.seconds).entity.asString should be("[]")
         }
 
         enterBarrier("jpql-update-done")

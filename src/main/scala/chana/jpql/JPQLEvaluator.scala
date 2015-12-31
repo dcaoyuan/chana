@@ -185,7 +185,7 @@ abstract class JPQLEvaluator {
   }
 
   def insertClause(insert: InsertClause, record: Any) = {
-    val to = insert.entityName.ident
+    val to = insert.entityName.ident.toLowerCase
     insert.as foreach { x => addAsToEntity(x.ident.toLowerCase, to) }
     insert.joins foreach { x => join(x, record) }
   }

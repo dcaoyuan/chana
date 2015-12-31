@@ -156,7 +156,8 @@ class JPQLGrammarSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
       "with Insert" in {
         val queris = List(
           "INSERT INTO Employee (id, name, salary) VALUES('1234', 'Bob', 50000)",
-          "INSERT INTO Employee VALUES('1234', 'Bob', 50000)")
+          "INSERT INTO Employee VALUES('1234', 'Bob', 50000)",
+          "INSERT INTO PersonInfo p (emails) VALUES (JSON(\"bond1@abc.com\")), (JSON(\"bond2@abc.com\")) WHERE p.id = '1'")
 
         queris foreach parse
       }
