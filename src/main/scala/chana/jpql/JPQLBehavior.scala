@@ -13,13 +13,17 @@ import scala.util.Failure
 import scala.util.Success
 
 object JPQLBehavior {
+  val JPQLTopic = "jpql_topic"
+
   final case class ReportingTick(key: String)
+  val ReportingAllTick = ReportingTick("")
 
   private def reportingDelay(interval: Duration) = ThreadLocalRandom.current.nextLong(100, interval.toMillis).millis
-
-  val JPQLTopic = "jpql_topic"
 }
 
+/**
+ * TODO pass entity id to jpql evaluator
+ */
 trait JPQLBehavior extends Entity {
   import JPQLBehavior._
 
@@ -32,10 +36,12 @@ trait JPQLBehavior extends Entity {
   // 1. report once when new-created/new-jpql 
   // 2. report once when deleted  // in case of deleted, should guarantee via ACK etc?
   // 3. report only on updated 
-  context.system.scheduler.schedule(1.seconds, 1.seconds, self, ReportingTick(""))
+  context.system.scheduler.schedule(1.seconds, 1.seconds, self, ReportingAllTick)
 
   def jpqlBehavior: Receive = {
-    case ReportingTick("") => jpqlReportAll(false)
+    case ReportingAllTick =>
+      jpqlReportAll(false)
+
     case ReportingTick(jpqlKey) =>
       DistributedJPQLBoard.keyToStatement.get(jpqlKey) match {
         case (meta: JPQLSelect, interval) => jpqlReport(jpqlKey, meta, interval, record)
@@ -48,33 +54,36 @@ trait JPQLBehavior extends Entity {
     case PutJPQL(key, jpqlQuery, interval) =>
       jpql.parseJPQL(key, jpqlQuery) match {
         case Success(meta: jpql.JPQLSelect) =>
+          resetIdleTimeout()
           jpqlReport(key, meta, interval, record)
 
         case Success(meta: jpql.JPQLUpdate) =>
-          resetIdleTimeout()
           val commander = sender()
           jpql.update(record, meta) match {
             case Success(actions) =>
-              actions.flatten
-              commit(id, actions.flatten, commander)
+              if (actions.nonEmpty) {
+                resetIdleTimeout()
+                commit(id, actions.flatten, commander)
+              }
             case x @ Failure(ex) =>
               log.error(ex, ex.getMessage)
               commander ! x
           }
 
         case Success(meta: jpql.JPQLInsert) =>
-          resetIdleTimeout()
           val commander = sender()
           jpql.insert(record, meta) match {
             case Success(actions) =>
-              commit(id, actions, commander)
+              if (actions.nonEmpty) {
+                resetIdleTimeout()
+                commit(id, actions, commander)
+              }
             case x @ Failure(ex) =>
               log.error(ex, ex.getMessage)
               commander ! x
           }
 
         case Success(meta: jpql.JPQLDelete) =>
-          resetIdleTimeout()
           val commander = sender()
           jpql.delete(record, meta) match {
             case Success(actions) =>

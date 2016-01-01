@@ -60,6 +60,8 @@ trait Entity extends Actor with Stash with PersistentActor {
   def mediator = DistributedPubSubExtension(context.system).mediator
 
   protected val id = self.path.name
+  val persistenceId: String = entityName + "_" + id
+
   protected val encoderDecoder = new avro.EncoderDecoder()
 
   private var _isDeleted: Boolean = _
@@ -68,8 +70,6 @@ trait Entity extends Actor with Stash with PersistentActor {
     _isDeleted = b
     onDeleted()
   }
-
-  val persistenceId: String = entityName + "_" + id
 
   protected var record: Record = _
   protected def loadRecord() = {
