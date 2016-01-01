@@ -54,13 +54,40 @@ trait Entity extends Actor with Stash with PersistentActor {
   def schema: Schema
   def builder: DefaultRecordBuilder
 
-  def onUpdated(event: UpdateEvent) {}
+  def onReady() {}
   def onDeleted() {}
+  def onUpdated(event: UpdateEvent) {}
 
   def mediator = DistributedPubSubExtension(context.system).mediator
 
   protected val id = self.path.name
   val persistenceId: String = entityName + "_" + id
+
+  override def preStart {
+    super[Actor].preStart
+    log.debug("Starting: {} ", id)
+    self ! Recover()
+  }
+
+  override def receiveRecover: Receive = {
+    case SnapshotOffer(metadata, offeredSnapshot: Array[Byte]) =>
+      record = avro.avroDecode[Record](offeredSnapshot, schema).get
+    case x: Binlog =>
+      doUpdateRecord(x)
+
+    case RecoveryCompleted =>
+      log.debug("Recovery completed: {}", id)
+      if (record eq null) {
+        record = loadRecord()
+      }
+      onReady()
+
+    case x: SnapshotOffer       => log.warning("Recovery received unknown: {}", x)
+    case RecoveryFailure(cause) => log.error("Recovery failure: {}", cause)
+    case e: Event               =>
+  }
+
+  override def receiveCommand: Receive = accessBehavior orElse persistBehavior
 
   protected val encoderDecoder = new avro.EncoderDecoder()
 
@@ -99,26 +126,6 @@ trait Entity extends Actor with Stash with PersistentActor {
       idleTimeoutData = (idleTimeoutData._1, Entity.emptyCancellable)
     }
   }
-
-  override def preStart {
-    super[Actor].preStart
-    log.debug("Starting: {} ", id)
-    record = loadRecord()
-    self ! Recover()
-  }
-
-  override def receiveRecover: Receive = {
-    case SnapshotOffer(metadata, offeredSnapshot: Array[Byte]) =>
-      record = avro.avroDecode[Record](offeredSnapshot, schema).get
-    case x: Binlog =>
-      doUpdateRecord(x)
-    case x: SnapshotOffer       => log.warning("Recovery received unknown: {}", x)
-    case RecoveryFailure(cause) => log.error("Recovery failure: {}", cause)
-    case RecoveryCompleted      => log.debug("Recovery completed: {}", id)
-    case e: Event               =>
-  }
-
-  override def receiveCommand: Receive = accessBehavior orElse persistBehavior
 
   def persistBehavior: Receive = {
     case f: PersistenceFailure  => log.error("persist failed: {}", f.cause)

@@ -2,10 +2,10 @@ package chana.jpql
 
 import akka.contrib.pattern.DistributedPubSubMediator.{ Subscribe, SubscribeAck }
 import chana.Entity
+import chana.PutJPQL
 import chana.avro.UpdateAction
 import chana.avro.UpdateEvent
 import chana.jpql
-import chana.PutJPQL
 import org.apache.avro.generic.GenericData.Record
 import scala.concurrent.duration._
 import scala.concurrent.forkjoin.ThreadLocalRandom
@@ -15,9 +15,8 @@ import scala.util.Success
 object JPQLBehavior {
   val JPQLTopic = "jpql_topic"
 
-  final case class ReportingTick(key: String)
-  val ReportingAllTick = ReportingTick("")
-
+  private case class ReportingTick(key: String)
+  private val ReportingAllTick = ReportingTick("")
   private def reportingDelay(interval: Duration) = ThreadLocalRandom.current.nextLong(100, interval.toMillis).millis
 }
 
@@ -33,7 +32,7 @@ trait JPQLBehavior extends Entity {
 
   import context.dispatcher
   // TODO: 
-  // 1. report once when new-created/new-jpql 
+  // 1. report once when new-created/new-jpql - Done see onReady()
   // 2. report once when deleted  // in case of deleted, should guarantee via ACK etc?
   // 3. report only on updated 
   context.system.scheduler.schedule(1.seconds, 1.seconds, self, ReportingAllTick)
@@ -52,7 +51,9 @@ trait JPQLBehavior extends Entity {
       log.debug("Subscribed " + JPQLTopic)
 
     case PutJPQL(key, jpqlQuery, interval) =>
+
       jpql.parseJPQL(key, jpqlQuery) match {
+
         case Success(meta: jpql.JPQLSelect) =>
           resetIdleTimeout()
           jpqlReport(key, meta, interval, record)
@@ -135,6 +136,10 @@ trait JPQLBehavior extends Entity {
     } catch {
       case ex: Throwable => log.error(ex, ex.getMessage)
     }
+  }
+
+  override def onReady() {
+    jpqlReportAll(force = true)
   }
 
   override def onUpdated(event: UpdateEvent) {

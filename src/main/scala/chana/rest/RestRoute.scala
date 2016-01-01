@@ -22,7 +22,7 @@ trait RestRoute extends Directives {
   val system: ActorSystem
   import system.dispatcher
 
-  protected val mediator = DistributedPubSubExtension(system).mediator
+  protected def mediator = DistributedPubSubExtension(system).mediator
 
   def readTimeout: Timeout
   def writeTimeout: Timeout
