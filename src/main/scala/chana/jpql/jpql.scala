@@ -18,29 +18,30 @@ package object jpql {
 
   sealed trait JPQLMeta {
     def stmt: Statement
+    def entity: String
     def asToEntity: Map[String, String]
     def asToJoin: Map[String, List[String]]
   }
-  final case class JPQLSelect(stmt: SelectStatement, asToEntity: Map[String, String], asToJoin: Map[String, List[String]], projectionSchema: List[Schema]) extends JPQLMeta
-  final case class JPQLDelete(stmt: DeleteStatement, asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
-  final case class JPQLInsert(stmt: InsertStatement, asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
-  final case class JPQLUpdate(stmt: UpdateStatement, asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
+  final case class JPQLSelect(stmt: SelectStatement, entity: String, asToEntity: Map[String, String], asToJoin: Map[String, List[String]], projectionSchema: List[Schema]) extends JPQLMeta
+  final case class JPQLDelete(stmt: DeleteStatement, entity: String, asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
+  final case class JPQLInsert(stmt: InsertStatement, entity: String, asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
+  final case class JPQLUpdate(stmt: UpdateStatement, entity: String, asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
 
-  def update(data: IndexedRecord, meta: JPQLUpdate) = {
+  def update(record: IndexedRecord, meta: JPQLUpdate) = {
     Try {
-      new JPQLMapperUpdate(meta).updateEval(meta.stmt, data)
+      new JPQLMapperUpdate(meta).updateEval(meta.stmt, record)
     }
   }
 
-  def insert(data: IndexedRecord, meta: JPQLInsert) = {
+  def insert(record: IndexedRecord, meta: JPQLInsert) = {
     Try {
-      new JPQLMapperInsert(meta).insertEval(meta.stmt, data)
+      new JPQLMapperInsert(meta).insertEval(meta.stmt, record)
     }
   }
 
-  def delete(data: IndexedRecord, meta: JPQLDelete) = {
+  def delete(record: IndexedRecord, meta: JPQLDelete) = {
     Try {
-      new JPQLMapperDelete(meta).deleteEval(meta.stmt, data)
+      new JPQLMapperDelete(meta).deleteEval(meta.stmt, record)
     }
   }
 

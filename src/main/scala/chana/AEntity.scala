@@ -14,14 +14,14 @@ import scala.concurrent.duration.FiniteDuration
 
 object AEntity {
   def props(entityName: String, schema: Schema, builder: DefaultRecordBuilder, idleTimeout: Duration) =
-    Props(classOf[AEntity], entityName, schema, builder, idleTimeout)
+    Props(classOf[AEntity], entityName.toLowerCase, schema, builder, idleTimeout)
 }
 
 /**
  * A typical entity class.
  * You can choose which deatures that you want by defining your custom Entity.
  */
-class AEntity(val entityName: String, val schema: Schema, val builder: DefaultRecordBuilder, idleTimeout: Duration)
+class AEntity private (val entityName: String, val schema: Schema, val builder: DefaultRecordBuilder, idleTimeout: Duration)
     extends Entity
     with XPathBehavior
     with ScriptBehavior

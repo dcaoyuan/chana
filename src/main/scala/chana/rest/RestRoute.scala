@@ -71,7 +71,7 @@ trait RestRoute extends Directives {
         entity(as[String]) { jpqlQuery =>
           complete {
             withStatusCode {
-              processJPQL("", jpqlQuery)
+              Future { processJPQL("", jpqlQuery, Duration.Zero) }
             }
           }
         }
@@ -83,8 +83,12 @@ trait RestRoute extends Directives {
             complete {
               withStatusCode {
                 val interval = intervalOpt.fold(10.second)(_.milliseconds)
-                mediator ! Publish(jpql.JPQLBehavior.JPQLTopic, PutJPQL(key, jpqlQuery, interval))
-                jpqlBoard.ask(chana.PutJPQL(key, jpqlQuery, interval))(writeTimeout)
+                processJPQL(key, jpqlQuery, interval) match {
+                  case Success(meta) =>
+                    jpqlBoard.ask(chana.PutJPQL(key, jpqlQuery, interval))(writeTimeout)
+                  case failure @ Failure(ex) =>
+                    Future(failure)
+                }
               }
             }
           }
@@ -326,31 +330,33 @@ trait RestRoute extends Directives {
    * We have to publish plain jpql query string instead of parsed AST, since:
    *   1. It's not efficient to serialize the AST
    *   2. When JsonNode is in AST, some of them is not be serializable
+   * TODO should only publish to related type of entities.
    */
-  private def processJPQL(key: String, jpqlQuery: String): Future[Try[_]] = {
+  private def processJPQL(key: String, jpqlQuery: String, interval: FiniteDuration): Try[_] = {
+
     jpql.parseJPQL(key, jpqlQuery) match {
       case Success(meta: jpql.JPQLSelect) =>
-        // TODO will it happen? for select, we'll send to jpql board directly
-        Future { Success(key) }
+        mediator ! Publish(jpql.JPQLBehavior.jpqlTopic + meta.entity, PutJPQL(key, jpqlQuery, interval))
+        Success(key)
 
       case Success(meta: jpql.JPQLUpdate) =>
         // check if whereClause has id
-        mediator ! Publish(jpql.JPQLBehavior.JPQLTopic, PutJPQL(key, jpqlQuery, Duration.Zero))
-        Future { Success(key) }
+        mediator ! Publish(jpql.JPQLBehavior.jpqlTopic + meta.entity, PutJPQL(key, jpqlQuery, Duration.Zero))
+        Success(key)
 
       case Success(meta: jpql.JPQLInsert) =>
         // check id and sent to entity with id only
-        mediator ! Publish(jpql.JPQLBehavior.JPQLTopic, PutJPQL(key, jpqlQuery, Duration.Zero))
-        Future { Success(key) }
+        mediator ! Publish(jpql.JPQLBehavior.jpqlTopic + meta.entity, PutJPQL(key, jpqlQuery, Duration.Zero))
+        Success(key)
 
       case Success(meta: jpql.JPQLDelete) =>
         // check if whereClause has id
-        mediator ! Publish(jpql.JPQLBehavior.JPQLTopic, PutJPQL(key, jpqlQuery, Duration.Zero))
-        Future { Success(key) }
+        mediator ! Publish(jpql.JPQLBehavior.jpqlTopic + meta.entity, PutJPQL(key, jpqlQuery, Duration.Zero))
+        Success(key)
 
       case failure @ Failure(ex) =>
         //log.error(ex, ex.getMessage)
-        Future { failure }
+        failure
     }
   }
 

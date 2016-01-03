@@ -21,7 +21,7 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
   def collectMeta(stmt: Statement, record: Any): JPQLMeta = {
     stmt match {
       case stmt @ SelectStatement(select, from, where, groupby, having, orderby) =>
-        fromClause(from, record) // collect asToEntity and asToJoin
+        val entity = fromClause(from, record) // collect asToEntity and asToJoin
 
         asToProjectionNode = asToEntity.foldLeft(Map[String, Projection.Node]()) {
           case (acc, (as, entityName)) =>
@@ -43,22 +43,22 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
           case (as, projectionNode) => Projection.visitProjectionNode(jpqlKey, projectionNode, null).endRecord
         }
 
-        JPQLSelect(stmt, asToEntity, asToJoin, projectionSchemas.toList)
+        JPQLSelect(stmt, entity, asToEntity, asToJoin, projectionSchemas.toList)
 
       case stmt @ UpdateStatement(update, set, where) =>
         // visit updateClause is enough for meta
-        updateClause(update, record)
-        JPQLUpdate(stmt, asToEntity, asToJoin)
+        val entity = updateClause(update, record)
+        JPQLUpdate(stmt, entity, asToEntity, asToJoin)
 
       case stmt @ DeleteStatement(delete, attributes, where) =>
         // visit deleteClause is enough for meta
-        deleteClause(delete, record)
-        JPQLDelete(stmt, asToEntity, asToJoin)
+        val entity = deleteClause(delete, record)
+        JPQLDelete(stmt, entity, asToEntity, asToJoin)
 
       case stmt @ InsertStatement(insert, attributes, values, where) =>
         // visit insertClause is enough for meta
-        insertClause(insert, record)
-        JPQLInsert(stmt, asToEntity, asToJoin)
+        val entity = insertClause(insert, record)
+        JPQLInsert(stmt, entity, asToEntity, asToJoin)
     }
   }
 

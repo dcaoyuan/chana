@@ -13,7 +13,7 @@ import scala.util.Failure
 import scala.util.Success
 
 object JPQLBehavior {
-  val JPQLTopic = "jpql_topic"
+  val jpqlTopic = "chana_jpql_"
 
   private case class ReportingTick(key: String)
   private val ReportingAllTick = ReportingTick("")
@@ -28,7 +28,7 @@ trait JPQLBehavior extends Entity {
 
   private var reportingJpqls = List[String]()
 
-  mediator ! Subscribe(JPQLTopic, self)
+  mediator ! Subscribe(jpqlTopic + entityName, self)
 
   import context.dispatcher
   // TODO: 
@@ -47,8 +47,8 @@ trait JPQLBehavior extends Entity {
         case _                            =>
       }
 
-    case SubscribeAck(Subscribe(JPQLTopic, None, `self`)) =>
-      log.debug("Subscribed " + JPQLTopic)
+    case SubscribeAck(Subscribe(topic, None, `self`)) =>
+      log.debug("Subscribed " + topic)
 
     case PutJPQL(key, jpqlQuery, interval) =>
 

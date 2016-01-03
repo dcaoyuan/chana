@@ -60,7 +60,7 @@ abstract class JPQLEvaluator {
   private[jpql] def simpleEval(stmt: Statement, record: Any): List[Any] = {
     stmt match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
-        fromClause(from, record)
+        val entity = fromClause(from, record)
 
         val whereCond = where.fold(true) { x => whereClause(x, record) }
         if (whereCond) {
@@ -137,10 +137,14 @@ abstract class JPQLEvaluator {
     }
   }
 
-  def updateClause(updateClause: UpdateClause, record: Any) = {
-    val entityName = updateClause.entityName.ident.toLowerCase
-    updateClause.as foreach { x => addAsToEntity(x.ident.toLowerCase, entityName) }
+  /**
+   * @return main entity name
+   */
+  def updateClause(updateClause: UpdateClause, record: Any): String = {
+    val entity = updateClause.entityName.ident.toLowerCase
+    updateClause.as foreach { x => addAsToEntity(x.ident.toLowerCase, entity) }
     updateClause.joins foreach { x => join(x, record) }
+    entity
   }
 
   def setClause(setClause: SetClause, record: Any) = {
@@ -164,10 +168,14 @@ abstract class JPQLEvaluator {
     scalarExpr(expr.v, record)
   }
 
-  def deleteClause(delete: DeleteClause, record: Any) = {
-    val from = delete.from.ident.toLowerCase
-    delete.as foreach { x => addAsToEntity(x.ident.toLowerCase, from) }
+  /**
+   * @return main entity name
+   */
+  def deleteClause(delete: DeleteClause, record: Any): String = {
+    val entity = delete.from.ident.toLowerCase
+    delete.as foreach { x => addAsToEntity(x.ident.toLowerCase, entity) }
     delete.joins foreach { x => join(x, record) }
+    entity
   }
 
   def selectClause(select: SelectClause, record: Any): Unit = {
@@ -184,10 +192,14 @@ abstract class JPQLEvaluator {
     item0
   }
 
-  def insertClause(insert: InsertClause, record: Any) = {
-    val to = insert.entityName.ident.toLowerCase
-    insert.as foreach { x => addAsToEntity(x.ident.toLowerCase, to) }
+  /**
+   * @return main entity name
+   */
+  def insertClause(insert: InsertClause, record: Any): String = {
+    val entity = insert.entityName.ident.toLowerCase
+    insert.as foreach { x => addAsToEntity(x.ident.toLowerCase, entity) }
     insert.joins foreach { x => join(x, record) }
+    entity
   }
 
   def attributesClause(clause: AttributesClause, record: Any) = {
@@ -274,22 +286,29 @@ abstract class JPQLEvaluator {
 
   /**
    * Will collect asToEntity and asToJoin etc
+   *
+   * @return main entity name
    */
-  def fromClause(from: FromClause, record: Any) = {
-    identVarDecl(from.from, record)
+  def fromClause(from: FromClause, record: Any): String = {
+    val entity = identVarDecl(from.from, record)
     from.froms foreach {
       case Left(x)  => identVarDecl(x, record)
       case Right(x) => collectionMemberDecl(x, record)
     }
+    entity
   }
 
-  def identVarDecl(ident: IdentVarDecl, record: Any) = {
-    rangeVarDecl(ident.range, record)
+  def identVarDecl(ident: IdentVarDecl, record: Any): String = {
+    val entity = rangeVarDecl(ident.range, record)
     ident.joins foreach { x => join(x, record) }
+    entity
   }
 
-  def rangeVarDecl(range: RangeVarDecl, record: Any): Unit = {
-    addAsToEntity(range.as.ident.toLowerCase, range.entityName.ident.toLowerCase)
+  def rangeVarDecl(range: RangeVarDecl, record: Any): String = {
+    val entity = range.entityName.ident.toLowerCase
+    val as = range.as.ident.toLowerCase
+    addAsToEntity(as, entity)
+    entity
   }
 
   /**

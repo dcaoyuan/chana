@@ -50,6 +50,9 @@ trait Entity extends Actor with Stash with PersistentActor {
 
   def log: LoggingAdapter
 
+  /**
+   * Should be lowercase
+   */
   def entityName: String
   def schema: Schema
   def builder: DefaultRecordBuilder
