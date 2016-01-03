@@ -26,7 +26,7 @@ object JPQLBehavior {
 trait JPQLBehavior extends Entity {
   import JPQLBehavior._
 
-  private var reportingJpqls = List[String]()
+  private var reportedJpqls = List[String]()
 
   mediator ! Subscribe(jpqlTopic + entityName, self)
 
@@ -107,34 +107,36 @@ trait JPQLBehavior extends Entity {
   }
 
   def jpqlReportAll(force: Boolean) {
-    var newReportingJpqls = List[String]()
+    var newReportedJpqls = List[String]()
     val jpqls = DistributedJPQLBoard.keyToStatement.entrySet.iterator
 
     while (jpqls.hasNext) {
       val entry = jpqls.next
       val key = entry.getKey
-      if (force || !reportingJpqls.contains(key)) {
-        val (meta, interval) = entry.getValue
+      val (meta, interval) = entry.getValue
+      if ((force || !reportedJpqls.contains(key)) && meta.entity == entityName) {
         jpqlReport(key, meta.asInstanceOf[JPQLSelect], interval, record) // report at once
       }
-      newReportingJpqls ::= key
+      newReportedJpqls ::= key
     }
-    reportingJpqls = newReportingJpqls
+    reportedJpqls = newReportedJpqls
   }
 
   def jpqlReport(jpqlKey: String, meta: JPQLSelect, interval: FiniteDuration, record: Record) {
-    try {
-      if (isDeleted) {
-        val deleted = DeletedRecord(id)
-        JPQLReducer.reducerProxy(context.system, jpqlKey) ! deleted
-      } else {
-        val projection = new JPQLMapperSelect(meta).gatherProjection(id, record)
-        JPQLReducer.reducerProxy(context.system, jpqlKey) ! projection
-      }
+    if (meta.entity == entityName) {
+      try {
+        if (isDeleted) {
+          val deleted = DeletedRecord(id)
+          JPQLReducer.reducerProxy(context.system, jpqlKey) ! deleted
+        } else {
+          val projection = new JPQLMapperSelect(meta).gatherProjection(id, record)
+          JPQLReducer.reducerProxy(context.system, jpqlKey) ! projection
+        }
+        context.system.scheduler.scheduleOnce(interval, self, ReportingTick(jpqlKey))
 
-      context.system.scheduler.scheduleOnce(interval, self, ReportingTick(jpqlKey))
-    } catch {
-      case ex: Throwable => log.error(ex, ex.getMessage)
+      } catch {
+        case ex: Throwable => log.error(ex, ex.getMessage)
+      }
     }
   }
 

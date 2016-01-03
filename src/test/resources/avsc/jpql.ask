@@ -1,10 +1,8 @@
 #/bin/sh
 
-echo 'SELECT COUNT(p.age), AVG(p.age), p.age FROM PersonInfo p WHERE p.age >= 30 ORDER BY p.age' | curl -d @- 'http://127.0.0.1:8080/jpql/put/JPQL_NO_1'
-
 while :
 do
   sleep 1s
-  curl 'http://127.0.0.1:8080/askjpql/JPQL_NO_1'
+  curl 'http://127.0.0.1:8080/jpql/ask/JPQL_NO_1'
   echo -e '\n'
 done
