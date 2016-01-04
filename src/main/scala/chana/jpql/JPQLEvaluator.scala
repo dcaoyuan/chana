@@ -33,14 +33,20 @@ object JPQLEvaluator {
   }
 
   val timeZone = ZoneId.systemDefault
+
+  val ID = "id"
+  val SOME_ID = Some(ID)
 }
 
 abstract class JPQLEvaluator {
 
+  def id: String
   protected def asToEntity: Map[String, String]
   protected def asToJoin: Map[String, List[String]]
   protected def addAsToEntity(as: String, entity: String): Unit = throw new UnsupportedOperationException()
   protected def addAsToJoin(as: String, joinPath: List[String]): Unit = throw new UnsupportedOperationException()
+
+  protected def forceGather = false
 
   private var asToItem = Map[String, Any]()
   private var asToCollectionMember = Map[String, Any]()
@@ -100,34 +106,44 @@ abstract class JPQLEvaluator {
     }
   }
 
-  def valueOf(qual: String, attrPaths: List[String], record: Any): Any = {
+  final def valueOf(qual: String, attrPaths: List[String], record: Any): Any =
+    valueOf(qual, attrPaths, record, forceGather)
+  def valueOf(qual: String, attrPaths: List[String], record: Any, toGather: Boolean): Any = {
     record match {
-      case rec: IndexedRecord => valueOfRecord(qual, attrPaths, rec)
+      case rec: IndexedRecord => valueOfRecord(qual, attrPaths, rec, toGather)
     }
   }
 
-  def valueOfRecord(qual: String, attrs: List[String], record: IndexedRecord): Any = {
+  final def valueOfRecord(qual: String, attrs: List[String], record: IndexedRecord): Any =
+    valueOfRecord(qual, attrs, record, forceGather)
+  def valueOfRecord(qual: String, attrs: List[String], record: IndexedRecord, toGather: Boolean): Any = {
     val attrs1 = normalizeEntityAttrs(qual, attrs, record.getSchema)
-    valueOfRecord(attrs1, record, toGather = true)
+    valueOfRecord(attrs1, record, toGather)
   }
 
   def valueOfRecord(attrs: List[String], record: IndexedRecord, toGather: Boolean): Any = {
     var paths = attrs
     var currValue: Any = record
 
+    var isTopField = true
     while (paths.nonEmpty) {
       val path = paths.head
       paths = paths.tail
 
       currValue match {
         case fieldRec: IndexedRecord =>
-          val pathField = fieldRec.getSchema.getField(path)
-          currValue = fieldRec.get(pathField.pos)
+          if (isTopField && path == JPQLEvaluator.ID) {
+            currValue = id
+          } else {
+            val pathField = fieldRec.getSchema.getField(path)
+            currValue = fieldRec.get(pathField.pos)
+          }
         case arr: java.util.Collection[_]             => throw JPQLRuntimeException(currValue, "is an avro array when fetch its attribute: " + path) // TODO
         case map: java.util.Map[String, _] @unchecked => throw JPQLRuntimeException(currValue, "is an avro map when fetch its attribute: " + path) // TODO
         case null                                     => throw JPQLRuntimeException(currValue, "is null when fetch its attribute: " + paths)
         case _                                        => throw JPQLRuntimeException(currValue, "is not a record when fetch its attribute: " + paths)
       }
+      isTopField = false
     } // end while
 
     if (currValue.isInstanceOf[Utf8]) {

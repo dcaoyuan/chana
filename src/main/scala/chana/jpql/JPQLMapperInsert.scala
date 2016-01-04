@@ -11,12 +11,13 @@ import org.apache.avro.generic.IndexedRecord
 import org.codehaus.jackson.JsonNode
 import org.codehaus.jackson.node.ObjectNode
 
-final class JPQLMapperInsert(meta: JPQLInsert) extends JPQLEvaluator {
+final class JPQLMapperInsert(val id: String, meta: JPQLInsert) extends JPQLEvaluator {
 
   protected def asToEntity = meta.asToEntity
   protected def asToJoin = meta.asToJoin
 
-  def insertEval(stmt: InsertStatement, record: IndexedRecord) = {
+  def insertEval(record: IndexedRecord) = {
+    val stmt = meta.stmt
     var toInserts = List[IndexedRecord]()
     if (asToJoin.nonEmpty) {
       val joinFieldName = asToJoin.head._2.tail.head

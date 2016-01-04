@@ -26,6 +26,7 @@ class JPQLSelectSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
     info("\nParsed:\n" + stmt)
 
     val e = new JPQLEvaluator {
+      def id = "abCd1"
       protected var asToEntity = Map[String, String]()
       protected var asToJoin = Map[String, List[String]]()
       override protected def addAsToEntity(as: String, entity: String) = asToEntity += (as -> entity)
@@ -59,15 +60,14 @@ class JPQLSelectSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
       q = "SELECT a.chargeRecords FROM account a WHERE a.registerTime >= 10000"
       eval(q, record).asInstanceOf[List[GenericData.Array[_]]](0).size should be(2)
 
-      q = "SELECT a.id FROM account a WHERE a.id = 'abCd'"
-      eval(q, record) should be(List("abCd"))
+      q = "SELECT a.id FROM account a WHERE a.id = 'abCd1'"
+      eval(q, record) should be(List("abCd1"))
     }
 
     "select with atith calculating and functions" when {
       val record = initAccount()
       record.put("registerTime", 10000L)
       record.put("lastLoginTime", 20000L)
-      record.put("id", "abCd")
       record.put("balance", 100.0)
 
       var q = "SELECT a.registerTime + 1 FROM account a WHERE a.registerTime + 1 >= 10001"
@@ -94,17 +94,17 @@ class JPQLSelectSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
       q = "SELECT SQRT(a.balance) FROM account a WHERE SQRT(a.balance) = 10"
       eval(q, record) should be(List(10.0))
 
-      q = "SELECT CONCAT(a.id, '_efgh') FROM account a WHERE CONCAT(a.id, '_efgh') = 'abCd_efgh'"
-      eval(q, record) should be(List("abCd_efgh"))
+      q = "SELECT CONCAT(a.id, '_efgh') FROM account a WHERE CONCAT(a.id, '_efgh') = 'abCd1_efgh'"
+      eval(q, record) should be(List("abCd1_efgh"))
 
-      q = "SELECT LENGTH(a.id) FROM account a WHERE LENGTH(a.id) = 4"
-      eval(q, record) should be(List(4))
+      q = "SELECT LENGTH(a.id) FROM account a WHERE LENGTH(a.id) = 5"
+      eval(q, record) should be(List(5))
 
-      q = "SELECT UPPER(a.id) FROM account a WHERE UPPER(a.id) = 'ABCD'"
-      eval(q, record) should be(List("ABCD"))
+      q = "SELECT UPPER(a.id) FROM account a WHERE UPPER(a.id) = 'ABCD1'"
+      eval(q, record) should be(List("ABCD1"))
 
-      q = "SELECT LOWER(a.id) FROM account a WHERE LOWER(a.id) = 'abcd'"
-      eval(q, record) should be(List("abcd"))
+      q = "SELECT LOWER(a.id) FROM account a WHERE LOWER(a.id) = 'abcd1'"
+      eval(q, record) should be(List("abcd1"))
 
       q = "SELECT SUBSTRING(a.id, 2, 2) FROM account a WHERE SUBSTRING(a.id, 2, 2) = 'bC'"
       eval(q, record) should be(List("bC"))

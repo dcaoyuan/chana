@@ -60,7 +60,7 @@ trait JPQLBehavior extends Entity {
 
         case Success(meta: jpql.JPQLUpdate) =>
           val commander = sender()
-          jpql.update(record, meta) match {
+          jpql.update(id, record, meta) match {
             case Success(actions) =>
               if (actions.nonEmpty) {
                 resetIdleTimeout()
@@ -73,7 +73,7 @@ trait JPQLBehavior extends Entity {
 
         case Success(meta: jpql.JPQLInsert) =>
           val commander = sender()
-          jpql.insert(record, meta) match {
+          jpql.insert(id, record, meta) match {
             case Success(actions) =>
               if (actions.nonEmpty) {
                 resetIdleTimeout()
@@ -86,7 +86,7 @@ trait JPQLBehavior extends Entity {
 
         case Success(meta: jpql.JPQLDelete) =>
           val commander = sender()
-          jpql.delete(record, meta) match {
+          jpql.delete(id, record, meta) match {
             case Success(actions) =>
               if (actions.collectFirst { case UpdateAction(null, _, binlog) => true }.isDefined) {
                 isDeleted(true) // TODO persist log
@@ -129,7 +129,7 @@ trait JPQLBehavior extends Entity {
           val deleted = DeletedRecord(id)
           JPQLReducer.reducerProxy(context.system, jpqlKey) ! deleted
         } else {
-          val projection = new JPQLMapperSelect(meta).gatherProjection(id, record)
+          val projection = new JPQLMapperSelect(id, meta).gatherProjection(record)
           JPQLReducer.reducerProxy(context.system, jpqlKey) ! projection
         }
         context.system.scheduler.scheduleOnce(interval, self, ReportingTick(jpqlKey))

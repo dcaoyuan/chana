@@ -46,14 +46,13 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
       val record = initAccount()
       record.put("registerTime", id.toLong)
       record.put("lastLoginTime", (id % 3).toLong)
-      record.put("id", id.toString)
 
       val chargeRecord = chargeRecordBuilder.build()
       chargeRecord.put("time", id * 1000L)
       chargeRecord.put("amount", id * 100.0)
       record.put("lastChargeRecord", chargeRecord)
 
-      record
+      (id.toString, record)
     }
   }
 
@@ -68,17 +67,17 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
     val parser = new JPQLParser()
     val stmt = parser.parse(query)
     //info("\nParsed:\n" + stmt)
-    val metaEval = new JPQLMetaEvaluator("2", schemaBoard)
+    val metaEval = new JPQLMetaEvaluator("jpqlKey", schemaBoard)
     val meta = metaEval.collectMeta(stmt, null)
     info("meta:\n" + meta)
     meta.asInstanceOf[JPQLSelect]
   }
 
-  def gatherProjection(entityId: String, meta: JPQLSelect, record: Record) = {
-    val e = new JPQLMapperSelect(meta)
-    val projection = e.gatherProjection(entityId, record)
+  def gatherProjection(id: String, meta: JPQLSelect, record: Record) = {
+    val e = new JPQLMapperSelect(id, meta)
+    val projection = e.gatherProjection(record)
     projection match {
-      case x: BinaryProjection => info("\nCollected: " + x.id + ", " + RecordProjection(chana.avro.avroDecode[Record](x.projection, meta.projectionSchema.head).get))
+      case x: BinaryProjection => info("\nCollected: " + id + ", " + RecordProjection(chana.avro.avroDecode[Record](x.projection, meta.projectionSchema.head).get))
       case x: RemoveProjection => info("\nCollected: " + x)
     }
     projection
@@ -93,7 +92,7 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
       val meta = parse(q)
       val reducer = system.actorOf(JPQLReducer.props("test", meta))
 
-      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], meta, record) }
+      records() foreach { case (id, record) => reducer ! gatherProjection(id, meta, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -108,7 +107,7 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
       val meta = parse(q)
       val reducer = system.actorOf(JPQLReducer.props("test", meta))
 
-      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], meta, record) }
+      records() foreach { case (id, record) => reducer ! gatherProjection(id, meta, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -123,7 +122,7 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
       val meta = parse(q)
       val reducer = system.actorOf(JPQLReducer.props("test", meta))
 
-      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], meta, record) }
+      records() foreach { case (id, record) => reducer ! gatherProjection(id, meta, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -138,7 +137,7 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
       val meta = parse(q)
       val reducer = system.actorOf(JPQLReducer.props("test", meta))
 
-      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], meta, record) }
+      records() foreach { case (id, record) => reducer ! gatherProjection(id, meta, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -153,7 +152,7 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
       val meta = parse(q)
       val reducer = system.actorOf(JPQLReducer.props("test", meta))
 
-      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], meta, record) }
+      records() foreach { case (id, record) => reducer ! gatherProjection(id, meta, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -173,7 +172,7 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
       val meta = parse(q)
       val reducer = system.actorOf(JPQLReducer.props("test", meta))
 
-      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], meta, record) }
+      records() foreach { case (id, record) => reducer ! gatherProjection(id, meta, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -188,7 +187,7 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
       val meta = parse(q)
       val reducer = system.actorOf(JPQLReducer.props("test", meta))
 
-      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], meta, record) }
+      records() foreach { case (id, record) => reducer ! gatherProjection(id, meta, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -203,7 +202,7 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
       val meta = parse(q)
       val reducer = system.actorOf(JPQLReducer.props("test", meta))
 
-      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], meta, record) }
+      records() foreach { case (id, record) => reducer ! gatherProjection(id, meta, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -223,7 +222,7 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
       val meta = parse(q)
       val reducer = system.actorOf(JPQLReducer.props("test", meta))
 
-      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], meta, record) }
+      records() foreach { case (id, record) => reducer ! gatherProjection(id, meta, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -243,7 +242,7 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
       val meta = parse(q)
       val reducer = system.actorOf(JPQLReducer.props("test", meta))
 
-      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], meta, record) }
+      records() foreach { case (id, record) => reducer ! gatherProjection(id, meta, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
@@ -269,7 +268,7 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
       val meta = parse(q)
       val reducer = system.actorOf(JPQLReducer.props("test", meta))
 
-      records() foreach { record => reducer ! gatherProjection(record.get("id").asInstanceOf[String], meta, record) }
+      records() foreach { case (id, record) => reducer ! gatherProjection(id, meta, record) }
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {

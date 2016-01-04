@@ -36,29 +36,32 @@ class JPQLUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
   }
 
   def update(meta: JPQLMeta, record: Record) = {
+    val id = "1"
     val jpql = meta.asInstanceOf[JPQLUpdate]
-    val updateActions = new JPQLMapperUpdate(jpql).updateEval(jpql.stmt, record).flatten
+    val updateActions = new JPQLMapperUpdate(id, jpql).updateEval(record).flatten
     info("\nUpdate:\n" + updateActions.map(_.binlog).mkString("\n"))
     updateActions foreach (_.commit())
   }
 
   def insert(meta: JPQLMeta, record: Record) = {
+    val id = "1"
     val jpql = meta.asInstanceOf[JPQLInsert]
-    val updateActions = new JPQLMapperInsert(jpql).insertEval(jpql.stmt, record)
+    val updateActions = new JPQLMapperInsert(id, jpql).insertEval(record)
     info("\nInsert:\n" + updateActions.map(_.binlog).mkString("\n"))
     updateActions foreach (_.commit())
   }
 
   def delete(meta: JPQLMeta, record: Record) = {
+    val id = "1"
     val jpql = meta.asInstanceOf[JPQLDelete]
-    val updateActions = new JPQLMapperDelete(jpql).deleteEval(jpql.stmt, record)
+    val updateActions = new JPQLMapperDelete(id, jpql).deleteEval(record)
     info("\nDelete:\n" + updateActions.map(_.binlog).mkString("\n"))
     updateActions foreach (_.commit())
   }
 
   "JPQL update" when {
     val record = initAccount()
-    record.put("id", "1")
+    record.put("id", "idWontUse")
     record.put("registerTime", 1L)
 
     var q = "UPDATE account a SET a.registerTime = 100L"
@@ -116,7 +119,7 @@ class JPQLUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
 
   "JPQL insert" when {
     val record = initAccount()
-    record.put("id", "1")
+    record.put("id", "idWontUse")
     record.put("registerTime", 1L)
 
     // insert to an array field
@@ -152,7 +155,7 @@ class JPQLUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
 
   "JPQL delete" when {
     val record = initAccount()
-    record.put("id", "1")
+    record.put("id", "idWontUse")
     record.put("registerTime", 1L)
 
     val rec_idx1 = record.get("chargeRecords").asInstanceOf[java.util.List[Record]].get(0)

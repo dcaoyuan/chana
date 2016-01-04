@@ -27,24 +27,6 @@ package object jpql {
   final case class JPQLInsert(stmt: InsertStatement, entity: String, asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
   final case class JPQLUpdate(stmt: UpdateStatement, entity: String, asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
 
-  def update(record: IndexedRecord, meta: JPQLUpdate) = {
-    Try {
-      new JPQLMapperUpdate(meta).updateEval(meta.stmt, record)
-    }
-  }
-
-  def insert(record: IndexedRecord, meta: JPQLInsert) = {
-    Try {
-      new JPQLMapperInsert(meta).insertEval(meta.stmt, record)
-    }
-  }
-
-  def delete(record: IndexedRecord, meta: JPQLDelete) = {
-    Try {
-      new JPQLMapperDelete(meta).deleteEval(meta.stmt, record)
-    }
-  }
-
   def parseJPQL(jpqlKey: String, jpql: String): Try[JPQLMeta] = {
     val parser = new JPQLParser()
     try {
@@ -55,4 +37,23 @@ package object jpql {
       case ex: Throwable => Failure(ex)
     }
   }
+
+  def update(id: String, record: IndexedRecord, meta: JPQLUpdate) = {
+    Try {
+      new JPQLMapperUpdate(id, meta).updateEval(record)
+    }
+  }
+
+  def insert(id: String, record: IndexedRecord, meta: JPQLInsert) = {
+    Try {
+      new JPQLMapperInsert(id, meta).insertEval(record)
+    }
+  }
+
+  def delete(id: String, record: IndexedRecord, meta: JPQLDelete) = {
+    Try {
+      new JPQLMapperDelete(id, meta).deleteEval(record)
+    }
+  }
+
 }

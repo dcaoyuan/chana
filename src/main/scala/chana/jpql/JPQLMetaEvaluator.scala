@@ -8,10 +8,13 @@ import scala.collection.immutable
 
 final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends JPQLEvaluator {
 
+  def id = throw new UnsupportedOperationException("Do not call id method in " + this.getClass.getSimpleName)
   protected var asToEntity = Map[String, String]()
   protected var asToJoin = Map[String, List[String]]()
   override protected def addAsToEntity(as: String, entity: String) = asToEntity += (as -> entity)
   override protected def addAsToJoin(as: String, joinPath: List[String]) = asToJoin += (as -> joinPath)
+
+  override protected def forceGather = true
 
   private var asToProjectionNode = Map[String, Projection.Node]()
 
@@ -69,56 +72,58 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
         case None        => (qual, attrPaths)
       }
 
-      asToProjectionNode.get(qual1) match {
-        case Some(projectionNode) =>
-          var currSchema = projectionNode.schema
-          var currNode: Projection.Node = projectionNode
+      if (attrPaths1.headOption != JPQLEvaluator.SOME_ID) {
+        asToProjectionNode.get(qual1) match {
+          case Some(projectionNode) =>
+            var currSchema = projectionNode.schema
+            var currNode: Projection.Node = projectionNode
 
-          var paths = attrPaths1
+            var paths = attrPaths1
 
-          while (paths.nonEmpty) {
-            val path = paths.head
-            paths = paths.tail
+            while (paths.nonEmpty) {
+              val path = paths.head
+              paths = paths.tail
 
-            // check if currNode has been targeted
-            if (!currNode.isClosed) {
-              val pathNode = currNode.findChild(path) match {
-                case Some(child) => child
-                case None =>
-                  currSchema.getType match {
-                    case Schema.Type.RECORD =>
-                      val field = currSchema.getField(path)
-                      currSchema = field.schema.getType match {
-                        case Schema.Type.RECORD => field.schema
-                        case Schema.Type.UNION  => chana.avro.getNonNullOfUnion(field.schema)
-                        case Schema.Type.ARRAY  => field.schema // TODO should be ArrayField ?
-                        case Schema.Type.MAP    => field.schema // TODO should be MapKeyField/MapValueField ?
-                        case _                  => field.schema
-                      }
+              // check if currNode has been targeted
+              if (!currNode.isClosed) {
+                val pathNode = currNode.findChild(path) match {
+                  case Some(child) => child
+                  case None =>
+                    currSchema.getType match {
+                      case Schema.Type.RECORD =>
+                        val field = currSchema.getField(path)
+                        currSchema = field.schema.getType match {
+                          case Schema.Type.RECORD => field.schema
+                          case Schema.Type.UNION  => chana.avro.getNonNullOfUnion(field.schema)
+                          case Schema.Type.ARRAY  => field.schema // TODO should be ArrayField ?
+                          case Schema.Type.MAP    => field.schema // TODO should be MapKeyField/MapValueField ?
+                          case _                  => field.schema
+                        }
 
-                      val child = Projection.FieldNode(path, Some(currNode), currSchema)
-                      currNode.addChild(child)
-                      child
+                        val child = Projection.FieldNode(path, Some(currNode), currSchema)
+                        currNode.addChild(child)
+                        child
 
-                    case Schema.Type.UNION =>
-                      val field = currSchema.getField(path)
-                      currSchema = chana.avro.getNonNullOfUnion(field.schema)
+                      case Schema.Type.UNION =>
+                        val field = currSchema.getField(path)
+                        currSchema = chana.avro.getNonNullOfUnion(field.schema)
 
-                      val child = Projection.FieldNode(path, Some(currNode), currSchema)
-                      currNode.addChild(child)
-                      child
+                        val child = Projection.FieldNode(path, Some(currNode), currSchema)
+                        currNode.addChild(child)
+                        child
 
-                    case Schema.Type.ARRAY => throw JPQLRuntimeException(currSchema, "is not a record when fetch its attribute: " + path) // TODO
-                    case Schema.Type.MAP   => throw JPQLRuntimeException(currSchema, "is not a record when fetch its attribute: " + path) // TODO
-                    case _                 => throw JPQLRuntimeException(currSchema, "is not a record when fetch its attribute: " + path)
-                  }
+                      case Schema.Type.ARRAY => throw JPQLRuntimeException(currSchema, "is not a record when fetch its attribute: " + path) // TODO
+                      case Schema.Type.MAP   => throw JPQLRuntimeException(currSchema, "is not a record when fetch its attribute: " + path) // TODO
+                      case _                 => throw JPQLRuntimeException(currSchema, "is not a record when fetch its attribute: " + path)
+                    }
+                }
+                currNode = pathNode
               }
-              currNode = pathNode
-            }
-          }
-          currNode.close()
+            } // end while
+            currNode.close()
 
-        case _ => throw JPQLRuntimeException(qual1, "is not an AS alias of entity")
+          case _ => throw JPQLRuntimeException(qual1, "is not an AS alias of entity")
+        }
       }
     }
   }
@@ -126,9 +131,9 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
   override def pathExprOrVarAccess(expr: PathExprOrVarAccess, record: Any): Any = {
     expr match {
       case PathExprOrVarAccess_QualIdentVar(qual, attrs) =>
-        val qualx = qualIdentVar(qual, record)
+        val qual0 = qualIdentVar(qual, record)
         val paths = attrs map { x => attribute(x, record) }
-        collectLeastProjectionNodes(qualx, paths)
+        collectLeastProjectionNodes(qual0, paths)
       case PathExprOrVarAccess_FuncsReturingAny(expr, attrs) =>
         funcsReturningAny(expr, record)
       // For MapValue, the field should have been collected during MapValue
@@ -136,9 +141,9 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
   }
 
   override def pathExpr(expr: PathExpr, record: Any): Any = {
-    val qual = qualIdentVar(expr.qual, record)
+    val qual0 = qualIdentVar(expr.qual, record)
     val paths = expr.attributes map { x => attribute(x, record) }
-    collectLeastProjectionNodes(qual, paths)
+    collectLeastProjectionNodes(qual0, paths)
   }
 
   override def orderbyItem(item: OrderbyItem, record: Any): Any = {

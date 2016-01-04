@@ -122,11 +122,10 @@ class JPQLReducer(jqplKey: String, meta: JPQLSelect) extends Actor with Stash wi
     if (idToDataset.isEmpty) {
       Array()
     } else {
-      val datasets = idToDataset.values
       val reduced = if (withGroupby) {
-        applyGroupbys(datasets).toArray
+        applyGroupbys(idToDataset).toArray
       } else {
-        reduceDataset(datasets).toArray
+        reduceDataset(idToDataset).toArray
       }
 
       if (reduced.length > 0) {
@@ -152,22 +151,22 @@ class JPQLReducer(jqplKey: String, meta: JPQLSelect) extends Actor with Stash wi
     }
   }
 
-  def applyGroupbys(datasets: Iterable[RecordProjection]) = {
-    evaluator.reset(datasets)
-    val xs = datasets.map { dataset => (evaluator.visitGroupbys(dataset.projection), dataset) }
-    xs.groupBy { _._1 }.map {
-      case (groupKey, subDatasets) => reduceDataset(subDatasets.map { _._2 }).find { _ ne null }
+  def applyGroupbys(idToDataset: Map[String, RecordProjection]) = {
+    evaluator.reset(idToDataset)
+    val groupKeyToSubset = idToDataset.groupBy { case (id, dataset) => evaluator.visitGroupbys(id, dataset.projection) }
+    groupKeyToSubset.map {
+      case (groupKey, subset) => reduceDataset(subset).find(_ ne null)
     }.flatten
   }
 
-  def reduceDataset(datasets: Iterable[RecordProjection]): List[WorkSet] = {
-    evaluator.reset(datasets)
+  def reduceDataset(idToDataset: Map[String, RecordProjection]): List[WorkSet] = {
+    evaluator.reset(idToDataset)
     var reduced = List[WorkSet]()
-    val itr = datasets.iterator
+    val itr = idToDataset.iterator
 
     while (itr.hasNext) {
-      val entry = itr.next
-      reduced :::= evaluator.visitOneRecord(entry.projection)
+      val (id, dataSet) = itr.next
+      reduced :::= evaluator.visitOneRecord(id, dataSet.projection)
     }
     log.debug("reduced: {}", reduced)
 

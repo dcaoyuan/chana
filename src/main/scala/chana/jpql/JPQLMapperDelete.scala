@@ -7,12 +7,13 @@ import chana.jpql.nodes._
 import org.apache.avro.Schema
 import org.apache.avro.generic.IndexedRecord
 
-final class JPQLMapperDelete(meta: JPQLDelete) extends JPQLEvaluator {
+final class JPQLMapperDelete(val id: String, meta: JPQLDelete) extends JPQLEvaluator {
 
   protected def asToEntity = meta.asToEntity
   protected def asToJoin = meta.asToJoin
 
-  def deleteEval(stmt: DeleteStatement, record: IndexedRecord): List[UpdateAction] = {
+  def deleteEval(record: IndexedRecord): List[UpdateAction] = {
+    val stmt = meta.stmt
     var toDeletes = List[IndexedRecord]()
     if (asToJoin.nonEmpty) {
       val joinFieldName = asToJoin.head._2.tail.head

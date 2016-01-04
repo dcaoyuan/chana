@@ -474,7 +474,7 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
 
         // insert
         awaitAssert {
-          IO(Http) ! Post(baseUrl1 + "/jpql", "INSERT INTO PersonInfo p (emails) VALUES (JSON(\"bond1@abc.com\")), (JSON(\"bond2@abc.com\")) WHERE p.name = 'James Not Bond'")
+          IO(Http) ! Post(baseUrl1 + "/jpql", "INSERT INTO PersonInfo p (emails) VALUES (JSON(\"bond1@abc.com\")), (JSON(\"bond2@abc.com\")) WHERE p.id = '1' AND p.name = 'James Not Bond'")
           expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
         }
 
@@ -489,7 +489,7 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
 
         // delete
         awaitAssert {
-          IO(Http) ! Post(baseUrl1 + "/jpql", "DELETE FROM PersonInfo p (emails) WHERE p.name = 'James Not Bond'")
+          IO(Http) ! Post(baseUrl1 + "/jpql", "DELETE FROM PersonInfo p (emails) WHERE p.id = '1'")
           expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
         }
 

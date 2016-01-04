@@ -9,20 +9,27 @@ final case class WorkSet(selectedItems: List[Any], orderbys: List[Any])
 
 final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JPQLEvaluator {
 
+  private var _id: String = null
+  def id = _id
+  private def id_=(id: String) {
+    _id = id
+  }
+
   protected def asToEntity = meta.asToEntity
   protected def asToJoin = meta.asToJoin
 
-  private var idToProjection = Iterable[RecordProjection]()
+  private var idToProjection = Map[String, RecordProjection]()
   private var aggrCaches = Map[AggregateExpr, Number]()
 
-  def reset(_idToProjection: Iterable[RecordProjection]) {
+  def reset(_idToProjection: Map[String, RecordProjection]) {
     idToProjection = _idToProjection
     aggrCaches = Map()
   }
 
-  def visitGroupbys(record: IndexedRecord): List[Any] = {
+  def visitGroupbys(_id: String, record: IndexedRecord): List[Any] = {
     meta.stmt match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
+        id = _id
         groupby.fold(List[Any]()) { x => groupbyClause(x, record) }
       case _ =>
         // not applicable for INSERT/UPDATE/DELETE
@@ -30,10 +37,11 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
     }
   }
 
-  def visitOneRecord(record: IndexedRecord): List[WorkSet] = {
+  def visitOneRecord(_id: String, record: IndexedRecord): List[WorkSet] = {
     selectedItems = List()
     meta.stmt match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
+        id = _id
 
         if (meta.asToJoin.nonEmpty) {
           var res = List[WorkSet]()
@@ -82,7 +90,7 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
         case AggregateExpr_AVG(isDistinct, expr) =>
           var sum = 0.0
           var count = 0
-          val itr = idToProjection.iterator
+          val itr = idToProjection.valuesIterator
 
           while (itr.hasNext) {
             val dataset = itr.next
@@ -96,7 +104,7 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
 
         case AggregateExpr_MAX(isDistinct, expr) =>
           var max = 0.0
-          val itr = idToProjection.iterator
+          val itr = idToProjection.valuesIterator
 
           while (itr.hasNext) {
             val dataset = itr.next
@@ -109,7 +117,7 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
 
         case AggregateExpr_MIN(isDistinct, expr) =>
           var min = 0.0
-          val itr = idToProjection.iterator
+          val itr = idToProjection.valuesIterator
 
           while (itr.hasNext) {
             val dataset = itr.next
@@ -122,7 +130,7 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
 
         case AggregateExpr_SUM(isDistinct, expr) =>
           var sum = 0.0
-          val itr = idToProjection.iterator
+          val itr = idToProjection.valuesIterator
 
           while (itr.hasNext) {
             val dataset = itr.next

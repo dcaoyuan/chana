@@ -17,16 +17,18 @@ sealed trait AvroProjection extends Serializable { def id: String }
 final case class BinaryProjection(id: String, projection: Array[Byte]) extends AvroProjection
 final case class RemoveProjection(id: String) extends AvroProjection // used to remove
 
-final class JPQLMapperSelect(meta: JPQLSelect) extends JPQLEvaluator {
+final class JPQLMapperSelect(val id: String, meta: JPQLSelect) extends JPQLEvaluator {
   private val projection = new Record(meta.projectionSchema.head) // TODO multiple projections
 
   protected def asToEntity = meta.asToEntity
   protected def asToJoin = meta.asToJoin
 
+  override protected def forceGather = true
+
   /**
    * Main Entrance for select statement during mapping.
    */
-  def gatherProjection(entityId: String, record: IndexedRecord): AvroProjection = {
+  def gatherProjection(record: IndexedRecord): AvroProjection = {
     meta.stmt match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
 
@@ -53,9 +55,9 @@ final class JPQLMapperSelect(meta: JPQLSelect) extends JPQLEvaluator {
             }
           }
           if (hasResult) {
-            BinaryProjection(entityId, avro.avroEncode(projection, meta.projectionSchema.head).get)
+            BinaryProjection(id, avro.avroEncode(projection, meta.projectionSchema.head).get)
           } else {
-            RemoveProjection(entityId)
+            RemoveProjection(id)
           }
 
         } else {
@@ -71,9 +73,9 @@ final class JPQLMapperSelect(meta: JPQLSelect) extends JPQLEvaluator {
             having foreach { x => havingClause(x, record) }
             orderby foreach { x => orderbyClause(x, record) }
 
-            BinaryProjection(entityId, avro.avroEncode(projection, meta.projectionSchema.head).get)
+            BinaryProjection(id, avro.avroEncode(projection, meta.projectionSchema.head).get)
           } else {
-            RemoveProjection(entityId) // an empty data may be used to COUNT, but null won't
+            RemoveProjection(id) // an empty data may be used to COUNT, but null won't
           }
         }
 
@@ -82,7 +84,7 @@ final class JPQLMapperSelect(meta: JPQLSelect) extends JPQLEvaluator {
   }
 
   override def valueOfRecord(attrs: List[String], record: IndexedRecord, toGather: Boolean): Any = {
-    if (isToGather && toGather) {
+    if (isToGather && toGather && attrs.headOption != JPQLEvaluator.SOME_ID) {
       var paths = attrs
       var currValue: Any = record
       var valueSchema = record.getSchema

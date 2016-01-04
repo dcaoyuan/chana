@@ -9,12 +9,13 @@ import org.apache.avro.Schema
 import org.apache.avro.generic.IndexedRecord
 import org.codehaus.jackson.JsonNode
 
-final class JPQLMapperUpdate(meta: JPQLUpdate) extends JPQLEvaluator {
+final class JPQLMapperUpdate(val id: String, meta: JPQLUpdate) extends JPQLEvaluator {
 
   protected def asToEntity = meta.asToEntity
   protected def asToJoin = meta.asToJoin
 
-  def updateEval(stmt: UpdateStatement, record: IndexedRecord): List[List[UpdateAction]] = {
+  def updateEval(record: IndexedRecord): List[List[UpdateAction]] = {
+    val stmt = meta.stmt
     var toUpdates = List[IndexedRecord]()
     if (asToJoin.nonEmpty) {
       val joinFieldName = asToJoin.head._2.tail.head
