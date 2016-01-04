@@ -74,7 +74,7 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
   }
 
   def receive = {
-    case chana.PutJPQL(key, jpql, interval) =>
+    case chana.PutJPQL(_, key, jpql, interval) =>
       val commander = sender()
 
       parseJPQL(key, jpql) match {

@@ -29,9 +29,10 @@ class JPQLUpdateSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
     val parser = new JPQLParser()
     val stmt = parser.parse(query)
     //info("\nParsed:\n" + stmt)
+    //info("\nWhere: \n" + stmt.where)
     val metaEval = new JPQLMetaEvaluator("2", schemaBoard)
     val meta = metaEval.collectMeta(stmt, null)
-    //info("meta:\n" + meta)
+    info("Specified ids:\n" + meta.specifiedIds)
     meta
   }
 

@@ -50,7 +50,7 @@ trait JPQLBehavior extends Entity {
     case SubscribeAck(Subscribe(topic, None, `self`)) =>
       log.debug("Subscribed " + topic)
 
-    case PutJPQL(key, jpqlQuery, interval) =>
+    case PutJPQL(_, key, jpqlQuery, interval) =>
 
       jpql.parseJPQL(key, jpqlQuery) match {
 

@@ -27,8 +27,8 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
         val entity = fromClause(from, record) // collect asToEntity and asToJoin
 
         asToProjectionNode = asToEntity.foldLeft(Map[String, Projection.Node]()) {
-          case (acc, (as, entityName)) =>
-            schemaBoard.schemaOf(entityName) match {
+          case (acc, (as, entity)) =>
+            schemaBoard.schemaOf(entity) match {
               case Some(schema) => acc + (as -> Projection.FieldNode(schema.getName.toLowerCase, None, schema))
               case None         => acc
             }
@@ -46,22 +46,38 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
           case (as, projectionNode) => Projection.visitProjectionNode(jpqlKey, projectionNode, null).endRecord
         }
 
-        JPQLSelect(stmt, entity, asToEntity, asToJoin, projectionSchemas.toList)
+        val ids = collectSpecifiedIds(stmt).filter {
+          case (as, id) => asToEntity.get(as).fold(false)(_ == entity)
+        } map (_._2)
+
+        JPQLSelect(stmt, entity, asToEntity, asToJoin, ids, projectionSchemas.toList)
 
       case stmt @ UpdateStatement(update, set, where) =>
         // visit updateClause is enough for meta
         val entity = updateClause(update, record)
-        JPQLUpdate(stmt, entity, asToEntity, asToJoin)
+        val ids = collectSpecifiedIds(stmt).filter {
+          case (as, id) => asToEntity.get(as).fold(false)(_ == entity)
+        } map (_._2)
+
+        JPQLUpdate(stmt, entity, asToEntity, asToJoin, ids)
 
       case stmt @ DeleteStatement(delete, attributes, where) =>
         // visit deleteClause is enough for meta
         val entity = deleteClause(delete, record)
-        JPQLDelete(stmt, entity, asToEntity, asToJoin)
+        val ids = collectSpecifiedIds(stmt).filter {
+          case (as, id) => asToEntity.get(as).fold(false)(_ == entity)
+        } map (_._2)
+
+        JPQLDelete(stmt, entity, asToEntity, asToJoin, ids)
 
       case stmt @ InsertStatement(insert, attributes, values, where) =>
         // visit insertClause is enough for meta
         val entity = insertClause(insert, record)
-        JPQLInsert(stmt, entity, asToEntity, asToJoin)
+        val ids = collectSpecifiedIds(stmt).filter {
+          case (as, id) => asToEntity.get(as).fold(false)(_ == entity)
+        } map (_._2)
+
+        JPQLInsert(stmt, entity, asToEntity, asToJoin, ids)
     }
   }
 
@@ -127,6 +143,33 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
       }
     }
   }
+
+  private def collectSpecifiedIds(stmt: Statement): List[(String, String)] = {
+    stmt.where match {
+      case Some(WhereClause(CondExpr(term, orTerms))) =>
+        (term :: orTerms) map collectSpecifiedIds flatten
+      case None => List()
+    }
+  }
+
+  private def collectSpecifiedIds(term: CondTerm): List[(String, String)] = {
+    (term.factor :: term.andFactors) map collectSpecifiedIds flatten
+  }
+
+  private def collectSpecifiedIds(factor: CondFactor): Option[(String, String)] = {
+    val not = factor.not
+    factor.expr match {
+      case Left(CondPrimary_SimpleCondExpr(SimpleCondExpr(Left(ArithExpr(Left(
+        SimpleArithExpr(ArithTerm(ArithFactor(ArithPrimary_Plus(
+          ArithPrimary_PathExprOrVarAccess(PathExprOrVarAccess_QualIdentVar(
+            QualIdentVar(VarAccessOrTypeConstant(Ident(alias))), List(Attribute(attr)))))), /*rightFactors*/ List()), /*rightTerms*/ List())))),
+        SimpleCondExprRem_ComparisonExpr(ComparisonExpr(EQ, ComparsionExprRightOperand_NonArithScalarExpr(NonArithScalarExpr_LiteralString(id))))))) if attr.toLowerCase == JPQLEvaluator.ID =>
+        if (not) None else Some((alias, id))
+      case _ => None
+    }
+  }
+
+  // ----- override methods
 
   override def pathExprOrVarAccess(expr: PathExprOrVarAccess, record: Any): Any = {
     expr match {

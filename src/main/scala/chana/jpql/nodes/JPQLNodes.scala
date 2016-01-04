@@ -7,7 +7,9 @@ package chana.jpql
  */
 package object nodes {
 
-  sealed trait Statement extends Serializable
+  sealed trait Statement extends Serializable {
+    def where: Option[WhereClause]
+  }
   final case class SelectStatement(
     select: SelectClause,
     from: FromClause,

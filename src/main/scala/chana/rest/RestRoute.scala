@@ -84,7 +84,7 @@ trait RestRoute extends Directives {
                 val interval = intervalOpt.fold(10.second)(_.milliseconds)
                 processJPQL(key, jpqlQuery, interval) match {
                   case Success(meta) =>
-                    jpqlBoard.ask(chana.PutJPQL(key, jpqlQuery, interval))(writeTimeout)
+                    jpqlBoard.ask(chana.PutJPQL(chana.NON_ID, key, jpqlQuery, interval))(writeTimeout)
                   case failure @ Failure(ex) =>
                     Future(failure)
                 }
@@ -334,23 +334,44 @@ trait RestRoute extends Directives {
 
     jpql.parseJPQL(key, jpqlQuery) match {
       case Success(meta: jpql.JPQLSelect) =>
-        mediator ! Publish(jpql.JPQLBehavior.jpqlTopic + meta.entity, PutJPQL(key, jpqlQuery, interval))
-        Success(key)
+        val ids = meta.specifiedIds
+        if (ids.nonEmpty) {
+          ids foreach { id => resolver(meta.entity) ! PutJPQL(id, key, jpqlQuery, interval) }
+          Success(key)
+        } else {
+          mediator ! Publish(jpql.JPQLBehavior.jpqlTopic + meta.entity, PutJPQL(chana.NON_ID, key, jpqlQuery, interval))
+          Success(key)
+        }
 
       case Success(meta: jpql.JPQLUpdate) =>
-        // check if whereClause has id
-        mediator ! Publish(jpql.JPQLBehavior.jpqlTopic + meta.entity, PutJPQL(key, jpqlQuery, Duration.Zero))
-        Success(key)
+        val ids = meta.specifiedIds
+        if (ids.nonEmpty) {
+          ids foreach { id => resolver(meta.entity) ! PutJPQL(id, key, jpqlQuery, interval) }
+          Success(key)
+        } else {
+          mediator ! Publish(jpql.JPQLBehavior.jpqlTopic + meta.entity, PutJPQL(chana.NON_ID, key, jpqlQuery, Duration.Zero))
+          Success(key)
+        }
 
       case Success(meta: jpql.JPQLInsert) =>
-        // check id and sent to entity with id only
-        mediator ! Publish(jpql.JPQLBehavior.jpqlTopic + meta.entity, PutJPQL(key, jpqlQuery, Duration.Zero))
-        Success(key)
+        val ids = meta.specifiedIds
+        if (ids.nonEmpty) {
+          ids foreach { id => resolver(meta.entity) ! PutJPQL(id, key, jpqlQuery, interval) }
+          Success(key)
+        } else {
+          mediator ! Publish(jpql.JPQLBehavior.jpqlTopic + meta.entity, PutJPQL(chana.NON_ID, key, jpqlQuery, Duration.Zero))
+          Success(key)
+        }
 
       case Success(meta: jpql.JPQLDelete) =>
-        // check if whereClause has id
-        mediator ! Publish(jpql.JPQLBehavior.jpqlTopic + meta.entity, PutJPQL(key, jpqlQuery, Duration.Zero))
-        Success(key)
+        val ids = meta.specifiedIds
+        if (ids.nonEmpty) {
+          ids foreach { id => resolver(meta.entity) ! PutJPQL(id, key, jpqlQuery, interval) }
+          Success(key)
+        } else {
+          mediator ! Publish(jpql.JPQLBehavior.jpqlTopic + meta.entity, PutJPQL(chana.NON_ID, key, jpqlQuery, Duration.Zero))
+          Success(key)
+        }
 
       case failure @ Failure(ex) =>
         //log.error(ex, ex.getMessage)

@@ -21,11 +21,12 @@ package object jpql {
     def entity: String
     def asToEntity: Map[String, String]
     def asToJoin: Map[String, List[String]]
+    def specifiedIds: List[String]
   }
-  final case class JPQLSelect(stmt: SelectStatement, entity: String, asToEntity: Map[String, String], asToJoin: Map[String, List[String]], projectionSchema: List[Schema]) extends JPQLMeta
-  final case class JPQLDelete(stmt: DeleteStatement, entity: String, asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
-  final case class JPQLInsert(stmt: InsertStatement, entity: String, asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
-  final case class JPQLUpdate(stmt: UpdateStatement, entity: String, asToEntity: Map[String, String], asToJoin: Map[String, List[String]]) extends JPQLMeta
+  final case class JPQLSelect(stmt: SelectStatement, entity: String, asToEntity: Map[String, String], asToJoin: Map[String, List[String]], specifiedIds: List[String], projectionSchema: List[Schema]) extends JPQLMeta
+  final case class JPQLDelete(stmt: DeleteStatement, entity: String, asToEntity: Map[String, String], asToJoin: Map[String, List[String]], specifiedIds: List[String]) extends JPQLMeta
+  final case class JPQLInsert(stmt: InsertStatement, entity: String, asToEntity: Map[String, String], asToJoin: Map[String, List[String]], specifiedIds: List[String]) extends JPQLMeta
+  final case class JPQLUpdate(stmt: UpdateStatement, entity: String, asToEntity: Map[String, String], asToJoin: Map[String, List[String]], specifiedIds: List[String]) extends JPQLMeta
 
   def parseJPQL(jpqlKey: String, jpql: String): Try[JPQLMeta] = {
     val parser = new JPQLParser()

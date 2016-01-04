@@ -3,6 +3,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
 
 package object chana {
+  val NON_ID = ""
 
   trait Command extends Serializable {
     def id: String
@@ -37,12 +38,14 @@ package object chana {
   final case class RemoveScript(entity: String, field: String, id: String)
 
   /**
+   * @param   entity id, could be null if unapplicable
    * @param   jpql name
    * @param   jpql string
+   * @param   reporting interval
    */
-  final case class PutJPQL(key: String, jpql: String, reportInterval: FiniteDuration) extends Event
-  final case class RemoveJPQL(key: String) extends Event
-  final case class AskJPQL(key: String) extends Event
+  final case class PutJPQL(id: String, key: String, jpql: String, reportInterval: FiniteDuration) extends Command
+  final case class RemoveJPQL(key: String)
+  final case class AskJPQL(key: String)
 
   final case class UpdatedFields(updatedFields: List[(Int, Any)]) extends Event
 
