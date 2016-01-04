@@ -22,8 +22,6 @@ trait RestRoute extends Directives {
   val system: ActorSystem
   import system.dispatcher
 
-  protected def mediator = DistributedPubSubExtension(system).mediator
-
   def readTimeout: Timeout
   def writeTimeout: Timeout
 
@@ -31,6 +29,7 @@ trait RestRoute extends Directives {
   def scriptBoard = DistributedScriptBoard(system).board
   def jpqlBoard = DistributedJPQLBoard(system).board
 
+  final def mediator = DistributedPubSubExtension(system).mediator
   final def resolver(entityName: String) = ClusterSharding(system).shardRegion(entityName)
 
   final def restApi = schemaApi ~ jpqlApi ~ accessApi
@@ -330,7 +329,6 @@ trait RestRoute extends Directives {
    * We have to publish plain jpql query string instead of parsed AST, since:
    *   1. It's not efficient to serialize the AST
    *   2. When JsonNode is in AST, some of them is not be serializable
-   * TODO should only publish to related type of entities.
    */
   private def processJPQL(key: String, jpqlQuery: String, interval: FiniteDuration): Try[_] = {
 

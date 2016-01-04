@@ -251,65 +251,31 @@ trait Entity extends Actor with Stash with PersistentActor {
     }
   }
 
-  private def putFields(commander: ActorRef, _fieldToValue: List[(String, Any)]) = {
-    var fieldToValue = _fieldToValue
-    var updatedFields = List[(Schema.Field, Any)]()
-    var error: Option[Exception] = None
-    while (fieldToValue.nonEmpty && error.isEmpty) {
-      val (fieldName, value) = fieldToValue.head
-      val field = schema.getField(fieldName)
-      if (field != null) {
-        updatedFields ::= (field, value)
-      } else {
-        val ex = new RuntimeException("Field does not exist: " + fieldName)
-        log.error(ex, ex.getMessage)
-        error = Some(ex)
-      }
-      fieldToValue = fieldToValue.tail
-    }
-
-    error match {
-      case None     => commitFields(id, updatedFields, commander)
-      case Some(ex) => commander ! Failure(ex)
-    }
-  }
-
   private def commitRecord(id: String, toBe: Record, commander: ActorRef) {
     var actions = List[UpdateAction]()
-
     val fields = schema.getFields.iterator
+
     while (fields.hasNext) {
       val field = fields.next
       val value = toBe.get(field.pos)
-
-      val prev = record.get(field.pos)
-      val rlback = { () => record.put(field.pos, prev) }
-      val commit = { () => record.put(field.pos, value) }
-      val xpath = "/" + field.name
-      val bytes = avro.avroEncode(value, field.schema).get
-      actions ::= UpdateAction(commit, rlback, Changelog(xpath, value, bytes))
+      actions ::= prepareUpdateAction(field, value, commander)
     }
 
     commit(id, actions.reverse, commander)
   }
 
   private def commitField(id: String, value: Any, field: Schema.Field, commander: ActorRef) {
-    commitFields(id, List((field, value)), commander)
+    val action = prepareUpdateAction(field, value, commander)
+    commit(id, List(action), commander)
   }
 
-  private def commitFields(id: String, updateFields: List[(Schema.Field, Any)], commander: ActorRef) {
-    var actions = List[UpdateAction]()
-
-    for { (field, value) <- updateFields } {
-      val prev = record.get(field.pos)
-      val rlback = { () => record.put(field.pos, prev) }
-      val commit = { () => record.put(field.pos, value) }
-      val xpath = "/" + field.name
-      val bytes = avro.avroEncode(value, field.schema).get
-      actions ::= UpdateAction(commit, rlback, Changelog(xpath, value, bytes))
-    }
-
-    commit(id, actions.reverse, commander)
+  private def prepareUpdateAction(field: Schema.Field, value: Any, commander: ActorRef) = {
+    val prev = record.get(field.pos)
+    val rlback = { () => record.put(field.pos, prev) }
+    val commit = { () => record.put(field.pos, value) }
+    val xpath = "/" + field.name
+    val bytes = avro.avroEncode(value, field.schema).get
+    UpdateAction(commit, rlback, Changelog(xpath, value, bytes))
   }
 
   protected def commit(id: String, actions: List[UpdateAction], commander: ActorRef) {
@@ -317,13 +283,13 @@ trait Entity extends Actor with Stash with PersistentActor {
 
     // TODO configuration options to persistAsync etc.
     if (isPersistent) {
-      persist(event)(_commit(actions, commander))
+      persist(event)(doCommit(actions, commander))
     } else {
-      _commit(actions, commander)(event)
+      doCommit(actions, commander)(event)
     }
   }
 
-  private def _commit(actions: List[UpdateAction], commander: ActorRef)(event: UpdateEvent) {
+  private def doCommit(actions: List[UpdateAction], commander: ActorRef)(event: UpdateEvent) {
     actions foreach { _.commit() }
 
     if (persistCount >= persistParams) {
