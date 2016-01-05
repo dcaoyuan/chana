@@ -81,6 +81,9 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
     }
   }
 
+  /**
+   * TODO collect aliased value
+   */
   private def collectLeastProjectionNodes(qual: String, attrPaths: List[String]) {
     if (isToGather) {
       val (qual1, attrPaths1) = asToJoin.get(qual) match {

@@ -116,7 +116,6 @@ abstract class JPQLEvaluator {
   final def valueOfRecord(qual: String, attrs: List[String], record: IndexedRecord, toGather: Boolean): Any = {
     normalizeEntityAttrs(qual, attrs, record.getSchema) match {
       case Nil =>
-        println("asToItem: " + asToItem + ", qual: " + qual)
         asToItem.get(qual) match {
           case Some(x) => x
           case None    => throw JPQLRuntimeException(qual, "is not an AS alias of entity: " + EntityName)
@@ -210,10 +209,7 @@ abstract class JPQLEvaluator {
 
   def selectItem(item: SelectItem, record: Any): Any = {
     val item0 = selectExpr(item.expr, record)
-    item.as foreach { x =>
-      println("add as: " + (x.ident -> item0))
-      asToItem += (x.ident -> item0)
-    }
+    item.as foreach { x => asToItem += (x.ident -> item0) }
     item0
   }
 

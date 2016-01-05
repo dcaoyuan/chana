@@ -160,10 +160,7 @@ class JPQLReducer(jqplKey: String, meta: JPQLSelect) extends Actor with Stash wi
     evaluator.reset(idToDataset)
     val groupKeyToSubset = idToDataset.groupBy { case (id, dataset) => evaluator.visitGroupbys(id, dataset.projection) }
     groupKeyToSubset.map {
-      case (groupKey, subset) =>
-        val grouped = reduceDataset(subset).find { x => (x ne null) && x.having }
-        println("groupby: " + groupKey + ", " + grouped)
-        grouped
+      case (groupKey, subset) => reduceDataset(subset).find { x => (x ne null) && x.having } // groupby should return only one result
     }.flatten
   }
 
