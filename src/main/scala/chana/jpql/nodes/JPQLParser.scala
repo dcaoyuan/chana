@@ -254,11 +254,11 @@ final class JPQLParser() {
   def selectExpr(node: Node): SelectExpr = {
     val n = node.getNode(0)
     n.getName match {
-      case "AggregateExpr"           => SelectExpr_AggregateExpr(visit(n)(aggregateExpr))
-      case "ScalarExpr"              => SelectExpr_ScalarExpr(visit(n)(scalarExpr))
-      case "VarAccessOrTypeConstant" => SelectExpr_OBJECT(visit(n)(varAccessOrTypeConstant))
-      case "ConstructorExpr"         => SelectExpr_ConstructorExpr(visit(n)(constructorExpr))
-      case "MapEntryExpr"            => SelectExpr_MapEntryExpr(visit(n)(mapEntryExpr))
+      case "AggregateExpr"           => visit(n)(aggregateExpr)
+      case "ScalarExpr"              => visit(n)(scalarExpr)
+      case "VarAccessOrTypeConstant" => visit(n)(varAccessOrTypeConstant)
+      case "ConstructorExpr"         => visit(n)(constructorExpr)
+      case "MapEntryExpr"            => visit(n)(mapEntryExpr)
     }
   }
 
@@ -280,10 +280,10 @@ final class JPQLParser() {
     n.getName match {
       case "QualIdentVar" =>
         val qual = visit(n)(qualIdentVar)
-        PathExprOrVarAccess_QualIdentVar(qual, attributes)
+        QualIdentVarWithAttrs(qual, attributes)
       case "FuncsReturningAny" =>
         val value = visit(n)(funcsReturningAny)
-        PathExprOrVarAccess_FuncsReturingAny(value, attributes)
+        FuncsReturingAnyWithAttrs(value, attributes)
     }
   }
 
@@ -305,11 +305,11 @@ final class JPQLParser() {
     val isDistinct = node.get(1) eq null
     val expr = visit(node.getNode(2))(scalarExpr)
     node.getString(0) match {
-      case "avg"   => AggregateExpr_AVG(isDistinct, expr)
-      case "max"   => AggregateExpr_MAX(isDistinct, expr)
-      case "min"   => AggregateExpr_MIN(isDistinct, expr)
-      case "sum"   => AggregateExpr_SUM(isDistinct, expr)
-      case "count" => AggregateExpr_COUNT(isDistinct, expr)
+      case "avg"   => Avg(isDistinct, expr)
+      case "max"   => Max(isDistinct, expr)
+      case "min"   => Min(isDistinct, expr)
+      case "sum"   => Sum(isDistinct, expr)
+      case "count" => Count(isDistinct, expr)
     }
   }
 
@@ -339,8 +339,8 @@ final class JPQLParser() {
   def constructorItem(node: Node) = {
     val n = node.getNode(0)
     n.getName match {
-      case "ScalarExpr"    => ConstructorItem_ScalarExpr(visit(n)(scalarExpr))
-      case "AggregateExpr" => ConstructorItem_AggregateExpr(visit(n)(aggregateExpr))
+      case "ScalarExpr"    => visit(n)(scalarExpr)
+      case "AggregateExpr" => visit(n)(aggregateExpr)
     }
   }
 
@@ -560,8 +560,8 @@ final class JPQLParser() {
   def condPrimary(node: Node) = {
     val n = node.getNode(0)
     n.getName match {
-      case "CondExpr"       => CondPrimary_CondExpr(visit(n)(condExpr))
-      case "SimpleCondExpr" => CondPrimary_SimpleCondExpr(visit(n)(simpleCondExpr))
+      case "CondExpr"       => visit(n)(condExpr)
+      case "SimpleCondExpr" => visit(n)(simpleCondExpr)
     }
   }
 
@@ -586,18 +586,18 @@ final class JPQLParser() {
    */
   def simpleCondExprRem(node: Node) = {
     node.get(0) match {
-      case n: Node => SimpleCondExprRem_ComparisonExpr(visit(n)(comparisonExpr))
+      case n: Node => visit(n)(comparisonExpr)
       case null =>
         val n2 = node.getNode(1)
         n2.getName match {
-          case "CondWithNotExpr" => SimpleCondExprRem_CondWithNotExpr(false, visit(n2)(condWithNotExpr))
-          case "IsExpr"          => SimpleCondExprRem_IsExpr(false, visit(n2)(isExpr))
+          case "CondWithNotExpr" => CondWithNotExprWithNot(false, visit(n2)(condWithNotExpr))
+          case "IsExpr"          => IsExprWithNot(false, visit(n2)(isExpr))
         }
       case "not" =>
         val n2 = node.getNode(1)
         n2.getName match {
-          case "CondWithNotExpr" => SimpleCondExprRem_CondWithNotExpr(true, visit(n2)(condWithNotExpr))
-          case "IsExpr"          => SimpleCondExprRem_IsExpr(true, visit(n2)(isExpr))
+          case "CondWithNotExpr" => CondWithNotExprWithNot(true, visit(n2)(condWithNotExpr))
+          case "IsExpr"          => IsExprWithNot(true, visit(n2)(isExpr))
         }
     }
   }
@@ -611,10 +611,10 @@ final class JPQLParser() {
   def condWithNotExpr(node: Node) = {
     val n = node.getNode(0)
     n.getName match {
-      case "BetweenExpr"          => CondWithNotExpr_BetweenExpr(visit(n)(betweenExpr))
-      case "LikeExpr"             => CondWithNotExpr_LikeExpr(visit(n)(likeExpr))
-      case "InExpr"               => CondWithNotExpr_InExpr(visit(n)(inExpr))
-      case "CollectionMemberExpr" => CondWithNotExpr_CollectionMemberExpr(visit(n)(collectionMemberExpr))
+      case "BetweenExpr"          => visit(n)(betweenExpr)
+      case "LikeExpr"             => visit(n)(likeExpr)
+      case "InExpr"               => visit(n)(inExpr)
+      case "CollectionMemberExpr" => visit(n)(collectionMemberExpr)
     }
   }
 
@@ -624,8 +624,8 @@ final class JPQLParser() {
    */
   def isExpr(node: Node) = {
     node.getNode(0).getName match {
-      case "NullComparisonExpr"            => IsNullExpr
-      case "EmptyCollectionComparisonExpr" => IsEmptyExpr
+      case "NullComparisonExpr"            => IsNull
+      case "EmptyCollectionComparisonExpr" => IsEmpty
     }
   }
 
@@ -714,9 +714,9 @@ final class JPQLParser() {
   def comparisonExprRightOperand(node: Node) = {
     val n = node.getNode(0)
     n.getName match {
-      case "ArithExpr"          => ComparsionExprRightOperand_ArithExpr(visit(n)(arithExpr))
-      case "NonArithScalarExpr" => ComparsionExprRightOperand_NonArithScalarExpr(visit(n)(nonArithScalarExpr))
-      case "AnyOrAllExpr"       => ComparsionExprRightOperand_AnyOrAllExpr(visit(n)(anyOrAllExpr))
+      case "ArithExpr"          => visit(n)(arithExpr)
+      case "NonArithScalarExpr" => visit(n)(nonArithScalarExpr)
+      case "AnyOrAllExpr"       => visit(n)(anyOrAllExpr)
     }
   }
 
@@ -788,13 +788,16 @@ final class JPQLParser() {
     node.get(0) match {
       case n: Node =>
         n.getName match {
-          case "PathExprOrVarAccess"   => ArithPrimary_PathExprOrVarAccess(visit(n)(pathExprOrVarAccess))
-          case "InputParam"            => ArithPrimary_InputParam(visit(n)(inputParam))
-          case "CaseExpr"              => ArithPrimary_CaseExpr(visit(n)(caseExpr))
-          case "FuncsReturningNumeric" => ArithPrimary_FuncsReturningNumeric(visit(n)(funcsReturningNumeric))
-          case "SimpleArithExpr"       => ArithPrimary_SimpleArithExpr(visit(n)(simpleArithExpr))
+          case "PathExprOrVarAccess"   => visit(n)(pathExprOrVarAccess)
+          case "InputParam"            => visit(n)(inputParam)
+          case "CaseExpr"              => visit(n)(caseExpr)
+          case "FuncsReturningNumeric" => visit(n)(funcsReturningNumeric)
+          case "SimpleArithExpr"       => visit(n)(simpleArithExpr)
         }
-      case v: Number => ArithPrimary_LiteralNumeric(v)
+      case v: java.lang.Integer => LiteralInteger(v)
+      case v: java.lang.Long    => LiteralLong(v)
+      case v: java.lang.Float   => LiteralFloat(v)
+      case v: java.lang.Double  => LiteralDouble(v)
     }
   }
 
@@ -805,8 +808,8 @@ final class JPQLParser() {
   def scalarExpr(node: Node): ScalarExpr = {
     val n = node.getNode(0)
     n.getName match {
-      case "SimpleArithExpr"    => ScalarExpr_SimpleArithExpr(visit(n)(simpleArithExpr))
-      case "NonArithScalarExpr" => ScalarExpr_NonArithScalarExpr(visit(n)(nonArithScalarExpr))
+      case "SimpleArithExpr"    => visit(n)(simpleArithExpr)
+      case "NonArithScalarExpr" => visit(n)(nonArithScalarExpr)
     }
   }
 
@@ -817,8 +820,8 @@ final class JPQLParser() {
   def scalarOrSubselectExpr(node: Node) = {
     val n = node.getNode(0)
     n.getName match {
-      case "ArithExpr"          => ScalarOrSubselectExpr_ArithExpr(visit(n)(arithExpr))
-      case "NonArithScalarExpr" => ScalarOrSubselectExpr_NonArithScalarExpr(visit(n)(nonArithScalarExpr))
+      case "ArithExpr"          => visit(n)(arithExpr)
+      case "NonArithScalarExpr" => visit(n)(nonArithScalarExpr)
     }
   }
 
@@ -834,13 +837,15 @@ final class JPQLParser() {
     node.get(0) match {
       case n: Node =>
         n.getName match {
-          case "FuncsReturningDatetime" => NonArithScalarExpr_FuncsReturningDatetime(visit(n)(funcsReturningDatetime))
-          case "FuncsReturningString"   => NonArithScalarExpr_FuncsReturningString(visit(n)(funcsReturningString))
-          case "EntityTypeExpr"         => NonArithScalarExpr_EntityTypeExpr(visit(n)(entityTypeExpr))
+          case "FuncsReturningDatetime" => visit(n)(funcsReturningDatetime)
+          case "FuncsReturningString"   => visit(n)(funcsReturningString)
+          case "EntityTypeExpr"         => visit(n)(entityTypeExpr)
         }
-      case v: java.lang.String            => NonArithScalarExpr_LiteralString(v)
-      case v: java.lang.Boolean           => NonArithScalarExpr_LiteralBoolean(v)
-      case v: java.time.temporal.Temporal => NonArithScalarExpr_LiteralTemporal(v)
+      case v: java.lang.String        => LiteralString(v)
+      case v: java.lang.Boolean       => LiteralBoolean(v)
+      case v: java.time.LocalDate     => LiteralDate(v)
+      case v: java.time.LocalTime     => LiteralTime(v)
+      case v: java.time.LocalDateTime => LiteralTimestamp(v)
     }
   }
 
@@ -889,10 +894,10 @@ final class JPQLParser() {
   def caseExpr(node: Node) = {
     val n = node.getNode(0)
     n.getName match {
-      case "SimpleCaseExpr"  => CaseExpr_SimpleCaseExpr(visit(n)(simpleCaseExpr))
-      case "GeneralCaseExpr" => CaseExpr_GeneralCaseExpr(visit(n)(generalCaseExpr))
-      case "CoalesceExpr"    => CaseExpr_CoalesceExpr(visit(n)(coalesceExpr))
-      case "NullifExpr"      => CaseExpr_NullifExpr(visit(n)(nullifExpr))
+      case "SimpleCaseExpr"  => visit(n)(simpleCaseExpr)
+      case "GeneralCaseExpr" => visit(n)(generalCaseExpr)
+      case "CoalesceExpr"    => visit(n)(coalesceExpr)
+      case "NullifExpr"      => visit(n)(nullifExpr)
     }
   }
 
@@ -987,12 +992,12 @@ final class JPQLParser() {
    */
   def stringPrimary(node: Node) = {
     node.get(0) match {
-      case v: String => StringPrimary_LiteralString(v)
+      case v: String => LiteralString(v)
       case n: Node =>
         n.getName match {
-          case "FuncsReturningString" => StringPrimary_FuncsReturningString(visit(n)(funcsReturningString))
-          case "InputParam"           => StringPrimary_InputParam(visit(n)(inputParam))
-          case "StateFieldPathExpr"   => StringPrimary_StateFieldPathExpr(visit(n)(stateFieldPathExpr))
+          case "FuncsReturningString" => visit(n)(funcsReturningString)
+          case "InputParam"           => visit(n)(inputParam)
+          case "StateFieldPathExpr"   => visit(n)(stateFieldPathExpr)
         }
     }
   }
@@ -1287,9 +1292,9 @@ final class JPQLParser() {
   def simpleSelectExpr(node: Node) = {
     val n = node.getNode(0)
     n.getName match {
-      case "SingleValuedPathExpr"    => SimpleSelectExpr_SingleValuedPathExpr(visit(n)(singleValuedPathExpr))
-      case "AggregateExpr"           => SimpleSelectExpr_AggregateExpr(visit(n)(aggregateExpr))
-      case "VarAccessOrTypeConstant" => SimpleSelectExpr_VarAccessOrTypeConstant(visit(n)(varAccessOrTypeConstant))
+      case "SingleValuedPathExpr"    => visit(n)(singleValuedPathExpr)
+      case "AggregateExpr"           => visit(n)(aggregateExpr)
+      case "VarAccessOrTypeConstant" => visit(n)(varAccessOrTypeConstant)
     }
   }
 
@@ -1318,9 +1323,9 @@ final class JPQLParser() {
   def subselectIdentVarDecl(node: Node) = {
     val n = node.getNode(0)
     n.getName match {
-      case "IdentVarDecl"         => SubselectIdentVarDecl_IdentVarDecl(visit(n)(identVarDecl))
-      case "AssoPathExpr"         => SubselectIdentVarDecl_AssocPathExpr(visit(n)(assocPathExpr), visit(node.getNode(1))(ident))
-      case "CollectionMemberDecl" => SubselectIdentVarDecl_CollectionMemberDecl(visit(n)(collectionMemberDecl))
+      case "IdentVarDecl"         => visit(n)(identVarDecl)
+      case "CollectionMemberDecl" => visit(n)(collectionMemberDecl)
+      case "AssoPathExpr"         => AssocPathExprWithAs(visit(n)(assocPathExpr), visit(node.getNode(1))(ident))
     }
   }
 

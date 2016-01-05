@@ -151,11 +151,11 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
 
   override def pathExprOrVarAccess(expr: PathExprOrVarAccess, record: Any): Any = {
     expr match {
-      case PathExprOrVarAccess_QualIdentVar(qual, attrs) =>
+      case QualIdentVarWithAttrs(qual, attrs) =>
         val qual0 = qualIdentVar(qual, record)
         val paths = attrs map { x => attribute(x, record) }
         collectLeastProjectionNodes(qual0, paths)
-      case PathExprOrVarAccess_FuncsReturingAny(expr, attrs) =>
+      case FuncsReturingAnyWithAttrs(expr, attrs) =>
         funcsReturningAny(expr, record)
       // For MapValue, the field should have been collected during MapValue
     }
@@ -198,8 +198,8 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
 
   override def condPrimary(primary: CondPrimary, record: Any): Boolean = {
     primary match {
-      case CondPrimary_CondExpr(expr)       => condExpr(expr, record)
-      case CondPrimary_SimpleCondExpr(expr) => simpleCondExpr(expr, record)
+      case x: CondExpr       => condExpr(x, record)
+      case x: SimpleCondExpr => simpleCondExpr(x, record)
     }
   }
 
@@ -209,15 +209,15 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
       case Right(x) => nonArithScalarExpr(x, record)
     }
     expr.rem match {
-      case SimpleCondExprRem_ComparisonExpr(expr) => comparsionExprRightOperand(expr.operand, record)
-      case SimpleCondExprRem_CondWithNotExpr(not, expr) =>
+      case x: ComparisonExpr => comparsionExprRightOperand(x.operand, record)
+      case CondWithNotExprWithNot(not, expr) =>
         expr match {
-          case CondWithNotExpr_BetweenExpr(expr)          => betweenExpr(expr, record)
-          case CondWithNotExpr_LikeExpr(expr)             => likeExpr(expr, record)
-          case CondWithNotExpr_InExpr(expr)               => inExpr(expr, record)
-          case CondWithNotExpr_CollectionMemberExpr(expr) => collectionMemberExpr(expr, record)
+          case x: BetweenExpr          => betweenExpr(x, record)
+          case x: LikeExpr             => likeExpr(x, record)
+          case x: InExpr               => inExpr(x, record)
+          case x: CollectionMemberExpr => collectionMemberExpr(x, record)
         }
-      case SimpleCondExprRem_IsExpr(not, expr) =>
+      case IsExprWithNot(not, expr) =>
     }
     true
   }

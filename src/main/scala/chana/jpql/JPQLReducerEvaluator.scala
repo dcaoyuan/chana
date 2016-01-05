@@ -74,7 +74,7 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
     aggrCaches.getOrElse(expr, {
       // TODO isDistinct
       val value = expr match {
-        case AggregateExpr_AVG(isDistinct, expr) =>
+        case Avg(isDistinct, expr) =>
           var sum = 0.0
           var count = 0
           val itr = idToProjection.valuesIterator
@@ -89,7 +89,7 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
           }
           if (count != 0) sum / count else 0
 
-        case AggregateExpr_MAX(isDistinct, expr) =>
+        case Max(isDistinct, expr) =>
           var max = 0.0
           val itr = idToProjection.valuesIterator
 
@@ -102,7 +102,7 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
           }
           max
 
-        case AggregateExpr_MIN(isDistinct, expr) =>
+        case Min(isDistinct, expr) =>
           var min = 0.0
           val itr = idToProjection.valuesIterator
 
@@ -115,7 +115,7 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
           }
           min
 
-        case AggregateExpr_SUM(isDistinct, expr) =>
+        case Sum(isDistinct, expr) =>
           var sum = 0.0
           val itr = idToProjection.valuesIterator
 
@@ -128,7 +128,7 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
           }
           sum
 
-        case AggregateExpr_COUNT(isDistinct, expr) =>
+        case Count(isDistinct, expr) =>
           idToProjection.size
       }
       aggrCaches += (expr -> value)

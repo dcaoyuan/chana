@@ -237,11 +237,11 @@ abstract class JPQLEvaluator {
 
   def selectExpr(expr: SelectExpr, record: Any) = {
     expr match {
-      case SelectExpr_AggregateExpr(expr)   => aggregateExpr(expr, record)
-      case SelectExpr_ScalarExpr(expr)      => scalarExpr(expr, record)
-      case SelectExpr_OBJECT(expr)          => varAccessOrTypeConstant(expr, record)
-      case SelectExpr_ConstructorExpr(expr) => constructorExpr(expr, record)
-      case SelectExpr_MapEntryExpr(expr)    => mapEntryExpr(expr, record)
+      case x: AggregateExpr           => aggregateExpr(x, record)
+      case x: ScalarExpr              => scalarExpr(x, record) // SELECT OBJECT
+      case x: VarAccessOrTypeConstant => varAccessOrTypeConstant(x, record)
+      case x: ConstructorExpr         => constructorExpr(x, record)
+      case x: MapEntryExpr            => mapEntryExpr(x, record)
     }
   }
 
@@ -252,11 +252,11 @@ abstract class JPQLEvaluator {
 
   def pathExprOrVarAccess(expr: PathExprOrVarAccess, record: Any): Any = {
     expr match {
-      case PathExprOrVarAccess_QualIdentVar(qual, attrs) =>
+      case QualIdentVarWithAttrs(qual, attrs) =>
         val qualx = qualIdentVar(qual, record)
         val paths = attrs map { x => attribute(x, record) }
         valueOf(qualx, paths, record)
-      case PathExprOrVarAccess_FuncsReturingAny(expr, attrs) =>
+      case FuncsReturingAnyWithAttrs(expr, attrs) =>
         funcsReturningAny(expr, record) match {
           case rec: IndexedRecord =>
             val paths = attrs map { x => attribute(x, record) }
@@ -271,24 +271,22 @@ abstract class JPQLEvaluator {
     varAccessOrTypeConstant(qual.v, record)
   }
 
+  /**
+   * Should be evaluated in reducing
+   */
   def aggregateExpr(expr: AggregateExpr, record: Any) = {
     expr match {
-      case AggregateExpr_AVG(isDistinct, expr) =>
-        scalarExpr(expr, record)
-      case AggregateExpr_MAX(isDistinct, expr) =>
-        scalarExpr(expr, record)
-      case AggregateExpr_MIN(isDistinct, expr) =>
-        scalarExpr(expr, record)
-      case AggregateExpr_SUM(isDistinct, expr) =>
-        scalarExpr(expr, record)
-      case AggregateExpr_COUNT(isDistinct, expr) =>
-        scalarExpr(expr, record)
+      case Avg(isDistinct, expr)   => scalarExpr(expr, record)
+      case Max(isDistinct, expr)   => scalarExpr(expr, record)
+      case Min(isDistinct, expr)   => scalarExpr(expr, record)
+      case Sum(isDistinct, expr)   => scalarExpr(expr, record)
+      case Count(isDistinct, expr) => scalarExpr(expr, record)
     }
   }
 
   def constructorExpr(expr: ConstructorExpr, record: Any) = {
     val fullname = constructorName(expr.name, record)
-    val args = constructorItem(expr.arg, record) :: (expr.args map { x => constructorItem(x, record) })
+    val args = (expr.arg :: expr.args) map { x => constructorItem(x, record) }
     null // NOT YET 
   }
 
@@ -300,8 +298,8 @@ abstract class JPQLEvaluator {
 
   def constructorItem(item: ConstructorItem, record: Any) = {
     item match {
-      case ConstructorItem_ScalarExpr(expr)    => scalarExpr(expr, record)
-      case ConstructorItem_AggregateExpr(expr) => aggregateExpr(expr, record) // TODO aggregate here!?
+      case x: ScalarExpr    => scalarExpr(x, record)
+      case x: AggregateExpr => aggregateExpr(x, record) // TODO aggregate here!?
     }
   }
 
@@ -455,8 +453,8 @@ abstract class JPQLEvaluator {
 
   def condPrimary(primary: CondPrimary, record: Any): Boolean = {
     primary match {
-      case CondPrimary_CondExpr(expr)       => condExpr(expr, record)
-      case CondPrimary_SimpleCondExpr(expr) => simpleCondExpr(expr, record)
+      case x: CondExpr       => condExpr(x, record)
+      case x: SimpleCondExpr => simpleCondExpr(x, record)
     }
   }
 
@@ -468,10 +466,10 @@ abstract class JPQLEvaluator {
 
     // simpleCondExprRem
     expr.rem match {
-      case SimpleCondExprRem_ComparisonExpr(expr) =>
+      case x: ComparisonExpr =>
         // comparisionExpr
-        val operand = comparsionExprRightOperand(expr.operand, record)
-        expr.op match {
+        val operand = comparsionExprRightOperand(x.operand, record)
+        x.op match {
           case EQ => JPQLFunctions.eq(base, operand)
           case NE => JPQLFunctions.ne(base, operand)
           case GT => JPQLFunctions.gt(base, operand)
@@ -480,39 +478,39 @@ abstract class JPQLEvaluator {
           case LE => JPQLFunctions.le(base, operand)
         }
 
-      case SimpleCondExprRem_CondWithNotExpr(not, expr) =>
+      case CondWithNotExprWithNot(not, expr) =>
         // condWithNotExpr
         val res = expr match {
-          case CondWithNotExpr_BetweenExpr(expr) =>
-            val minMax = betweenExpr(expr, record)
+          case x: BetweenExpr =>
+            val minMax = betweenExpr(x, record)
             JPQLFunctions.between(base, minMax._1, minMax._2)
 
-          case CondWithNotExpr_LikeExpr(expr) =>
+          case x: LikeExpr =>
             base match {
-              case x: CharSequence =>
-                val like = likeExpr(expr, record)
-                JPQLFunctions.strLike(x.toString, like._1, like._2)
+              case c: CharSequence =>
+                val like = likeExpr(x, record)
+                JPQLFunctions.strLike(c.toString, like._1, like._2)
               case x => throw JPQLRuntimeException(x, "is not a string")
             }
 
-          case CondWithNotExpr_InExpr(expr) =>
-            inExpr(expr, record)
+          case x: InExpr =>
+            inExpr(x, record)
 
-          case CondWithNotExpr_CollectionMemberExpr(expr) =>
-            collectionMemberExpr(expr, record)
+          case x: CollectionMemberExpr =>
+            collectionMemberExpr(x, record)
         }
 
         not ^ res
 
-      case SimpleCondExprRem_IsExpr(not, expr) =>
+      case IsExprWithNot(not, expr) =>
         // isExpr
         val res = expr match {
-          case IsNullExpr =>
+          case IsNull =>
             base match {
               case x: AnyRef => x eq null
               case _         => false // TODO
             }
-          case IsEmptyExpr =>
+          case IsEmpty =>
             base match {
               case xs: java.util.Collection[_] => xs.isEmpty
               case xs: scala.collection.Seq[_] => xs.isEmpty
@@ -569,9 +567,9 @@ abstract class JPQLEvaluator {
 
   def comparsionExprRightOperand(expr: ComparsionExprRightOperand, record: Any) = {
     expr match {
-      case ComparsionExprRightOperand_ArithExpr(expr)          => arithExpr(expr, record)
-      case ComparsionExprRightOperand_NonArithScalarExpr(expr) => nonArithScalarExpr(expr, record)
-      case ComparsionExprRightOperand_AnyOrAllExpr(expr)       => anyOrAllExpr(expr, record)
+      case x: ArithExpr          => arithExpr(x, record)
+      case x: NonArithScalarExpr => nonArithScalarExpr(x, record)
+      case x: AnyOrAllExpr       => anyOrAllExpr(x, record)
     }
   }
 
@@ -609,37 +607,42 @@ abstract class JPQLEvaluator {
 
   def arithPrimary(primary: ArithPrimary, record: Any) = {
     primary match {
-      case ArithPrimary_PathExprOrVarAccess(expr)   => pathExprOrVarAccess(expr, record)
-      case ArithPrimary_InputParam(expr)            => inputParam(expr, record)
-      case ArithPrimary_CaseExpr(expr)              => caseExpr(expr, record)
-      case ArithPrimary_FuncsReturningNumeric(expr) => funcsReturningNumeric(expr, record)
-      case ArithPrimary_SimpleArithExpr(expr)       => simpleArithExpr(expr, record)
-      case ArithPrimary_LiteralNumeric(expr)        => expr
+      case LiteralInteger(v)        => v
+      case LiteralLong(v)           => v
+      case LiteralFloat(v)          => v
+      case LiteralDouble(v)         => v
+      case x: PathExprOrVarAccess   => pathExprOrVarAccess(x, record)
+      case x: InputParam            => inputParam(x, record)
+      case x: CaseExpr              => caseExpr(x, record)
+      case x: FuncsReturningNumeric => funcsReturningNumeric(x, record)
+      case x: SimpleArithExpr       => simpleArithExpr(x, record)
     }
   }
 
   def scalarExpr(expr: ScalarExpr, record: Any): Any = {
     expr match {
-      case ScalarExpr_SimpleArithExpr(expr)    => simpleArithExpr(expr, record)
-      case ScalarExpr_NonArithScalarExpr(expr) => nonArithScalarExpr(expr, record)
+      case x: SimpleArithExpr    => simpleArithExpr(x, record)
+      case x: NonArithScalarExpr => nonArithScalarExpr(x, record)
     }
   }
 
   def scalarOrSubselectExpr(expr: ScalarOrSubselectExpr, record: Any) = {
     expr match {
-      case ScalarOrSubselectExpr_ArithExpr(expr)          => arithExpr(expr, record)
-      case ScalarOrSubselectExpr_NonArithScalarExpr(expr) => nonArithScalarExpr(expr, record)
+      case x: ArithExpr          => arithExpr(x, record)
+      case x: NonArithScalarExpr => nonArithScalarExpr(x, record)
     }
   }
 
   def nonArithScalarExpr(expr: NonArithScalarExpr, record: Any): Any = {
     expr match {
-      case NonArithScalarExpr_FuncsReturningDatetime(expr) => funcsReturningDatetime(expr, record)
-      case NonArithScalarExpr_FuncsReturningString(expr)   => funcsReturningString(expr, record)
-      case NonArithScalarExpr_LiteralString(expr)          => expr
-      case NonArithScalarExpr_LiteralBoolean(expr)         => expr
-      case NonArithScalarExpr_LiteralTemporal(expr)        => expr
-      case NonArithScalarExpr_EntityTypeExpr(expr)         => entityTypeExpr(expr, record)
+      case LiteralString(v)          => v
+      case LiteralBoolean(v)         => v
+      case LiteralDate(v)            => v
+      case LiteralTime(v)            => v
+      case LiteralTimestamp(v)       => v
+      case x: FuncsReturningDatetime => funcsReturningDatetime(x, record)
+      case x: FuncsReturningString   => funcsReturningString(x, record)
+      case x: EntityTypeExpr         => entityTypeExpr(x, record)
     }
   }
 
@@ -665,14 +668,10 @@ abstract class JPQLEvaluator {
 
   def caseExpr(expr: CaseExpr, record: Any): Any = {
     expr match {
-      case CaseExpr_SimpleCaseExpr(expr) =>
-        simpleCaseExpr(expr, record)
-      case CaseExpr_GeneralCaseExpr(expr) =>
-        generalCaseExpr(expr, record)
-      case CaseExpr_CoalesceExpr(expr) =>
-        coalesceExpr(expr, record)
-      case CaseExpr_NullifExpr(expr) =>
-        nullifExpr(expr, record)
+      case x: SimpleCaseExpr  => simpleCaseExpr(x, record)
+      case x: GeneralCaseExpr => generalCaseExpr(x, record)
+      case x: CoalesceExpr    => coalesceExpr(x, record)
+      case x: NullifExpr      => nullifExpr(x, record)
     }
   }
 
@@ -730,20 +729,20 @@ abstract class JPQLEvaluator {
 
   def stringPrimary(expr: StringPrimary, record: Any): Either[String, Any => String] = {
     expr match {
-      case StringPrimary_LiteralString(expr) => Left(expr)
-      case StringPrimary_FuncsReturningString(expr) =>
+      case LiteralString(v) => Left(v)
+      case x: FuncsReturningString =>
         try {
-          Left(funcsReturningString(expr, record))
+          Left(funcsReturningString(x, record))
         } catch {
           case ex: Throwable => throw ex
         }
-      case StringPrimary_InputParam(expr) =>
-        val param = inputParam(expr, record)
+      case x: InputParam =>
+        val param = inputParam(x, record)
         Right(param => "") // TODO
-      case StringPrimary_StateFieldPathExpr(expr) =>
-        pathExpr(expr.path, record) match {
-          case x: CharSequence => Left(x.toString)
-          case x               => throw JPQLRuntimeException(x, "is not a StringPrimary")
+      case x: StateFieldPathExpr =>
+        pathExpr(x.path, record) match {
+          case c: CharSequence => Left(c.toString)
+          case c               => throw JPQLRuntimeException(c, "is not a StringPrimary")
         }
     }
   }
@@ -936,9 +935,9 @@ abstract class JPQLEvaluator {
 
   def simpleSelectExpr(expr: SimpleSelectExpr, record: Any) = {
     expr match {
-      case SimpleSelectExpr_SingleValuedPathExpr(expr)    => singleValuedPathExpr(expr, record)
-      case SimpleSelectExpr_AggregateExpr(expr)           => aggregateExpr(expr, record)
-      case SimpleSelectExpr_VarAccessOrTypeConstant(expr) => varAccessOrTypeConstant(expr, record)
+      case x: SingleValuedPathExpr    => singleValuedPathExpr(x, record)
+      case x: AggregateExpr           => aggregateExpr(x, record)
+      case x: VarAccessOrTypeConstant => varAccessOrTypeConstant(x, record)
     }
   }
 
@@ -952,14 +951,15 @@ abstract class JPQLEvaluator {
 
   def subselectIdentVarDecl(ident: SubselectIdentVarDecl, record: Any) = {
     ident match {
-      case SubselectIdentVarDecl_IdentVarDecl(expr) =>
-        identVarDecl(expr, record)
-      case SubselectIdentVarDecl_AssocPathExpr(expr, as) =>
-        assocPathExpr(expr, record)
-        as.ident
-      case SubselectIdentVarDecl_CollectionMemberDecl(expr) =>
-        collectionMemberDecl(expr, record)
+      case x: IdentVarDecl         => identVarDecl(x, record)
+      case x: CollectionMemberDecl => collectionMemberDecl(x, record)
+      case x: AssocPathExprWithAs  => assocPathExprWithAs(x.expr, x.as, record)
     }
+  }
+
+  def assocPathExprWithAs(expr: AssocPathExpr, as: Ident, record: Any) = {
+    assocPathExpr(expr, record)
+    as.ident
   }
 
   def orderbyClause(orderbyClause: OrderbyClause, record: Any): List[Any] = {

@@ -37,3 +37,6 @@ echo
 echo ":: check ::"
 curl "http://localhost:8080/a/get/$ITEM"
 echo
+
+# The final result should be proper ordered as:
+# {"steps":{"0":1,"1":1,"2":1,"3":1,"4":1,"5":1,"6":1,"7":1,"8":1,"9":1}}

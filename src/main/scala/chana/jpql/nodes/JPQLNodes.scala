@@ -25,11 +25,11 @@ package object nodes {
     private def collectSpecifiedIds(factor: CondFactor): Option[(String, String)] = {
       val not = factor.not
       factor.expr match {
-        case Left(CondPrimary_SimpleCondExpr(SimpleCondExpr(Left(ArithExpr(Left(
+        case Left(SimpleCondExpr(Left(ArithExpr(Left(
           SimpleArithExpr(ArithTerm(ArithFactor(ArithPrimary_Plus(
-            ArithPrimary_PathExprOrVarAccess(PathExprOrVarAccess_QualIdentVar(
-              QualIdentVar(VarAccessOrTypeConstant(Ident(alias))), List(Attribute(attr)))))), /*rightFactors*/ List()), /*rightTerms*/ List())))),
-          SimpleCondExprRem_ComparisonExpr(ComparisonExpr(EQ, ComparsionExprRightOperand_NonArithScalarExpr(NonArithScalarExpr_LiteralString(id))))))) if attr.toLowerCase == JPQLEvaluator.ID =>
+            QualIdentVarWithAttrs(
+              QualIdentVar(VarAccessOrTypeConstant(Ident(alias))), List(Attribute(attr))))), /*rightFactors*/ List()), /*rightTerms*/ List())))),
+          ComparisonExpr(EQ, LiteralString(id)))) if attr.toLowerCase == JPQLEvaluator.ID =>
           if (not) None else Some((alias, id))
         case _ => None
       }
@@ -46,8 +46,8 @@ package object nodes {
 
     def isSelectItemsAllAggregate() = {
       (select.item :: select.items) forall {
-        case SelectItem(SelectExpr_AggregateExpr(_), _) => true
-        case _ => false
+        case SelectItem(_: AggregateExpr, _) => true
+        case _                               => false
       }
     }
   }
@@ -87,38 +87,31 @@ package object nodes {
   final case class RowValuesClause(value: NewValue, values: List[NewValue])
 
   sealed trait SelectExpr
-  final case class SelectExpr_AggregateExpr(expr: AggregateExpr) extends SelectExpr
-  final case class SelectExpr_ScalarExpr(expr: ScalarExpr) extends SelectExpr
-  final case class SelectExpr_OBJECT(expr: VarAccessOrTypeConstant) extends SelectExpr
-  final case class SelectExpr_ConstructorExpr(expr: ConstructorExpr) extends SelectExpr
-  final case class SelectExpr_MapEntryExpr(expr: MapEntryExpr) extends SelectExpr
 
-  final case class MapEntryExpr(entry: VarAccessOrTypeConstant)
+  final case class MapEntryExpr(entry: VarAccessOrTypeConstant) extends SelectExpr
 
-  sealed trait PathExprOrVarAccess
-  final case class PathExprOrVarAccess_QualIdentVar(qual: QualIdentVar, attributes: List[Attribute]) extends PathExprOrVarAccess
-  final case class PathExprOrVarAccess_FuncsReturingAny(expr: FuncsReturningAny, attributes: List[Attribute]) extends PathExprOrVarAccess
+  sealed trait PathExprOrVarAccess extends ArithPrimary
+  final case class QualIdentVarWithAttrs(qual: QualIdentVar, attributes: List[Attribute]) extends PathExprOrVarAccess
+  final case class FuncsReturingAnyWithAttrs(expr: FuncsReturningAny, attributes: List[Attribute]) extends PathExprOrVarAccess
 
   final case class QualIdentVar(v: VarAccessOrTypeConstant)
 
-  sealed trait AggregateExpr
-  final case class AggregateExpr_AVG(isDistinct: Boolean, expr: ScalarExpr) extends AggregateExpr
-  final case class AggregateExpr_MAX(isDistinct: Boolean, expr: ScalarExpr) extends AggregateExpr
-  final case class AggregateExpr_MIN(isDistinct: Boolean, expr: ScalarExpr) extends AggregateExpr
-  final case class AggregateExpr_SUM(isDistinct: Boolean, expr: ScalarExpr) extends AggregateExpr
-  final case class AggregateExpr_COUNT(isDistinct: Boolean, expr: ScalarExpr) extends AggregateExpr
+  sealed trait AggregateExpr extends SelectExpr with ConstructorItem with SimpleSelectExpr
+  final case class Avg(isDistinct: Boolean, expr: ScalarExpr) extends AggregateExpr
+  final case class Max(isDistinct: Boolean, expr: ScalarExpr) extends AggregateExpr
+  final case class Min(isDistinct: Boolean, expr: ScalarExpr) extends AggregateExpr
+  final case class Sum(isDistinct: Boolean, expr: ScalarExpr) extends AggregateExpr
+  final case class Count(isDistinct: Boolean, expr: ScalarExpr) extends AggregateExpr
 
-  final case class ConstructorExpr(name: ConstructorName, arg: ConstructorItem, args: List[ConstructorItem])
+  final case class ConstructorExpr(name: ConstructorName, arg: ConstructorItem, args: List[ConstructorItem]) extends SelectExpr
 
   final case class ConstructorName(id: Ident, ids: List[Ident])
 
   sealed trait ConstructorItem
-  final case class ConstructorItem_ScalarExpr(expr: ScalarExpr) extends ConstructorItem
-  final case class ConstructorItem_AggregateExpr(expr: AggregateExpr) extends ConstructorItem
 
   final case class FromClause(from: IdentVarDecl, froms: List[Either[IdentVarDecl, CollectionMemberDecl]])
 
-  final case class IdentVarDecl(range: RangeVarDecl, joins: List[Join])
+  final case class IdentVarDecl(range: RangeVarDecl, joins: List[Join]) extends SubselectIdentVarDecl
 
   final case class RangeVarDecl(entityName: EntityName, as: Ident)
 
@@ -137,7 +130,7 @@ package object nodes {
 
   final case class JoinCond(expr: CondExpr)
 
-  final case class CollectionMemberDecl(in: CollectionValuedPathExpr, as: Ident)
+  final case class CollectionMemberDecl(in: CollectionValuedPathExpr, as: Ident) extends SubselectIdentVarDecl
 
   final case class CollectionValuedPathExpr(path: PathExpr)
 
@@ -145,61 +138,55 @@ package object nodes {
 
   final case class JoinAssocPathExpr(qualId: QualIdentVar, attrbutes: List[Attribute])
 
-  final case class SingleValuedPathExpr(path: PathExpr)
+  final case class SingleValuedPathExpr(path: PathExpr) extends SimpleSelectExpr
 
-  final case class StateFieldPathExpr(path: PathExpr)
+  final case class StateFieldPathExpr(path: PathExpr) extends StringPrimary
 
   final case class PathExpr(qual: QualIdentVar, attributes: List[Attribute])
 
   final case class Attribute(name: String)
 
-  final case class VarAccessOrTypeConstant(id: Ident)
+  // could be SelectExpr_OBJECT when treated as SelectExpr
+  final case class VarAccessOrTypeConstant(id: Ident) extends SelectExpr with SimpleSelectExpr
 
   final case class WhereClause(expr: CondExpr)
 
-  final case class CondExpr(term: CondTerm, orTerms: List[CondTerm])
+  final case class CondExpr(term: CondTerm, orTerms: List[CondTerm]) extends CondPrimary
 
   final case class CondTerm(factor: CondFactor, andFactors: List[CondFactor])
 
   final case class CondFactor(not: Boolean, expr: Either[CondPrimary, ExistsExpr])
 
   sealed trait CondPrimary
-  final case class CondPrimary_CondExpr(expr: CondExpr) extends CondPrimary
-  final case class CondPrimary_SimpleCondExpr(expr: SimpleCondExpr) extends CondPrimary
 
-  final case class SimpleCondExpr(expr: Either[ArithExpr, NonArithScalarExpr], rem: SimpleCondExprRem)
+  final case class SimpleCondExpr(expr: Either[ArithExpr, NonArithScalarExpr], rem: SimpleCondExprRem) extends CondPrimary
 
   sealed trait SimpleCondExprRem
-  final case class SimpleCondExprRem_ComparisonExpr(expr: ComparisonExpr) extends SimpleCondExprRem
-  final case class SimpleCondExprRem_CondWithNotExpr(not: Boolean, expr: CondWithNotExpr) extends SimpleCondExprRem
-  final case class SimpleCondExprRem_IsExpr(not: Boolean, expr: IsExpr) extends SimpleCondExprRem
+  final case class CondWithNotExprWithNot(not: Boolean, expr: CondWithNotExpr) extends SimpleCondExprRem
+  final case class IsExprWithNot(not: Boolean, expr: IsExpr) extends SimpleCondExprRem
 
   sealed trait CondWithNotExpr
-  final case class CondWithNotExpr_BetweenExpr(expr: BetweenExpr) extends CondWithNotExpr
-  final case class CondWithNotExpr_LikeExpr(expr: LikeExpr) extends CondWithNotExpr
-  final case class CondWithNotExpr_InExpr(expr: InExpr) extends CondWithNotExpr
-  final case class CondWithNotExpr_CollectionMemberExpr(expr: CollectionMemberExpr) extends CondWithNotExpr
 
   sealed trait IsExpr
-  case object IsNullExpr extends IsExpr // NULL 
-  case object IsEmptyExpr extends IsExpr // EMPTY
+  case object IsNull extends IsExpr // NULL 
+  case object IsEmpty extends IsExpr // EMPTY
 
-  final case class BetweenExpr(min: ScalarOrSubselectExpr, max: ScalarOrSubselectExpr)
+  final case class BetweenExpr(min: ScalarOrSubselectExpr, max: ScalarOrSubselectExpr) extends CondWithNotExpr
 
-  sealed trait InExpr
+  sealed trait InExpr extends CondWithNotExpr
   final case class InExpr_InputParam(expr: InputParam) extends InExpr
   final case class InExpr_ScalarOrSubselectExpr(expr: ScalarOrSubselectExpr, exprs: List[ScalarOrSubselectExpr]) extends InExpr
   final case class InExpr_Subquery(expr: Subquery) extends InExpr
 
-  final case class LikeExpr(like: ScalarOrSubselectExpr, escape: Option[Escape])
+  final case class LikeExpr(like: ScalarOrSubselectExpr, escape: Option[Escape]) extends CondWithNotExpr
 
   final case class Escape(expr: ScalarExpr)
 
-  final case class CollectionMemberExpr(of: CollectionValuedPathExpr)
+  final case class CollectionMemberExpr(of: CollectionValuedPathExpr) extends CondWithNotExpr
 
   final case class ExistsExpr(subquery: Subquery)
 
-  final case class ComparisonExpr(op: ComparisonOp, operand: ComparsionExprRightOperand)
+  final case class ComparisonExpr(op: ComparisonOp, operand: ComparsionExprRightOperand) extends SimpleCondExprRem
 
   sealed trait ComparisonOp
   case object EQ extends ComparisonOp
@@ -210,13 +197,10 @@ package object nodes {
   case object LE extends ComparisonOp
 
   sealed trait ComparsionExprRightOperand
-  final case class ComparsionExprRightOperand_ArithExpr(expr: ArithExpr) extends ComparsionExprRightOperand
-  final case class ComparsionExprRightOperand_NonArithScalarExpr(expr: NonArithScalarExpr) extends ComparsionExprRightOperand
-  final case class ComparsionExprRightOperand_AnyOrAllExpr(expr: AnyOrAllExpr) extends ComparsionExprRightOperand
 
-  final case class ArithExpr(expr: Either[SimpleArithExpr, Subquery])
+  final case class ArithExpr(expr: Either[SimpleArithExpr, Subquery]) extends ComparsionExprRightOperand with ScalarOrSubselectExpr
 
-  final case class SimpleArithExpr(term: ArithTerm, rightTerms: List[PlusOrMinusTerm])
+  final case class SimpleArithExpr(term: ArithTerm, rightTerms: List[PlusOrMinusTerm]) extends ArithPrimary with ScalarExpr
 
   sealed trait PlusOrMinusTerm
   final case class ArithTerm_Plus(term: ArithTerm) extends PlusOrMinusTerm
@@ -235,53 +219,33 @@ package object nodes {
   final case class ArithPrimary_Minus(primary: ArithPrimary) extends PlusOrMinusPrimary
 
   sealed trait ArithPrimary
-  final case class ArithPrimary_PathExprOrVarAccess(expr: PathExprOrVarAccess) extends ArithPrimary
-  final case class ArithPrimary_InputParam(expr: InputParam) extends ArithPrimary
-  final case class ArithPrimary_CaseExpr(expr: CaseExpr) extends ArithPrimary
-  final case class ArithPrimary_FuncsReturningNumeric(expr: FuncsReturningNumeric) extends ArithPrimary
-  final case class ArithPrimary_SimpleArithExpr(expr: SimpleArithExpr) extends ArithPrimary
-  final case class ArithPrimary_LiteralNumeric(expr: Number) extends ArithPrimary
 
-  sealed trait ScalarExpr
-  final case class ScalarExpr_SimpleArithExpr(expr: SimpleArithExpr) extends ScalarExpr
-  final case class ScalarExpr_NonArithScalarExpr(expr: NonArithScalarExpr) extends ScalarExpr
+  sealed trait ScalarExpr extends SelectExpr with ConstructorItem
 
   sealed trait ScalarOrSubselectExpr
-  final case class ScalarOrSubselectExpr_ArithExpr(expr: ArithExpr) extends ScalarOrSubselectExpr
-  final case class ScalarOrSubselectExpr_NonArithScalarExpr(expr: NonArithScalarExpr) extends ScalarOrSubselectExpr
 
-  sealed trait NonArithScalarExpr
-  final case class NonArithScalarExpr_FuncsReturningDatetime(expr: FuncsReturningDatetime) extends NonArithScalarExpr
-  final case class NonArithScalarExpr_FuncsReturningString(expr: FuncsReturningString) extends NonArithScalarExpr
-  final case class NonArithScalarExpr_LiteralString(expr: String) extends NonArithScalarExpr
-  final case class NonArithScalarExpr_LiteralBoolean(expr: Boolean) extends NonArithScalarExpr
-  final case class NonArithScalarExpr_LiteralTemporal(expr: java.time.temporal.Temporal) extends NonArithScalarExpr
-  final case class NonArithScalarExpr_EntityTypeExpr(expr: EntityTypeExpr) extends NonArithScalarExpr
+  sealed trait NonArithScalarExpr extends ComparsionExprRightOperand with ScalarOrSubselectExpr with ScalarExpr
 
-  final case class AnyOrAllExpr(anyOrAll: AnyOrAll, subquery: Subquery)
+  final case class AnyOrAllExpr(anyOrAll: AnyOrAll, subquery: Subquery) extends ComparsionExprRightOperand
 
   sealed trait AnyOrAll
   case object ALL extends AnyOrAll
   case object ANY extends AnyOrAll
   case object SOME extends AnyOrAll
 
-  final case class EntityTypeExpr(typeDis: TypeDiscriminator)
+  final case class EntityTypeExpr(typeDis: TypeDiscriminator) extends NonArithScalarExpr
 
   final case class TypeDiscriminator(expr: Either[VarOrSingleValuedPath, InputParam])
 
-  sealed trait CaseExpr
-  final case class CaseExpr_SimpleCaseExpr(expr: SimpleCaseExpr) extends CaseExpr
-  final case class CaseExpr_GeneralCaseExpr(expr: GeneralCaseExpr) extends CaseExpr
-  final case class CaseExpr_CoalesceExpr(expr: CoalesceExpr) extends CaseExpr
-  final case class CaseExpr_NullifExpr(expr: NullifExpr) extends CaseExpr
+  sealed trait CaseExpr extends ArithPrimary
 
-  final case class SimpleCaseExpr(caseOperand: CaseOperand, when: SimpleWhenClause, whens: List[SimpleWhenClause], elseExpr: ScalarExpr)
+  final case class SimpleCaseExpr(caseOperand: CaseOperand, when: SimpleWhenClause, whens: List[SimpleWhenClause], elseExpr: ScalarExpr) extends CaseExpr
 
-  final case class GeneralCaseExpr(when: WhenClause, whens: List[WhenClause], elseExpr: ScalarExpr)
+  final case class GeneralCaseExpr(when: WhenClause, whens: List[WhenClause], elseExpr: ScalarExpr) extends CaseExpr
 
-  final case class CoalesceExpr(expr: ScalarExpr, exprs: List[ScalarExpr])
+  final case class CoalesceExpr(expr: ScalarExpr, exprs: List[ScalarExpr]) extends CaseExpr
 
-  final case class NullifExpr(leftExpr: ScalarExpr, rightExpr: ScalarExpr)
+  final case class NullifExpr(leftExpr: ScalarExpr, rightExpr: ScalarExpr) extends CaseExpr
 
   final case class CaseOperand(expr: Either[StateFieldPathExpr, TypeDiscriminator])
 
@@ -292,31 +256,27 @@ package object nodes {
   final case class VarOrSingleValuedPath(expr: Either[SingleValuedPathExpr, VarAccessOrTypeConstant])
 
   sealed trait StringPrimary
-  final case class StringPrimary_LiteralString(expr: String) extends StringPrimary
-  final case class StringPrimary_FuncsReturningString(expr: FuncsReturningString) extends StringPrimary
-  final case class StringPrimary_InputParam(expr: InputParam) extends StringPrimary
-  final case class StringPrimary_StateFieldPathExpr(expr: StateFieldPathExpr) extends StringPrimary
 
   sealed trait Literal
-  final case class LiteralBoolean(v: Boolean) extends Literal
-  final case class LiteralString(v: String) extends Literal
+  final case class LiteralBoolean(v: Boolean) extends Literal with NonArithScalarExpr
+  final case class LiteralString(v: String) extends Literal with NonArithScalarExpr with StringPrimary
 
-  sealed trait LiteralNumeric extends Literal
+  sealed trait LiteralNumeric extends Literal with ArithPrimary
   final case class LiteralInteger(v: Int) extends LiteralNumeric
   final case class LiteralLong(v: Long) extends LiteralNumeric
   final case class LiteralFloat(v: Float) extends LiteralNumeric
   final case class LiteralDouble(v: Double) extends LiteralNumeric
 
-  sealed trait LiteralTemporal
+  sealed trait LiteralTemporal extends NonArithScalarExpr
   final case class LiteralDate(date: java.time.LocalDate) extends LiteralTemporal
   final case class LiteralTime(time: java.time.LocalTime) extends LiteralTemporal
   final case class LiteralTimestamp(time: java.time.LocalDateTime) extends LiteralTemporal
 
-  sealed trait InputParam
+  sealed trait InputParam extends ArithPrimary with StringPrimary
   final case class InputParam_Named(name: String) extends InputParam
   final case class InputParam_Position(pos: Int) extends InputParam
 
-  sealed trait FuncsReturningNumeric
+  sealed trait FuncsReturningNumeric extends ArithPrimary
   final case class Abs(expr: SimpleArithExpr) extends FuncsReturningNumeric
   final case class Length(expr: ScalarExpr) extends FuncsReturningNumeric
   final case class Mod(expr: ScalarExpr, divisorExpr: ScalarExpr) extends FuncsReturningNumeric
@@ -326,12 +286,12 @@ package object nodes {
   final case class Index(expr: VarAccessOrTypeConstant) extends FuncsReturningNumeric
   final case class Func(name: String, args: List[NewValue]) extends FuncsReturningNumeric
 
-  sealed trait FuncsReturningDatetime
+  sealed trait FuncsReturningDatetime extends NonArithScalarExpr
   case object CURRENT_DATE extends FuncsReturningDatetime
   case object CURRENT_TIME extends FuncsReturningDatetime
   case object CURRENT_TIMESTAMP extends FuncsReturningDatetime
 
-  sealed trait FuncsReturningString
+  sealed trait FuncsReturningString extends NonArithScalarExpr with StringPrimary
   final case class Concat(expr: ScalarExpr, exprs: List[ScalarExpr]) extends FuncsReturningString
   final case class Substring(expr: ScalarExpr, startExpr: ScalarExpr, lengthExpr: Option[ScalarExpr]) extends FuncsReturningString
   final case class Trim(trimSpec: Option[TrimSpec], trimChar: Option[TrimChar], from: StringPrimary) extends FuncsReturningString
@@ -357,16 +317,11 @@ package object nodes {
   final case class SimpleSelectClause(isDistinct: Boolean, expr: SimpleSelectExpr)
 
   sealed trait SimpleSelectExpr
-  final case class SimpleSelectExpr_SingleValuedPathExpr(expr: SingleValuedPathExpr) extends SimpleSelectExpr
-  final case class SimpleSelectExpr_AggregateExpr(expr: AggregateExpr) extends SimpleSelectExpr
-  final case class SimpleSelectExpr_VarAccessOrTypeConstant(expr: VarAccessOrTypeConstant) extends SimpleSelectExpr
 
   final case class SubqueryFromClause(from: SubselectIdentVarDecl, froms: List[Either[SubselectIdentVarDecl, CollectionMemberDecl]])
 
   sealed trait SubselectIdentVarDecl
-  final case class SubselectIdentVarDecl_IdentVarDecl(expr: IdentVarDecl) extends SubselectIdentVarDecl
-  final case class SubselectIdentVarDecl_AssocPathExpr(expr: AssocPathExpr, as: Ident) extends SubselectIdentVarDecl
-  final case class SubselectIdentVarDecl_CollectionMemberDecl(expr: CollectionMemberDecl) extends SubselectIdentVarDecl
+  final case class AssocPathExprWithAs(expr: AssocPathExpr, as: Ident) extends SubselectIdentVarDecl
 
   final case class OrderbyClause(orderby: OrderbyItem, orderbys: List[OrderbyItem])
 
