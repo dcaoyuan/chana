@@ -48,14 +48,9 @@ abstract class JPQLEvaluator {
 
   protected def forceGather = false
 
-  private var asToItem = Map[String, Any]()
-  private var asToCollectionMember = Map[String, Any]()
+  protected var asToItem = Map[String, Any]()
+  protected var asToCollectionMember = Map[String, Any]()
 
-  protected var selectObjects = List[Any]()
-  protected var selectMapEntries = List[Any]()
-  protected var selectNewInstances = List[Any]()
-
-  protected var selectedItems = List[Any]()
   protected var isSelectDistinct: Boolean = _
   protected var isToGather: Boolean = _
   protected var enterJoin: Boolean = _
@@ -70,14 +65,14 @@ abstract class JPQLEvaluator {
 
         val whereCond = where.fold(true) { x => whereClause(x, record) }
         if (whereCond) {
-          selectClause(select, record)
+          val selectedItems = selectClause(select, record)
 
           groupby.fold(List[Any]()) { x => groupbyClause(x, record) }
 
           having.fold(true) { x => havingClause(x, record) }
           orderby.fold(List[Any]()) { x => orderbyClause(x, record) }
 
-          selectedItems.reverse
+          selectedItems
         } else {
           List()
         }
@@ -88,6 +83,8 @@ abstract class JPQLEvaluator {
     }
   }
 
+  // ----- helper methods
+
   /**
    * Normalize entity attrs from alias and join
    */
@@ -96,13 +93,14 @@ abstract class JPQLEvaluator {
     val EntityName = schema.getName.toLowerCase
 
     val (qual1, attrs1) = asToJoin.get(qual) match {
-      case Some(paths) => (paths.head, paths.tail ::: attrs)
-      case None        => (qual, attrs)
+      case Some(paths) => (paths.head.toLowerCase, paths.tail ::: attrs)
+      case None        => (qual.toLowerCase, attrs)
     }
 
-    asToEntity.get(qual1.toLowerCase) match {
+    asToEntity.get(qual1) match {
       case Some(EntityName) => attrs1
-      case _                => throw JPQLRuntimeException(qual1, "is not an AS alias of entity: " + EntityName)
+      case _                => List()
+
     }
   }
 
@@ -114,11 +112,17 @@ abstract class JPQLEvaluator {
     }
   }
 
-  final def valueOfRecord(qual: String, attrs: List[String], record: IndexedRecord): Any =
-    valueOfRecord(qual, attrs, record, forceGather)
-  def valueOfRecord(qual: String, attrs: List[String], record: IndexedRecord, toGather: Boolean): Any = {
-    val attrs1 = normalizeEntityAttrs(qual, attrs, record.getSchema)
-    valueOfRecord(attrs1, record, toGather)
+  final def valueOfRecord(qual: String, attrs: List[String], record: IndexedRecord): Any = valueOfRecord(qual, attrs, record, forceGather)
+  final def valueOfRecord(qual: String, attrs: List[String], record: IndexedRecord, toGather: Boolean): Any = {
+    normalizeEntityAttrs(qual, attrs, record.getSchema) match {
+      case Nil =>
+        println("asToItem: " + asToItem + ", qual: " + qual)
+        asToItem.get(qual) match {
+          case Some(x) => x
+          case None    => throw JPQLRuntimeException(qual, "is not an AS alias of entity: " + EntityName)
+        }
+      case attrs1 => valueOfRecord(attrs1, record, toGather)
+    }
   }
 
   def valueOfRecord(attrs: List[String], record: IndexedRecord, toGather: Boolean): Any = {
@@ -152,6 +156,8 @@ abstract class JPQLEvaluator {
       currValue
     }
   }
+
+  // ----- ast visiting section
 
   /**
    * @return main entity name
@@ -194,17 +200,20 @@ abstract class JPQLEvaluator {
     entity
   }
 
-  def selectClause(select: SelectClause, record: Any): Unit = {
+  def selectClause(select: SelectClause, record: Any): List[Any] = {
     isToGather = true
     isSelectDistinct = select.isDistinct
-    selectItem(select.item, record)
-    select.items foreach { x => selectItem(x, record) }
+    val items = (select.item :: select.items) map { x => selectItem(x, record) }
     isToGather = false
+    items
   }
 
   def selectItem(item: SelectItem, record: Any): Any = {
     val item0 = selectExpr(item.expr, record)
-    item.as foreach { x => asToItem += (x.ident -> item0) }
+    item.as foreach { x =>
+      println("add as: " + (x.ident -> item0))
+      asToItem += (x.ident -> item0)
+    }
     item0
   }
 
@@ -232,11 +241,11 @@ abstract class JPQLEvaluator {
 
   def selectExpr(expr: SelectExpr, record: Any) = {
     expr match {
-      case SelectExpr_AggregateExpr(expr)   => selectedItems ::= aggregateExpr(expr, record)
-      case SelectExpr_ScalarExpr(expr)      => selectedItems ::= scalarExpr(expr, record)
-      case SelectExpr_OBJECT(expr)          => selectObjects ::= varAccessOrTypeConstant(expr, record)
-      case SelectExpr_ConstructorExpr(expr) => selectNewInstances ::= constructorExpr(expr, record)
-      case SelectExpr_MapEntryExpr(expr)    => selectMapEntries ::= mapEntryExpr(expr, record)
+      case SelectExpr_AggregateExpr(expr)   => aggregateExpr(expr, record)
+      case SelectExpr_ScalarExpr(expr)      => scalarExpr(expr, record)
+      case SelectExpr_OBJECT(expr)          => varAccessOrTypeConstant(expr, record)
+      case SelectExpr_ConstructorExpr(expr) => constructorExpr(expr, record)
+      case SelectExpr_MapEntryExpr(expr)    => mapEntryExpr(expr, record)
     }
   }
 
@@ -986,11 +995,11 @@ abstract class JPQLEvaluator {
     groupbys
   }
 
+  /**
+   * HavingClause is applied on aggregated select items, do not gather it
+   */
   def havingClause(having: HavingClause, record: Any): Boolean = {
-    isToGather = true
-    val cond = condExpr(having.condExpr, record)
-    isToGather = false
-    cond
+    condExpr(having.condExpr, record)
   }
 
 }

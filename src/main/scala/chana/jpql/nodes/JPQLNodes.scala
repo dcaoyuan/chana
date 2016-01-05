@@ -9,14 +9,48 @@ package object nodes {
 
   sealed trait Statement extends Serializable {
     def where: Option[WhereClause]
+
+    def collectSpecifiedIds(): List[(String, String)] = {
+      where match {
+        case Some(WhereClause(CondExpr(term, orTerms))) =>
+          (term :: orTerms) map collectSpecifiedIds flatten
+        case None => List()
+      }
+    }
+
+    private def collectSpecifiedIds(term: CondTerm): List[(String, String)] = {
+      (term.factor :: term.andFactors) map collectSpecifiedIds flatten
+    }
+
+    private def collectSpecifiedIds(factor: CondFactor): Option[(String, String)] = {
+      val not = factor.not
+      factor.expr match {
+        case Left(CondPrimary_SimpleCondExpr(SimpleCondExpr(Left(ArithExpr(Left(
+          SimpleArithExpr(ArithTerm(ArithFactor(ArithPrimary_Plus(
+            ArithPrimary_PathExprOrVarAccess(PathExprOrVarAccess_QualIdentVar(
+              QualIdentVar(VarAccessOrTypeConstant(Ident(alias))), List(Attribute(attr)))))), /*rightFactors*/ List()), /*rightTerms*/ List())))),
+          SimpleCondExprRem_ComparisonExpr(ComparisonExpr(EQ, ComparsionExprRightOperand_NonArithScalarExpr(NonArithScalarExpr_LiteralString(id))))))) if attr.toLowerCase == JPQLEvaluator.ID =>
+          if (not) None else Some((alias, id))
+        case _ => None
+      }
+    }
   }
+
   final case class SelectStatement(
-    select: SelectClause,
-    from: FromClause,
-    where: Option[WhereClause],
-    groupby: Option[GroupbyClause],
-    having: Option[HavingClause],
-    orderby: Option[OrderbyClause]) extends Statement
+      select: SelectClause,
+      from: FromClause,
+      where: Option[WhereClause],
+      groupby: Option[GroupbyClause],
+      having: Option[HavingClause],
+      orderby: Option[OrderbyClause]) extends Statement {
+
+    def isSelectItemsAllAggregate() = {
+      (select.item :: select.items) forall {
+        case SelectItem(SelectExpr_AggregateExpr(_), _) => true
+        case _ => false
+      }
+    }
+  }
 
   final case class UpdateStatement(
     update: UpdateClause,

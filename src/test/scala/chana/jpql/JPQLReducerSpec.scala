@@ -86,6 +86,7 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
   "JPQLReduceEvaluator" must {
 
     "query fields" in {
+
       val q = "SELECT a.registerTime FROM account a " +
         "WHERE a.registerTime >= 5 ORDER BY a.registerTime"
 
@@ -101,6 +102,7 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
     }
 
     "query deep fields" in {
+
       val q = "SELECT a.registerTime, a.lastChargeRecord.time FROM account a " +
         "WHERE a.registerTime >= 5 ORDER BY a.registerTime"
 
@@ -116,6 +118,7 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
     }
 
     "query fields order desc" in {
+
       val q = "SELECT a.registerTime FROM account a " +
         "WHERE a.registerTime >= 5 ORDER BY a.registerTime DESC"
 
@@ -131,6 +134,7 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
     }
 
     "query fields order by string desc" in {
+
       val q = "SELECT a.id, a.registerTime FROM account a " +
         "WHERE a.registerTime >= 5 ORDER BY a.id DESC"
 
@@ -146,6 +150,7 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
     }
 
     "query aggregate functions" in {
+
       val q = "SELECT COUNT(a.id), AVG(a.registerTime), SUM(a.registerTime), MAX(a.registerTime), MIN(a.registerTime) FROM account a " +
         "WHERE a.registerTime >= 5 ORDER BY a.id DESC"
 
@@ -157,15 +162,12 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
         case result: Array[List[_]] => result should be(Array(
-          List(5.0, 7.0, 35.0, 9.0, 0.0),
-          List(5.0, 7.0, 35.0, 9.0, 0.0),
-          List(5.0, 7.0, 35.0, 9.0, 0.0),
-          List(5.0, 7.0, 35.0, 9.0, 0.0),
           List(5.0, 7.0, 35.0, 9.0, 0.0)))
       }
     }
 
     "query with groupby" in {
+
       val q = "SELECT AVG(a.registerTime) FROM account a " +
         "WHERE a.registerTime > 1 GROUP BY a.lastLoginTime ORDER BY a.id"
 
@@ -176,13 +178,14 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
-        case result: Array[List[_]] => result should be(Array(List(5.0), List(6.0), List(5.5)))
+        case result: Array[List[_]] => result should be(Array(List(5.5), List(5.0), List(6.0)))
       }
     }
 
     "query with groupby and having" in {
-      val q = "SELECT AVG(a.registerTime) FROM account a " +
-        "WHERE a.registerTime > 1 GROUP BY a.lastLoginTime HAVING a.registerTime > 5 ORDER BY a.id"
+
+      val q = "SELECT AVG(a.registerTime) as average FROM account a " +
+        "WHERE a.registerTime > 1 GROUP BY a.lastLoginTime HAVING average >= 5.5 ORDER BY a.id"
 
       val meta = parse(q)
       val reducer = system.actorOf(JPQLReducer.props("test", meta))
@@ -191,11 +194,12 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
 
       reducer ! AskReducedResult
       expectMsgPF(2.seconds) {
-        case result: Array[List[_]] => result should be(Array(List(6.0), List(5.5), List(5.0)))
+        case result: Array[List[_]] => result should be(Array(List(5.5), List(6.0)))
       }
     }
 
     "query with join" in {
+
       val q = "SELECT a.registerTime, a.chargeRecords FROM account a JOIN a.chargeRecords c " +
         "WHERE a.registerTime >= 5 AND c.time > 1 ORDER BY a.registerTime"
 
@@ -216,6 +220,7 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
     }
 
     "query with join and INDEX fucntion" in {
+
       val q = "SELECT a.registerTime, a.chargeRecords FROM account a JOIN a.chargeRecords c " +
         "WHERE a.registerTime >= 5 AND c.time > 0 AND INDEX(c) = 2 ORDER BY a.registerTime"
 
@@ -236,6 +241,7 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
     }
 
     "query with join and KEY/VALUE function" in {
+
       val q = "SELECT a.registerTime, d, CONCAT('k=', KEY(d)), VALUE(d).numBlackApps FROM account a JOIN a.devApps d " +
         "WHERE a.registerTime >= 5 AND KEY(d) = 'b' ORDER BY a.registerTime"
 
@@ -262,6 +268,7 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
     }
 
     "query with join and KEY/VALUE function, without refer to d directly" in {
+
       val q = "SELECT a.registerTime, CONCAT('k=', KEY(d)), VALUE(d).numBlackApps FROM account a JOIN a.devApps d " +
         "WHERE a.registerTime >= 5 AND KEY(d) = 'b' ORDER BY a.registerTime"
 

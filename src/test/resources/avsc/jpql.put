@@ -1,6 +1,6 @@
 #!/bin/sh
 
-JPQL='SELECT COUNT(p.age), AVG(p.age), p.age FROM PersonInfo p WHERE p.age >= 30 ORDER BY p.age' 
+JPQL='SELECT COUNT(p.age), AVG(p.age) FROM PersonInfo p WHERE p.age >= 30 ORDER BY p.age' 
 
 echo $JPQL | curl -d @- 'http://127.0.0.1:8080/jpql/put/JPQL_NO_1'
 

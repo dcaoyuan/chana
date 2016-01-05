@@ -5,7 +5,7 @@ import chana.avro.RecordFlatView
 import chana.jpql.nodes._
 import org.apache.avro.generic.IndexedRecord
 
-final case class WorkSet(selectedItems: List[Any], orderbys: List[Any])
+final case class WorkSet(selectedItems: List[Any], orderbys: List[Any], having: Boolean)
 
 final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JPQLEvaluator {
 
@@ -32,13 +32,12 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
         id = _id
         groupby.fold(List[Any]()) { x => groupbyClause(x, record) }
       case _ =>
-        // not applicable for INSERT/UPDATE/DELETE
+        // not applicable on INSERT/UPDATE/DELETE
         throw new UnsupportedOperationException()
     }
   }
 
   def visitOneRecord(_id: String, record: IndexedRecord): List[WorkSet] = {
-    selectedItems = List()
     meta.stmt match {
       case SelectStatement(select, from, where, groupby, having, orderby) =>
         id = _id
@@ -52,29 +51,17 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
 
           while (flatRecs.hasNext) {
             val rec = flatRecs.next
-            val havingCond = having.fold(true) { x => havingClause(x, record) }
-            if (havingCond) {
-              selectClause(select, rec)
-
-              val orderbys = orderby.fold(List[Any]()) { x => orderbyClause(x, rec) }
-
-              res ::= WorkSet(selectedItems.reverse, orderbys)
-            }
+            val selectedItems = selectClause(select, rec)
+            val orderbys = orderby.fold(List[Any]()) { x => orderbyClause(x, rec) }
+            val havingCond = having.fold(true) { x => havingClause(x, rec) }
+            res ::= WorkSet(selectedItems, orderbys, havingCond)
           }
           res
-
         } else {
-
+          val selectedItems = selectClause(select, record)
+          val orderbys = orderby.fold(List[Any]()) { x => orderbyClause(x, record) }
           val havingCond = having.fold(true) { x => havingClause(x, record) }
-          if (havingCond) {
-            selectClause(select, record)
-
-            val orderbys = orderby.fold(List[Any]()) { x => orderbyClause(x, record) }
-
-            List(WorkSet(selectedItems.reverse, orderbys))
-          } else {
-            List()
-          }
+          List(WorkSet(selectedItems, orderbys, havingCond))
         }
 
       case _ =>

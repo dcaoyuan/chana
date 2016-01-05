@@ -88,6 +88,8 @@ class JPQLReducer(jqplKey: String, meta: JPQLSelect) extends Actor with Stash wi
     case _                  => false
   }
 
+  private val isSelectItemsAllAggregate = meta.stmt.isSelectItemsAllAggregate
+
   override def preStart {
     prevUpdateTime = LocalDate.now()
   }
@@ -97,13 +99,16 @@ class JPQLReducer(jqplKey: String, meta: JPQLSelect) extends Actor with Stash wi
   }
 
   def receive: Receive = {
+
     case BinaryProjection(id, bytes) =>
       chana.avro.avroDecode[IndexedRecord](bytes, meta.projectionSchema.head) match { // TODO multiple projectionSchema
         case Success(projection) => idToProjection += (id -> RecordProjection(projection))
         case Failure(ex)         => log.warning("Failed to decode projection bytes: " + ex.getMessage)
       }
+
     case RemoveProjection(id) =>
       idToProjection -= id // remove
+
     case DeletedRecord(id) =>
       idToProjection -= id // remove
 
@@ -155,7 +160,10 @@ class JPQLReducer(jqplKey: String, meta: JPQLSelect) extends Actor with Stash wi
     evaluator.reset(idToDataset)
     val groupKeyToSubset = idToDataset.groupBy { case (id, dataset) => evaluator.visitGroupbys(id, dataset.projection) }
     groupKeyToSubset.map {
-      case (groupKey, subset) => reduceDataset(subset).find(_ ne null)
+      case (groupKey, subset) =>
+        val grouped = reduceDataset(subset).find { x => (x ne null) && x.having }
+        println("groupby: " + groupKey + ", " + grouped)
+        grouped
     }.flatten
   }
 
@@ -163,10 +171,14 @@ class JPQLReducer(jqplKey: String, meta: JPQLSelect) extends Actor with Stash wi
     evaluator.reset(idToDataset)
     var reduced = List[WorkSet]()
     val itr = idToDataset.iterator
+    var break = false
 
-    while (itr.hasNext) {
+    while (itr.hasNext && !break) {
       val (id, dataSet) = itr.next
       reduced :::= evaluator.visitOneRecord(id, dataSet.projection)
+      if (isSelectItemsAllAggregate) {
+        break = true
+      }
     }
     log.debug("reduced: {}", reduced)
 

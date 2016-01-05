@@ -46,7 +46,7 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
           case (as, projectionNode) => Projection.visitProjectionNode(jpqlKey, projectionNode, null).endRecord
         }
 
-        val ids = collectSpecifiedIds(stmt).filter {
+        val ids = stmt.collectSpecifiedIds.filter {
           case (as, id) => asToEntity.get(as).fold(false)(_ == entity)
         } map (_._2)
 
@@ -55,7 +55,7 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
       case stmt @ UpdateStatement(update, set, where) =>
         // visit updateClause is enough for meta
         val entity = updateClause(update, record)
-        val ids = collectSpecifiedIds(stmt).filter {
+        val ids = stmt.collectSpecifiedIds.filter {
           case (as, id) => asToEntity.get(as).fold(false)(_ == entity)
         } map (_._2)
 
@@ -64,7 +64,7 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
       case stmt @ DeleteStatement(delete, attributes, where) =>
         // visit deleteClause is enough for meta
         val entity = deleteClause(delete, record)
-        val ids = collectSpecifiedIds(stmt).filter {
+        val ids = stmt.collectSpecifiedIds.filter {
           case (as, id) => asToEntity.get(as).fold(false)(_ == entity)
         } map (_._2)
 
@@ -73,7 +73,7 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
       case stmt @ InsertStatement(insert, attributes, values, where) =>
         // visit insertClause is enough for meta
         val entity = insertClause(insert, record)
-        val ids = collectSpecifiedIds(stmt).filter {
+        val ids = stmt.collectSpecifiedIds.filter {
           case (as, id) => asToEntity.get(as).fold(false)(_ == entity)
         } map (_._2)
 
@@ -141,31 +141,6 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
           case _ => throw JPQLRuntimeException(qual1, "is not an AS alias of entity")
         }
       }
-    }
-  }
-
-  private def collectSpecifiedIds(stmt: Statement): List[(String, String)] = {
-    stmt.where match {
-      case Some(WhereClause(CondExpr(term, orTerms))) =>
-        (term :: orTerms) map collectSpecifiedIds flatten
-      case None => List()
-    }
-  }
-
-  private def collectSpecifiedIds(term: CondTerm): List[(String, String)] = {
-    (term.factor :: term.andFactors) map collectSpecifiedIds flatten
-  }
-
-  private def collectSpecifiedIds(factor: CondFactor): Option[(String, String)] = {
-    val not = factor.not
-    factor.expr match {
-      case Left(CondPrimary_SimpleCondExpr(SimpleCondExpr(Left(ArithExpr(Left(
-        SimpleArithExpr(ArithTerm(ArithFactor(ArithPrimary_Plus(
-          ArithPrimary_PathExprOrVarAccess(PathExprOrVarAccess_QualIdentVar(
-            QualIdentVar(VarAccessOrTypeConstant(Ident(alias))), List(Attribute(attr)))))), /*rightFactors*/ List()), /*rightTerms*/ List())))),
-        SimpleCondExprRem_ComparisonExpr(ComparisonExpr(EQ, ComparsionExprRightOperand_NonArithScalarExpr(NonArithScalarExpr_LiteralString(id))))))) if attr.toLowerCase == JPQLEvaluator.ID =>
-        if (not) None else Some((alias, id))
-      case _ => None
     }
   }
 
