@@ -375,7 +375,7 @@ object XPathEvaluator {
                 val rlback = { () => map.put(k, prev) }
                 val commit = { () => map.put(k, v) }
                 // always convert to a collection inserting
-                val kvs = new java.util.LinkedHashMap[String, Any]()
+                val kvs = new java.util.HashMap[String, Any](1)
                 kvs.put(k, v)
                 val xpath = n.xpath + "/" + field.name
                 val bytes = avro.avroEncode(kvs, field.schema).get
@@ -445,8 +445,8 @@ object XPathEvaluator {
             }
             value1 match {
               case xs: java.util.Collection[(String, Any)] @unchecked =>
-                val prev = new java.util.LinkedHashMap[String, Any]()
-                val toPut = new java.util.LinkedHashMap[String, Any]()
+                val prev = new java.util.HashMap[String, Any]()
+                val toPut = new java.util.HashMap[String, Any]()
                 val itr = xs.iterator
 
                 while (itr.hasNext) {
@@ -529,7 +529,7 @@ object XPathEvaluator {
         actions ::= UpdateAction(commit, rlback, Deletelog(xpath, descendingIdxes))
 
       case n @ MapNode(map: java.util.Map[String, Any], mapSchema, keys, field) =>
-        val prev = new java.util.LinkedHashMap[String, Any]()
+        val prev = new java.util.HashMap[String, Any]()
         val itr = keys.iterator
 
         while (itr.hasNext) {
@@ -602,8 +602,8 @@ object XPathEvaluator {
 
             val arr = targetCtx.target.asInstanceOf[java.util.Collection[Any]].iterator
 
-            val values = new java.util.LinkedList[Any]()
-            val keys = new java.util.LinkedList[Any]()
+            val values = new java.util.ArrayList[Any]()
+            val keys = new java.util.ArrayList[Any]()
             val idx = ix.intValue
             var i = 1
 
@@ -626,8 +626,8 @@ object XPathEvaluator {
 
             val arr = targetCtx.target.asInstanceOf[java.util.Collection[Any]].iterator
 
-            val values = new java.util.LinkedList[Any]()
-            val keys = new java.util.LinkedList[Any]()
+            val values = new java.util.ArrayList[Any]()
+            val keys = new java.util.ArrayList[Any]()
             var i = 0
             val conds = boolOrInts.iterator
 
@@ -664,8 +664,8 @@ object XPathEvaluator {
 
             val map = targetCtx.target.asInstanceOf[java.util.Map[String, Any]].entrySet.iterator
 
-            val values = new java.util.LinkedHashMap[String, Any]()
-            val keys = new java.util.LinkedList[Any]()
+            val values = new java.util.HashMap[String, Any]()
+            val keys = new java.util.ArrayList[Any]()
             val conds = bools.iterator
 
             while (map.hasNext && conds.hasNext) {
@@ -705,7 +705,7 @@ object XPathEvaluator {
         ctx.target match {
           case arr: java.util.Collection[Any] @unchecked =>
             val itr = arr.iterator
-            val keys = new java.util.LinkedList[Int]()
+            val keys = new java.util.ArrayList[Int]()
             var i = 1
 
             while (itr.hasNext) {
@@ -768,7 +768,7 @@ object XPathEvaluator {
 
               case arr: java.util.Collection[IndexedRecord] @unchecked =>
                 // we'll transfer Node to record's ArrayNode
-                val values = new java.util.LinkedList[Any]()
+                val values = new java.util.ArrayList[Any]()
                 val elemSchema = avro.getElementType(schema)
                 val field = elemSchema.getField(local)
                 val fieldSchema = avro.getNonNull(field.schema)
@@ -783,7 +783,7 @@ object XPathEvaluator {
                 val node = ctx.node match {
                   case n: RecordNode =>
                     val itr = arr.iterator
-                    val keys = new java.util.LinkedList[Int]()
+                    val keys = new java.util.ArrayList[Int]()
                     var i = 1
 
                     while (itr.hasNext) {
@@ -803,7 +803,7 @@ object XPathEvaluator {
                 Context(Schema.createArray(fieldSchema), values, node, values)
 
               case map: java.util.Map[String, IndexedRecord] @unchecked =>
-                val values = new java.util.LinkedList[Any]()
+                val values = new java.util.ArrayList[Any]()
                 val valueSchema = avro.getValueType(schema)
                 val field = valueSchema.getField(local)
                 val fieldSchema = avro.getNonNull(field.schema)
@@ -837,8 +837,8 @@ object XPathEvaluator {
             ctx.target match {
               case map: java.util.Map[String, Any] @unchecked =>
                 // ok we're fetching a map value via key
-                val values = new java.util.LinkedList[Any]()
-                val keys = new java.util.LinkedList[String]()
+                val values = new java.util.ArrayList[Any]()
+                val keys = new java.util.ArrayList[String]()
                 val valueSchema = avro.getValueType(schema)
                 val value = map.get(local)
                 values.add(value)

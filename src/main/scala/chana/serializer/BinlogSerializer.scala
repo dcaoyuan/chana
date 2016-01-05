@@ -83,7 +83,7 @@ final class BinlogSerializer(system: ExtendedActorSystem) extends Serializer {
       case -1 => Clearlog(xpath)
 
       case 0 =>
-        val keys = new java.util.LinkedList[Any]()
+        val keys = new java.util.ArrayList[Any]()
         data.getByte match {
           case 0 => // String
             while (data.hasNext) {

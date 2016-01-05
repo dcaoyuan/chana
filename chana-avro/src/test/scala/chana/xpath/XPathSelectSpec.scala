@@ -221,7 +221,7 @@ class XPathSelectSpec extends WordSpecLike with Matchers with BeforeAndAfterAll 
       q = "/devApps[numBlackApps=2]"
       val expected = {
         val value = record.get("devApps").asInstanceOf[java.util.Map[String, _]].get("b")
-        val res = new java.util.LinkedHashMap[String, Any]()
+        val res = new java.util.HashMap[String, Any](1)
         res.put("b", value)
         res
       }

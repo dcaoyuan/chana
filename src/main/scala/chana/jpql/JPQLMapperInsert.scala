@@ -131,7 +131,7 @@ final class JPQLMapperInsert(val id: String, meta: JPQLInsert) extends JPQLEvalu
           val rlback = { () => record.put(field.pos, prev) }
           val commit = { () => map.put(key, value) }
           val xpath = "/" + field.name
-          val xs = new java.util.LinkedHashMap[String, Any]()
+          val xs = new java.util.HashMap[String, Any](1)
           xs.put(key, value)
           val bytes = avro.avroEncode(xs, field.schema).get
           actions ::= UpdateAction(commit, rlback, Insertlog(xpath, xs, bytes))

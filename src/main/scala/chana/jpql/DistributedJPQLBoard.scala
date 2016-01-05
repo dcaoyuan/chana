@@ -39,12 +39,12 @@ object DistributedJPQLBoard extends ExtensionId[DistributedJPQLBoardExtension] w
    */
   def props(): Props = Props(classOf[DistributedJPQLBoard])
 
-  val keyToStatement = new ConcurrentHashMap[String, (JPQLMeta, FiniteDuration)]()
+  val keyToJPQL = new ConcurrentHashMap[String, (JPQLMeta, FiniteDuration)]()
   private val jpqlsLock = new ReentrantReadWriteLock()
   private def keyOf(entity: String, field: String, id: String) = entity + "/" + field + "/" + id
 
   private def putJPQL(system: ActorSystem, key: String, meta: JPQLMeta, interval: FiniteDuration = 1.seconds): Unit = {
-    keyToStatement.putIfAbsent(key, (meta, interval)) match {
+    keyToJPQL.putIfAbsent(key, (meta, interval)) match {
       case null =>
         JPQLReducer.startReducer(system, JPQLReducer.role, key, meta)
         JPQLReducer.startReducerProxy(system, JPQLReducer.role, key)
@@ -53,7 +53,7 @@ object DistributedJPQLBoard extends ExtensionId[DistributedJPQLBoardExtension] w
   }
 
   private def removeJPQL(key: String): Unit = {
-    keyToStatement.remove(key)
+    keyToJPQL.remove(key)
     // TODO remove aggregator
   }
 
@@ -130,7 +130,7 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
       // check if there were newly added
       entries.foreach {
         case (key, jpql) =>
-          DistributedJPQLBoard.keyToStatement.get(key) match {
+          DistributedJPQLBoard.keyToJPQL.get(key) match {
             case null =>
               parseJPQL(key, jpql) match {
                 case Success(meta) =>
@@ -144,7 +144,7 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
       }
 
       // check if there were removed
-      val toRemove = DistributedJPQLBoard.keyToStatement.filter(x => !entries.contains(x._1)).keys
+      val toRemove = DistributedJPQLBoard.keyToJPQL.filter(x => !entries.contains(x._1)).keys
       if (toRemove.nonEmpty) {
         log.info("remove jpql (Changed): {}", toRemove)
         toRemove foreach DistributedJPQLBoard.removeJPQL

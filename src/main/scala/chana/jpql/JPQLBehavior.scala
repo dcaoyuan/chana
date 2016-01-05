@@ -26,7 +26,8 @@ object JPQLBehavior {
 trait JPQLBehavior extends Entity {
   import JPQLBehavior._
 
-  private var reportedJpqls = List[String]()
+  private var scheduledJpqls = Set[String]()
+  private def isScheduled(jpqlKey: String) = scheduledJpqls.contains(jpqlKey)
 
   mediator ! Subscribe(jpqlTopic + entityName, self)
 
@@ -39,12 +40,13 @@ trait JPQLBehavior extends Entity {
 
   def jpqlBehavior: Receive = {
     case ReportingAllTick =>
-      jpqlReportAll(false)
+      scheduleJpqlReportAll(false)
 
     case ReportingTick(jpqlKey) =>
-      DistributedJPQLBoard.keyToStatement.get(jpqlKey) match {
-        case (meta: JPQLSelect, interval) => jpqlReport(jpqlKey, meta, interval, record)
-        case _                            =>
+      DistributedJPQLBoard.keyToJPQL.get(jpqlKey) match {
+        case (meta: JPQLSelect, interval) if meta.entity == entityName =>
+          scheduleJpqlReport(jpqlKey, meta, interval, record)
+        case _ =>
       }
 
     case SubscribeAck(Subscribe(topic, None, `self`)) =>
@@ -56,7 +58,9 @@ trait JPQLBehavior extends Entity {
 
         case Success(meta: jpql.JPQLSelect) =>
           resetIdleTimeout()
-          jpqlReport(key, meta, interval, record)
+          if (meta.entity == entityName) {
+            scheduleJpqlReport(key, meta, interval, record)
+          }
 
         case Success(meta: jpql.JPQLUpdate) =>
           val commander = sender()
@@ -106,23 +110,28 @@ trait JPQLBehavior extends Entity {
 
   }
 
-  def jpqlReportAll(force: Boolean) {
-    var newReportedJpqls = List[String]()
-    val jpqls = DistributedJPQLBoard.keyToStatement.entrySet.iterator
+  /**
+   * Schedule periodic reporting if it's not scheduled
+   */
+  def scheduleJpqlReportAll(force: Boolean) {
+    var newScheduledJpqls = Set[String]()
+    val jpqls = DistributedJPQLBoard.keyToJPQL.entrySet.iterator
 
     while (jpqls.hasNext) {
       val entry = jpqls.next
       val key = entry.getKey
       val (meta, interval) = entry.getValue
-      if ((force || !reportedJpqls.contains(key)) && meta.entity == entityName) {
-        jpqlReport(key, meta.asInstanceOf[JPQLSelect], interval, record) // report at once
+      if (meta.entity == entityName) {
+        if (force || !isScheduled(key)) {
+          scheduleJpqlReport(key, meta.asInstanceOf[JPQLSelect], interval, record) // report right now 
+        }
+        newScheduledJpqls += key
       }
-      newReportedJpqls ::= key
     }
-    reportedJpqls = newReportedJpqls
+    scheduledJpqls = newScheduledJpqls
   }
 
-  def jpqlReport(jpqlKey: String, meta: JPQLSelect, interval: FiniteDuration, record: Record) {
+  def scheduleJpqlReport(jpqlKey: String, meta: JPQLSelect, interval: FiniteDuration, record: Record) {
     if (meta.entity == entityName) {
       try {
         if (isDeleted) {
@@ -141,11 +150,11 @@ trait JPQLBehavior extends Entity {
   }
 
   override def onReady() {
-    jpqlReportAll(force = true)
+    scheduleJpqlReportAll(force = true)
   }
 
   override def onUpdated(event: UpdateEvent) {
-    jpqlReportAll(true)
+    scheduleJpqlReportAll(true)
   }
 
 }

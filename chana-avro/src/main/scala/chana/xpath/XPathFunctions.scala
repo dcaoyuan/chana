@@ -11,7 +11,7 @@ import java.time.temporal.Temporal
 object XPathFunctions {
 
   def map[A, R](xs: java.util.Collection[A])(f: A => R): java.util.Collection[R] = {
-    val res = new java.util.LinkedList[R]()
+    val res = new java.util.ArrayList[R]()
     val itr = xs.iterator
 
     while (itr.hasNext) {
@@ -21,7 +21,7 @@ object XPathFunctions {
   }
 
   def map[A, B, R](xs: java.util.Collection[A], ys: java.util.Collection[B])(f: (A, B) => R): java.util.Collection[R] = {
-    val res = new java.util.LinkedList[R]()
+    val res = new java.util.ArrayList[R]()
     val itrX = xs.iterator
     val itrY = ys.iterator
 
@@ -379,7 +379,7 @@ object XPathFunctions {
   }
 
   def position(xs: java.util.Collection[_]): java.util.Collection[Int] = {
-    val res = new java.util.LinkedList[Int]()
+    val res = new java.util.ArrayList[Int]()
     val itr = xs.iterator
     var i = 1
 
