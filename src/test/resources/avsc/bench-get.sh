@@ -1,4 +1,4 @@
-#/bin/sh
+#!/bin/sh
 
 OPGET=http://127.0.0.1:8080/personinfo/get/
 OPPUT=http://127.0.0.1:8080/personinfo/update/

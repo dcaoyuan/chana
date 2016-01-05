@@ -1,4 +1,4 @@
-#/bin/sh
+#!/bin/sh
 
 curl --data @hatInventory.avsc 'http://localhost:8080/schema/put/hatinv?timeout=5000'
 # OK

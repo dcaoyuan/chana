@@ -108,11 +108,16 @@ JPQL example
 .. code:: shell
 
     #### JPQL Simple test
-    $ echo 'SELECT COUNT(p.age), AVG(p.age), p.age FROM PersonInfo p WHERE p.age >= 30 ORDER BY p.age' | \
- curl -d @- 'http://127.0.0.1:8080/jpql/put/JPQL_NO_1'
+    $ cat jpql.put
+
+    echo 'SELECT COUNT(p.age), AVG(p.age), p.age FROM PersonInfo p WHERE p.age >= 30 ORDER BY p.age' | \
+    curl -d @- 'http://127.0.0.1:8080/jpql/put/JPQL_NO_1'
    
+    $ ./jpql.put
+
     #### watching jpql results
-    $ cat ./jpql.ask
+    $ cat jpql.ask
+
     while :
     do
        sleep 1s
@@ -122,8 +127,16 @@ JPQL example
     
     $ ./jpql.ask
     
-    #### update record with random id (effected by ?benchmark_only=10240). Repeat it to update more person's age to 40
-    $ echo '{"age":40}' | curl -d @- 'http://127.0.0.1:8080/personinfo/put/1?benchmark_only=10240'
+    #### update record with random id, pepeat it to update more person's age to 40
+    $ cat jpql.update
+
+    RANDOM_ID=$RANDOM
+    JPQL="UPDATE PersonInfo p SET p.age = 80 WHERE p.id = '$RANDOM_ID'"
+    echo $JPQL
+
+    echo $JPQL | curl -d @- "http://127.0.0.1:8080/jpql"
+    
+    $ ./jpql.update
 
     #### finally, a simple benchmark test
     $ ab -c100 -n100000 -k 'http://127.0.0.1:8080/personinfo/get/1?benchmark_only=1024'

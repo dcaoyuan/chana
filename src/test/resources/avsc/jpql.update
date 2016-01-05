@@ -1,0 +1,7 @@
+#!/bin/sh
+
+RANDOM_ID=$RANDOM
+JPQL="UPDATE PersonInfo p SET p.age = 80 WHERE p.id = '$RANDOM_ID'"
+echo $JPQL
+
+echo $JPQL | curl -d @- "http://127.0.0.1:8080/jpql"

@@ -1,4 +1,4 @@
-#/bin/sh
+#!/bin/sh
 
 curl --data @PersonInfo.avsc 'http://localhost:8080/schema/put/personinfo'
 # OK

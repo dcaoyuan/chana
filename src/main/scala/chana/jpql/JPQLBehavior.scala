@@ -113,7 +113,7 @@ trait JPQLBehavior extends Entity {
   /**
    * Schedule periodic reporting if it's not scheduled
    */
-  def scheduleJpqlReportAll(force: Boolean) {
+  private def scheduleJpqlReportAll(force: Boolean) {
     var newScheduledJpqls = Set[String]()
     val jpqls = DistributedJPQLBoard.keyToJPQL.entrySet.iterator
 
@@ -131,7 +131,7 @@ trait JPQLBehavior extends Entity {
     scheduledJpqls = newScheduledJpqls
   }
 
-  def scheduleJpqlReport(jpqlKey: String, meta: JPQLSelect, interval: FiniteDuration, record: Record) {
+  private def scheduleJpqlReport(jpqlKey: String, meta: JPQLSelect, interval: FiniteDuration, record: Record) {
     if (meta.entity == entityName) {
       try {
         if (isDeleted) {

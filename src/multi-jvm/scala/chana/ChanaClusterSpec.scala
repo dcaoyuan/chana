@@ -127,7 +127,7 @@ class ChanaClusterSpecMultiJvmNode3 extends ChanaClusterSpec
 class ChanaClusterSpecMultiJvmNode4 extends ChanaClusterSpec
 
 object ChanaClusterSpec {
-  val avsc = """
+  val personinfo = """
 {
   "type": "record",
   "name": "PersonInfo",
@@ -164,6 +164,43 @@ object ChanaClusterSpec {
   ]
 }
   """
+
+  val hatinv = """
+{
+  "type" : "record",
+  "name" : "hatInventory",
+  "namespace" : "chana",
+  "fields" : [ {
+    "name" : "sku",
+    "type" : "string",
+    "default" : ""
+  }, {
+    "name" : "description",
+    "type" : {
+      "type" : "record",
+      "name" : "hatInfo",
+      "fields" : [ {
+        "name" : "style",
+        "type" : "string",
+        "default" : ""
+      }, {
+        "name" : "size",
+        "type" : "string",
+        "default" : ""
+      }, {
+        "name" : "color",
+        "type" : "string",
+        "default" : ""
+      }, {
+        "name" : "material",
+        "type" : "string",
+        "default" : ""
+      } ]
+    },
+    "default" : { }
+  } ]
+}
+"""
 } 
 
 class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMultiNodeSpec with ImplicitSender {
@@ -260,7 +297,10 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
         IO(Http) ! Get(baseUrl1 + "/ping")
         expectMsgType[HttpResponse](5.seconds).entity.asString should be("pong")
 
-        IO(Http) ! Post(baseUrl1 + "/schema/put/personinfo", avsc)
+        IO(Http) ! Post(baseUrl1 + "/schema/put/personinfo", personinfo)
+        expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
+
+        IO(Http) ! Post(baseUrl1 + "/schema/put/hatinventory", hatinv)
         expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
 
         // Waiting for sharding singleton manager actor ready, which need to identify the oldest node. 
