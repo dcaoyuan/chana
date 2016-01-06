@@ -252,12 +252,12 @@ abstract class JPQLEvaluator {
 
   def pathExprOrVarAccess(expr: PathExprOrVarAccess, record: Any): Any = {
     expr match {
-      case QualIdentVarWithAttrs(qual, attrs) =>
-        val qualx = qualIdentVar(qual, record)
+      case PathExprOrVarAccess(Left(qual), attrs) =>
+        val qual0 = qualIdentVar(qual, record)
         val paths = attrs map { x => attribute(x, record) }
-        valueOf(qualx, paths, record)
-      case FuncsReturingAnyWithAttrs(expr, attrs) =>
-        funcsReturningAny(expr, record) match {
+        valueOf(qual0, paths, record)
+      case PathExprOrVarAccess(Right(func), attrs) =>
+        funcsReturningAny(func, record) match {
           case rec: IndexedRecord =>
             val paths = attrs map { x => attribute(x, record) }
             valueOfRecord(paths, rec, toGather = false) // return fieldRec's attribute, but do not gather 
@@ -338,7 +338,7 @@ abstract class JPQLEvaluator {
   def join(join: Join, record: Any) = {
     enterJoin = true
     join match {
-      case Join_General(spec, expr, as, cond) =>
+      case Join_GENERAL(spec, expr, as, cond) =>
         spec match {
           case JOIN            =>
           case LEFT_JOIN       =>
@@ -582,15 +582,17 @@ abstract class JPQLEvaluator {
 
   def simpleArithExpr(expr: SimpleArithExpr, record: Any): Any = {
     expr.rightTerms.foldLeft(arithTerm(expr.term, record)) {
-      case (acc, ArithTerm_Plus(term))  => JPQLFunctions.plus(acc, arithTerm(term, record))
-      case (acc, ArithTerm_Minus(term)) => JPQLFunctions.minus(acc, arithTerm(term, record))
+      case (acc, term @ ArithTerm(PLUS, _, _))  => JPQLFunctions.plus(acc, arithTerm(term, record))
+      case (acc, term @ ArithTerm(MINUS, _, _)) => JPQLFunctions.minus(acc, arithTerm(term, record))
+      case (acc, ArithTerm(op, _, _))           => throw JPQLRuntimeException(op, "should be PLUS or MINUS")
     }
   }
 
   def arithTerm(term: ArithTerm, record: Any): Any = {
     term.rightFactors.foldLeft(arithFactor(term.factor, record)) {
-      case (acc, ArithFactor_Multiply(factor)) => JPQLFunctions.multiply(acc, arithFactor(factor, record))
-      case (acc, ArithFactor_Divide(factor))   => JPQLFunctions.divide(acc, arithFactor(factor, record))
+      case (acc, factor @ ArithFactor(MULTIPLY, _)) => JPQLFunctions.multiply(acc, arithFactor(factor, record))
+      case (acc, factor @ ArithFactor(DIVIDE, _))   => JPQLFunctions.divide(acc, arithFactor(factor, record))
+      case (acc, ArithFactor(op, _))                => throw JPQLRuntimeException(op, "should be MULTIPLY or DIVIDE")
     }
   }
 
@@ -599,9 +601,11 @@ abstract class JPQLEvaluator {
   }
 
   def plusOrMinusPrimary(primary: PlusOrMinusPrimary, record: Any): Any = {
-    primary match {
-      case ArithPrimary_Plus(primary)  => arithPrimary(primary, record)
-      case ArithPrimary_Minus(primary) => JPQLFunctions.neg(arithPrimary(primary, record))
+    val primary0 = arithPrimary(primary.primary, record)
+    primary.prefixOp match {
+      case PLUS  => primary0
+      case MINUS => JPQLFunctions.neg(primary0)
+      case op    => throw JPQLRuntimeException(op, "should be PLUS or MINUS")
     }
   }
 

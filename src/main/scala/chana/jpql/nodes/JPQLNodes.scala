@@ -23,15 +23,17 @@ package object nodes {
     }
 
     private def collectSpecifiedIds(factor: CondFactor): Option[(String, String)] = {
-      val not = factor.not
-      factor.expr match {
-        case Left(SimpleCondExpr(Left(ArithExpr(Left(
-          SimpleArithExpr(ArithTerm(ArithFactor(ArithPrimary_Plus(
-            QualIdentVarWithAttrs(
-              QualIdentVar(VarAccessOrTypeConstant(Ident(alias))), List(Attribute(attr))))), /*rightFactors*/ List()), /*rightTerms*/ List())))),
-          ComparisonExpr(EQ, LiteralString(id)))) if attr.toLowerCase == JPQLEvaluator.ID =>
-          if (not) None else Some((alias, id))
-        case _ => None
+      if (factor.not) {
+        None
+      } else {
+        factor.expr match {
+          case Left(SimpleCondExpr(Left(ArithExpr(
+            Left(SimpleArithExpr(ArithTerm(NOOP, ArithFactor(NOOP, PlusOrMinusPrimary(PLUS,
+              PathExprOrVarAccess(Left(QualIdentVar(VarAccessOrTypeConstant(Ident(alias)))), List(Attribute(attr))))),
+              /*rightFactors*/ Nil), /*rightTerms*/ Nil)))),
+            ComparisonExpr(EQ, LiteralString(id)))) if attr.toLowerCase == JPQLEvaluator.ID => Some((alias, id))
+          case _ => None
+        }
       }
     }
   }
@@ -90,9 +92,7 @@ package object nodes {
 
   final case class MapEntryExpr(entry: VarAccessOrTypeConstant) extends SelectExpr
 
-  sealed trait PathExprOrVarAccess extends ArithPrimary
-  final case class QualIdentVarWithAttrs(qual: QualIdentVar, attributes: List[Attribute]) extends PathExprOrVarAccess
-  final case class FuncsReturingAnyWithAttrs(expr: FuncsReturningAny, attributes: List[Attribute]) extends PathExprOrVarAccess
+  final case class PathExprOrVarAccess(qual: Either[QualIdentVar, FuncsReturningAny], attributes: List[Attribute]) extends ArithPrimary
 
   final case class QualIdentVar(v: VarAccessOrTypeConstant)
 
@@ -118,7 +118,7 @@ package object nodes {
   final case class EntityName(ident: String)
 
   sealed trait Join
-  final case class Join_General(spec: JoinSpec, expr: JoinAssocPathExpr, as: Ident, cond: Option[JoinCond]) extends Join
+  final case class Join_GENERAL(spec: JoinSpec, expr: JoinAssocPathExpr, as: Ident, cond: Option[JoinCond]) extends Join
   final case class Join_TREAT(spec: JoinSpec, expr: JoinAssocPathExpr, exprAs: Ident, as: Ident, cond: Option[JoinCond]) extends Join
   final case class Join_FETCH(spec: JoinSpec, expr: JoinAssocPathExpr, alias: Option[Ident], cond: Option[JoinCond]) extends Join
 
@@ -198,25 +198,37 @@ package object nodes {
 
   sealed trait ComparsionExprRightOperand
 
+  sealed trait ArithOp
+  case object PLUS extends ArithOp
+  case object MINUS extends ArithOp
+  case object MULTIPLY extends ArithOp
+  case object DIVIDE extends ArithOp
+  case object NOOP extends ArithOp
+
   final case class ArithExpr(expr: Either[SimpleArithExpr, Subquery]) extends ComparsionExprRightOperand with ScalarOrSubselectExpr
 
-  final case class SimpleArithExpr(term: ArithTerm, rightTerms: List[PlusOrMinusTerm]) extends ArithPrimary with ScalarExpr
+  /**
+   * @param ArithTerm without prefixOp (NOOP)
+   * @param List of ArithTerm with PLUS or MINUS prefixOp
+   */
+  final case class SimpleArithExpr(term: ArithTerm, rightTerms: List[ArithTerm]) extends ArithPrimary with ScalarExpr
 
-  sealed trait PlusOrMinusTerm
-  final case class ArithTerm_Plus(term: ArithTerm) extends PlusOrMinusTerm
-  final case class ArithTerm_Minus(term: ArithTerm) extends PlusOrMinusTerm
+  /**
+   * @param prefixOp: PLUS / MINUS, or NOOP
+   * @param ArithFactor without prefixOp (NOOP)
+   * @param List of ArithFactor with MULTIPLY or DIVIDE prefixOp
+   */
+  final case class ArithTerm(prefixOp: ArithOp, factor: ArithFactor, rightFactors: List[ArithFactor])
 
-  final case class ArithTerm(factor: ArithFactor, rightFactors: List[MultiplyOrDivideFactor])
+  /**
+   * @param prefixOp: MULTIPLY / DIVIDE, or NOOP
+   */
+  final case class ArithFactor(prefixOp: ArithOp, primary: PlusOrMinusPrimary)
 
-  sealed trait MultiplyOrDivideFactor
-  final case class ArithFactor_Multiply(factor: ArithFactor) extends MultiplyOrDivideFactor
-  final case class ArithFactor_Divide(factor: ArithFactor) extends MultiplyOrDivideFactor
-
-  final case class ArithFactor(primary: PlusOrMinusPrimary)
-
-  sealed trait PlusOrMinusPrimary
-  final case class ArithPrimary_Plus(primary: ArithPrimary) extends PlusOrMinusPrimary
-  final case class ArithPrimary_Minus(primary: ArithPrimary) extends PlusOrMinusPrimary
+  /**
+   * @param prefixOp: PLUS / MINUS
+   */
+  final case class PlusOrMinusPrimary(prefixOp: ArithOp, primary: ArithPrimary)
 
   sealed trait ArithPrimary
 

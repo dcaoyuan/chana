@@ -280,10 +280,10 @@ final class JPQLParser() {
     n.getName match {
       case "QualIdentVar" =>
         val qual = visit(n)(qualIdentVar)
-        QualIdentVarWithAttrs(qual, attributes)
+        PathExprOrVarAccess(Left(qual), attributes)
       case "FuncsReturningAny" =>
         val value = visit(n)(funcsReturningAny)
-        FuncsReturingAnyWithAttrs(value, attributes)
+        PathExprOrVarAccess(Right(value), attributes)
     }
   }
 
@@ -396,7 +396,7 @@ final class JPQLParser() {
         val expr = visit(node.getNode(1))(joinAssocPathExpr)
         val as = visit(node.getNode(2))(ident)
         val cond = visitOpt(node.getNode(3))(joinCond)
-        Join_General(spec, expr, as, cond)
+        Join_GENERAL(spec, expr, as, cond)
 
       case 6 =>
         val expr = visit(node.getNode(2))(joinAssocPathExpr)
@@ -737,11 +737,11 @@ final class JPQLParser() {
      ArithTerm ( ArithTermPlus / ArithTermMinus )* 
    */
   def simpleArithExpr(node: Node) = {
-    val term0 = visit(node.getNode(0))(arithTerm)
+    val term0 = visit(node.getNode(0))(arithTerm(NOOP))
     val terms = visitList(node.getList(1)) { n =>
       n.getName match {
-        case "ArithTermPlus"  => ArithTerm_Plus(visit(n.getNode(0))(arithTerm))
-        case "ArithTermMinus" => ArithTerm_Minus(visit(n.getNode(0))(arithTerm))
+        case "ArithTermPlus"  => visit(n.getNode(0))(arithTerm(PLUS))
+        case "ArithTermMinus" => visit(n.getNode(0))(arithTerm(MINUS))
       }
     }
     SimpleArithExpr(term0, terms)
@@ -750,15 +750,15 @@ final class JPQLParser() {
   /*-
      ArithFactor ( ArithFactorMultiply / ArithFactorDivide )* 
    */
-  def arithTerm(node: Node): ArithTerm = {
-    val factor0 = visit(node.getNode(0))(arithFactor)
+  def arithTerm(prefixOp: ArithOp)(node: Node): ArithTerm = {
+    val factor0 = visit(node.getNode(0))(arithFactor(NOOP))
     val factors = visitList(node.getList(1)) { n =>
       n.getName match {
-        case "ArithFactorMultiply" => ArithFactor_Multiply(visit(n.getNode(0))(arithFactor))
-        case "ArithFactorDivide"   => ArithFactor_Divide(visit(n.getNode(0))(arithFactor))
+        case "ArithFactorMultiply" => visit(n.getNode(0))(arithFactor(MULTIPLY))
+        case "ArithFactorDivide"   => visit(n.getNode(0))(arithFactor(DIVIDE))
       }
     }
-    ArithTerm(factor0, factors)
+    ArithTerm(prefixOp, factor0, factors)
   }
 
   /*-
@@ -766,14 +766,14 @@ final class JPQLParser() {
    / ArithPrimaryMinus
    / ArithPrimary
    */
-  def arithFactor(node: Node) = {
+  def arithFactor(prefixOp: ArithOp)(node: Node) = {
     val n = node.getNode(0)
     val primary = n.getName match {
-      case "ArithPrimaryPlus"  => ArithPrimary_Plus(visit(n.getNode(0))(arithPrimary))
-      case "ArithPrimaryMinus" => ArithPrimary_Minus(visit(n.getNode(0))(arithPrimary))
-      case "ArithPrimary"      => ArithPrimary_Plus(visit(n)(arithPrimary)) // default "+"
+      case "ArithPrimaryPlus"  => PlusOrMinusPrimary(PLUS, visit(n.getNode(0))(arithPrimary))
+      case "ArithPrimaryMinus" => PlusOrMinusPrimary(MINUS, visit(n.getNode(0))(arithPrimary))
+      case "ArithPrimary"      => PlusOrMinusPrimary(PLUS, visit(n)(arithPrimary)) // default "+"
     }
-    ArithFactor(primary)
+    ArithFactor(prefixOp, primary)
   }
 
   /*-

@@ -147,16 +147,16 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
     }
   }
 
-  // ----- override methods
+  // ----- overrided methods
 
   override def pathExprOrVarAccess(expr: PathExprOrVarAccess, record: Any): Any = {
     expr match {
-      case QualIdentVarWithAttrs(qual, attrs) =>
+      case PathExprOrVarAccess(Left(qual), attrs) =>
         val qual0 = qualIdentVar(qual, record)
         val paths = attrs map { x => attribute(x, record) }
         collectLeastProjectionNodes(qual0, paths)
-      case FuncsReturingAnyWithAttrs(expr, attrs) =>
-        funcsReturningAny(expr, record)
+      case PathExprOrVarAccess(Right(func), attrs) =>
+        funcsReturningAny(func, record)
       // For MapValue, the field should have been collected during MapValue
     }
   }
