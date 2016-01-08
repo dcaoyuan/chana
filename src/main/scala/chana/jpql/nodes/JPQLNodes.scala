@@ -27,10 +27,10 @@ package object nodes {
         None
       } else {
         factor.expr match {
-          case Left(SimpleCondExpr(Left(ArithExpr(
-            Left(SimpleArithExpr(ArithTerm(NOOP, ArithFactor(NOOP, PlusOrMinusPrimary(PLUS,
+          case Left(SimpleCondExpr(Left(
+            ArithExpr(Left(SimpleArithExpr(ArithTerm(NOOP, ArithFactor(NOOP, PlusOrMinusPrimary(PLUS,
               PathExprOrVarAccess(Left(QualIdentVar(VarAccessOrTypeConstant(Ident(alias)))), List(Attribute(attr))))),
-              /*rightFactors*/ Nil), /*rightTerms*/ Nil)))),
+              Nil), Nil)))),
             ComparisonExpr(EQ, LiteralString(id)))) if attr.toLowerCase == JPQLEvaluator.ID => Some((alias, id))
           case _ => None
         }
@@ -162,27 +162,24 @@ package object nodes {
   final case class SimpleCondExpr(expr: Either[ArithExpr, NonArithScalarExpr], rem: SimpleCondExprRem) extends CondPrimary
 
   sealed trait SimpleCondExprRem
-  final case class CondWithNotExprWithNot(not: Boolean, expr: CondWithNotExpr) extends SimpleCondExprRem
+  final case class CondExprNotableWithNot(not: Boolean, expr: CondExprNotable) extends SimpleCondExprRem
   final case class IsExprWithNot(not: Boolean, expr: IsExpr) extends SimpleCondExprRem
 
-  sealed trait CondWithNotExpr
+  sealed trait CondExprNotable
 
   sealed trait IsExpr
   case object IsNull extends IsExpr // NULL 
   case object IsEmpty extends IsExpr // EMPTY
 
-  final case class BetweenExpr(min: ScalarOrSubselectExpr, max: ScalarOrSubselectExpr) extends CondWithNotExpr
+  final case class BetweenExpr(min: ScalarOrSubselectExpr, max: ScalarOrSubselectExpr) extends CondExprNotable
 
-  sealed trait InExpr extends CondWithNotExpr
-  final case class InExpr_InputParam(expr: InputParam) extends InExpr
-  final case class InExpr_ScalarOrSubselectExpr(expr: ScalarOrSubselectExpr, exprs: List[ScalarOrSubselectExpr]) extends InExpr
-  final case class InExpr_Subquery(expr: Subquery) extends InExpr
+  sealed trait InExpr extends CondExprNotable
 
-  final case class LikeExpr(like: ScalarOrSubselectExpr, escape: Option[Escape]) extends CondWithNotExpr
+  final case class LikeExpr(like: ScalarOrSubselectExpr, escape: Option[Escape]) extends CondExprNotable
 
   final case class Escape(expr: ScalarExpr)
 
-  final case class CollectionMemberExpr(of: CollectionValuedPathExpr) extends CondWithNotExpr
+  final case class CollectionMemberExpr(of: CollectionValuedPathExpr) extends CondExprNotable
 
   final case class ExistsExpr(subquery: Subquery)
 
@@ -235,6 +232,7 @@ package object nodes {
   sealed trait ScalarExpr extends SelectExpr with ConstructorItem
 
   sealed trait ScalarOrSubselectExpr
+  final case class ScalarOrSubselectExprs(expr: ScalarOrSubselectExpr, exprs: List[ScalarOrSubselectExpr]) extends InExpr
 
   sealed trait NonArithScalarExpr extends ComparsionExprRightOperand with ScalarOrSubselectExpr with ScalarExpr
 
@@ -271,7 +269,7 @@ package object nodes {
 
   sealed trait Literal
   final case class LiteralBoolean(v: Boolean) extends Literal with NonArithScalarExpr
-  final case class LiteralString(v: String) extends Literal with NonArithScalarExpr with StringPrimary
+  final case class LiteralString(v: String) extends Literal with NonArithScalarExpr with StringPrimary with TrimChar
 
   sealed trait LiteralNumeric extends Literal with ArithPrimary
   final case class LiteralInteger(v: Int) extends LiteralNumeric
@@ -284,7 +282,7 @@ package object nodes {
   final case class LiteralTime(time: java.time.LocalTime) extends LiteralTemporal
   final case class LiteralTimestamp(time: java.time.LocalDateTime) extends LiteralTemporal
 
-  sealed trait InputParam extends ArithPrimary with StringPrimary
+  sealed trait InputParam extends ArithPrimary with StringPrimary with InExpr with TrimChar
   final case class InputParam_Named(name: String) extends InputParam
   final case class InputParam_Position(pos: Int) extends InputParam
 
@@ -321,10 +319,8 @@ package object nodes {
   case object BOTH extends TrimSpec
 
   sealed trait TrimChar
-  final case class TrimChar_String(char: String) extends TrimChar
-  final case class TrimChar_InputParam(param: InputParam) extends TrimChar
 
-  final case class Subquery(select: SimpleSelectClause, from: SubqueryFromClause, where: Option[WhereClause], groupby: Option[GroupbyClause], having: Option[HavingClause])
+  final case class Subquery(select: SimpleSelectClause, from: SubqueryFromClause, where: Option[WhereClause], groupby: Option[GroupbyClause], having: Option[HavingClause]) extends InExpr
 
   final case class SimpleSelectClause(isDistinct: Boolean, expr: SimpleSelectExpr)
 

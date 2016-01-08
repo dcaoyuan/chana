@@ -110,7 +110,7 @@ JPQL example
     #### JPQL Simple test
     $ cat jpql.put
 
-    echo 'SELECT COUNT(p.age), AVG(p.age), p.age FROM PersonInfo p WHERE p.age >= 30 ORDER BY p.age' | \
+    echo 'SELECT COUNT(p.age), AVG(p.age) FROM PersonInfo p WHERE p.age >= 30 ORDER BY p.age' | \
     curl -d @- 'http://127.0.0.1:8080/jpql/put/JPQL_NO_1'
    
     $ ./jpql.put
@@ -127,7 +127,7 @@ JPQL example
     
     $ ./jpql.ask
     
-    #### update record with random id, pepeat it to update more person's age to 40
+    #### update record with random id, repeat it to update more person's age to 80
     $ cat jpql.update
 
     RANDOM_ID=$RANDOM
@@ -137,9 +137,6 @@ JPQL example
     echo $JPQL | curl -d @- "http://127.0.0.1:8080/jpql"
     
     $ ./jpql.update
-
-    #### finally, a simple benchmark test
-    $ ab -c100 -n100000 -k 'http://127.0.0.1:8080/personinfo/get/1?benchmark_only=1024'
 
 
 Script example: (requires JDK8+)

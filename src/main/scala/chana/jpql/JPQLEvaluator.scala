@@ -478,8 +478,8 @@ abstract class JPQLEvaluator {
           case LE => JPQLFunctions.le(base, operand)
         }
 
-      case CondWithNotExprWithNot(not, expr) =>
-        // condWithNotExpr
+      case CondExprNotableWithNot(not, expr) =>
+        // condExprNotable
         val res = expr match {
           case x: BetweenExpr =>
             val minMax = betweenExpr(x, record)
@@ -494,7 +494,8 @@ abstract class JPQLEvaluator {
             }
 
           case x: InExpr =>
-            inExpr(x, record)
+            val in = inExpr(x, record)
+            true // TODO
 
           case x: CollectionMemberExpr =>
             collectionMemberExpr(x, record)
@@ -525,18 +526,15 @@ abstract class JPQLEvaluator {
     (scalarOrSubselectExpr(expr.min, record), scalarOrSubselectExpr(expr.max, record))
   }
 
-  def inExpr(expr: InExpr, record: Any): Boolean = {
+  def inExpr(expr: InExpr, record: Any): Any = {
     expr match {
-      case InExpr_InputParam(expr) =>
-        inputParam(expr, record)
-      case InExpr_ScalarOrSubselectExpr(expr, exprs) =>
-        scalarOrSubselectExpr(expr, record)
-        exprs map { x => scalarOrSubselectExpr(x, record) }
-      case InExpr_Subquery(expr: Subquery) =>
-        subquery(expr, record)
+      case ScalarOrSubselectExprs(expr, exprs) =>
+        (expr :: exprs) map { x => scalarOrSubselectExpr(x, record) }
+      case x: InputParam =>
+        inputParam(x, record)
+      case x: Subquery =>
+        subquery(x, record)
     }
-    true
-    // TODO
   }
 
   def likeExpr(expr: LikeExpr, record: Any): (String, Option[String]) = {
@@ -819,7 +817,7 @@ abstract class JPQLEvaluator {
 
       case Func(name, args) =>
         // try to call function: name(as: _*) TODO
-        val as = args map { x => newValue(x, record) }
+        val xs = args map { x => newValue(x, record) }
         0
     }
   }
@@ -865,9 +863,9 @@ abstract class JPQLEvaluator {
           case Right(x) => x("") // TODO
         }
         val trimC = trimChar match {
-          case Some(TrimChar_String(char)) => char
-          case Some(TrimChar_InputParam(param)) =>
-            inputParam(param, record)
+          case Some(LiteralString(x)) => x
+          case Some(x: InputParam) =>
+            inputParam(x, record)
             "" // TODO
           case None => ""
         }

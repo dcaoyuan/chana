@@ -210,7 +210,7 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
     }
     expr.rem match {
       case x: ComparisonExpr => comparsionExprRightOperand(x.operand, record)
-      case CondWithNotExprWithNot(not, expr) =>
+      case CondExprNotableWithNot(not, expr) =>
         expr match {
           case x: BetweenExpr          => betweenExpr(x, record)
           case x: LikeExpr             => likeExpr(x, record)
@@ -236,9 +236,9 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
       case Trim(trimSpec: Option[TrimSpec], trimChar: Option[TrimChar], from) =>
         stringPrimary(from, record)
         trimChar match {
-          case Some(TrimChar_String(_))         =>
-          case Some(TrimChar_InputParam(param)) => inputParam(param, record)
-          case None                             => ""
+          case Some(_: LiteralString) =>
+          case Some(x: InputParam)    => inputParam(x, record)
+          case None                   => ""
         }
         trimSpec match {
           case Some(BOTH) | None =>

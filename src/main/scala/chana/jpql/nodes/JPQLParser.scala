@@ -590,13 +590,13 @@ final class JPQLParser() {
       case null =>
         val n2 = node.getNode(1)
         n2.getName match {
-          case "CondWithNotExpr" => CondWithNotExprWithNot(false, visit(n2)(condWithNotExpr))
+          case "CondWithNotExpr" => CondExprNotableWithNot(false, visit(n2)(condWithNotExpr))
           case "IsExpr"          => IsExprWithNot(false, visit(n2)(isExpr))
         }
       case "not" =>
         val n2 = node.getNode(1)
         n2.getName match {
-          case "CondWithNotExpr" => CondWithNotExprWithNot(true, visit(n2)(condWithNotExpr))
+          case "CondWithNotExpr" => CondExprNotableWithNot(true, visit(n2)(condWithNotExpr))
           case "IsExpr"          => IsExprWithNot(true, visit(n2)(isExpr))
         }
     }
@@ -646,9 +646,9 @@ final class JPQLParser() {
   def inExpr(node: Node) = {
     val n = node.getNode(0)
     n.getName match {
-      case "InputParam"            => InExpr_InputParam(visit(n)(inputParam))
-      case "ScalarOrSubselectExpr" => InExpr_ScalarOrSubselectExpr(visit(n)(scalarOrSubselectExpr), visitList(node.getList(1))(scalarOrSubselectExpr))
-      case "Subquery"              => InExpr_Subquery(visit(n)(subquery))
+      case "ScalarOrSubselectExpr" => ScalarOrSubselectExprs(visit(n)(scalarOrSubselectExpr), visitList(node.getList(1))(scalarOrSubselectExpr))
+      case "InputParam"            => visit(n)(inputParam)
+      case "Subquery"              => visit(n)(subquery)
     }
   }
 
@@ -1150,8 +1150,8 @@ final class JPQLParser() {
    */
   def trimChar(node: Node) = {
     node.get(0) match {
-      case n: Node   => TrimChar_InputParam(visit(n)(inputParam))
-      case v: String => TrimChar_String(v)
+      case n: Node   => visit(n)(inputParam)
+      case v: String => LiteralString(v)
     }
   }
 
