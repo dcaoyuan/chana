@@ -185,7 +185,7 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
     "query with groupby and having" in {
 
       val q = "SELECT AVG(a.registerTime) as average FROM account a " +
-        "WHERE a.registerTime > 1 GROUP BY a.lastLoginTime HAVING average >= 5.5 ORDER BY a.id"
+        "WHERE a.registerTime > 1 GROUP BY a.lastLoginTime HAVING average >= 5.5 ORDER BY average"
 
       val meta = parse(q)
       val reducer = system.actorOf(JPQLReducer.props("test", meta))

@@ -156,7 +156,7 @@ abstract class JPQLEvaluator {
     }
   }
 
-  // ----- ast visiting section
+  // ----- AST visiting section
 
   /**
    * @return main entity name

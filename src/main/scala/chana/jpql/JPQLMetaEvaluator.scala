@@ -6,7 +6,11 @@ import chana.schema.SchemaBoard
 import org.apache.avro.Schema
 import scala.collection.immutable
 
+object JPQLMetaEvaluator {
+  final case class QualedAttribute(qual: String, paths: List[String])
+}
 final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends JPQLEvaluator {
+  import JPQLMetaEvaluator.QualedAttribute
 
   def id = throw new UnsupportedOperationException("Do not call id method in " + this.getClass.getSimpleName)
   protected var asToEntity = Map[String, String]()
@@ -16,7 +20,7 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
 
   override protected def forceGather = true
 
-  private var asToProjectionNode = Map[String, Projection.Node]()
+  private var entityAliasToProjectionNode = Map[String, Projection.Node]()
 
   /**
    * Entrance
@@ -26,78 +30,90 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
       case stmt @ SelectStatement(select, from, where, groupby, having, orderby) =>
         val entity = fromClause(from, record) // collect asToEntity and asToJoin
 
-        asToProjectionNode = asToEntity.foldLeft(Map[String, Projection.Node]()) {
+        entityAliasToProjectionNode = asToEntity.foldLeft(Map[String, Projection.Node]()) {
           case (acc, (as, entity)) =>
             schemaBoard.schemaOf(entity) match {
-              case Some(schema) => acc + (as -> Projection.FieldNode(schema.getName.toLowerCase, None, schema))
+              case Some(schema) => acc + (as -> Projection.FieldNode(entity, None, schema))
               case None         => acc
             }
         }
 
         selectClause(select, record)
 
-        // skip wherecluse which is not necessary to be considered
+        // skip wherecluse which is not necessary to be considered.
+
         // visit groupby, having and orderby to collect necessary dataset
         groupby foreach { x => groupbyClause(x, record) }
         having foreach { x => havingClause(x, record) }
         orderby foreach { x => orderbyClause(x, record) }
 
-        val projectionSchemas = asToProjectionNode map {
+        val projectionSchemas = entityAliasToProjectionNode map {
           case (as, projectionNode) => Projection.visitProjectionNode(jpqlKey, projectionNode, null).endRecord
         }
 
-        val ids = stmt.collectSpecifiedIds.filter {
-          case (as, id) => asToEntity.get(as).fold(false)(_ == entity)
-        } map (_._2)
+        val ids = stmt.collectSpecifiedIds.collect {
+          case (as, id) if asToEntity.get(as) == Some(entity) => id
+        }
 
         JPQLSelect(stmt, entity, asToEntity, asToJoin, ids, projectionSchemas.toList)
 
       case stmt @ UpdateStatement(update, set, where) =>
         // visit updateClause is enough for meta
         val entity = updateClause(update, record)
-        val ids = stmt.collectSpecifiedIds.filter {
-          case (as, id) => asToEntity.get(as).fold(false)(_ == entity)
-        } map (_._2)
+        val ids = stmt.collectSpecifiedIds.collect {
+          case (as, id) if asToEntity.get(as) == Some(entity) => id
+        }
 
         JPQLUpdate(stmt, entity, asToEntity, asToJoin, ids)
 
       case stmt @ DeleteStatement(delete, attributes, where) =>
         // visit deleteClause is enough for meta
         val entity = deleteClause(delete, record)
-        val ids = stmt.collectSpecifiedIds.filter {
-          case (as, id) => asToEntity.get(as).fold(false)(_ == entity)
-        } map (_._2)
+        val ids = stmt.collectSpecifiedIds.collect {
+          case (as, id) if asToEntity.get(as) == Some(entity) => id
+        }
 
         JPQLDelete(stmt, entity, asToEntity, asToJoin, ids)
 
       case stmt @ InsertStatement(insert, attributes, values, where) =>
         // visit insertClause is enough for meta
         val entity = insertClause(insert, record)
-        val ids = stmt.collectSpecifiedIds.filter {
-          case (as, id) => asToEntity.get(as).fold(false)(_ == entity)
-        } map (_._2)
+        val ids = stmt.collectSpecifiedIds.collect {
+          case (as, id) if asToEntity.get(as) == Some(entity) => id
+        }
 
         JPQLInsert(stmt, entity, asToEntity, asToJoin, ids)
+    }
+  }
+
+  def normalizeAttribute(attr: QualedAttribute): QualedAttribute = {
+    asToJoin.get(attr.qual) match {
+      case Some(paths) => QualedAttribute(paths.head, paths.tail ::: attr.paths)
+      case None =>
+        // check if qual is an alias, if true, turn it to normalized one to be collected
+        asToItem.get(attr.qual) match {
+          case Some(QualedAttribute(qual0, paths0)) => QualedAttribute(qual0, paths0 ::: attr.paths)
+          case Some(x)                              => attr // TODO Something wrong?
+          case None                                 => attr
+        }
     }
   }
 
   /**
    * TODO collect aliased value
    */
-  private def collectLeastProjectionNodes(qual: String, attrPaths: List[String]) {
+  private def collectLeastProjectionNodes(_attr: QualedAttribute) {
     if (isToGather) {
-      val (qual1, attrPaths1) = asToJoin.get(qual) match {
-        case Some(paths) => (paths.head, paths.tail ::: attrPaths)
-        case None        => (qual, attrPaths)
-      }
+      val attr = normalizeAttribute(_attr)
 
-      if (attrPaths1.headOption != JPQLEvaluator.SOME_ID) {
-        asToProjectionNode.get(qual1) match {
+      // Do not collect top level id, which is specified outside
+      if (attr.paths.headOption != JPQLEvaluator.SOME_ID) {
+        entityAliasToProjectionNode.get(attr.qual) match {
           case Some(projectionNode) =>
             var currSchema = projectionNode.schema
             var currNode: Projection.Node = projectionNode
 
-            var paths = attrPaths1
+            var paths = attr.paths
 
             while (paths.nonEmpty) {
               val path = paths.head
@@ -112,8 +128,8 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
                       case Schema.Type.RECORD =>
                         val field = currSchema.getField(path)
                         currSchema = field.schema.getType match {
-                          case Schema.Type.RECORD => field.schema
                           case Schema.Type.UNION  => chana.avro.getNonNullOfUnion(field.schema)
+                          case Schema.Type.RECORD => field.schema
                           case Schema.Type.ARRAY  => field.schema // TODO should be ArrayField ?
                           case Schema.Type.MAP    => field.schema // TODO should be MapKeyField/MapValueField ?
                           case _                  => field.schema
@@ -141,7 +157,7 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
             } // end while
             currNode.close()
 
-          case _ => throw JPQLRuntimeException(qual1, "is not an AS alias of entity")
+          case _ => throw JPQLRuntimeException(attr.qual, "is not an AS alias of entity")
         }
       }
     }
@@ -151,10 +167,12 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
 
   override def pathExprOrVarAccess(expr: PathExprOrVarAccess, record: Any): Any = {
     expr match {
-      case PathExprOrVarAccess(Left(qual), attrs) =>
-        val qual0 = qualIdentVar(qual, record)
+      case PathExprOrVarAccess(Left(_qual), attrs) =>
+        val qual = qualIdentVar(_qual, record)
         val paths = attrs map { x => attribute(x, record) }
-        collectLeastProjectionNodes(qual0, paths)
+        val attr = QualedAttribute(qual, paths)
+        collectLeastProjectionNodes(attr)
+        attr
       case PathExprOrVarAccess(Right(func), attrs) =>
         funcsReturningAny(func, record)
       // For MapValue, the field should have been collected during MapValue
@@ -162,9 +180,11 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
   }
 
   override def pathExpr(expr: PathExpr, record: Any): Any = {
-    val qual0 = qualIdentVar(expr.qual, record)
+    val qual = qualIdentVar(expr.qual, record)
     val paths = expr.attributes map { x => attribute(x, record) }
-    collectLeastProjectionNodes(qual0, paths)
+    val attr = QualedAttribute(qual, paths)
+    collectLeastProjectionNodes(attr)
+    attr
   }
 
   override def orderbyItem(item: OrderbyItem, record: Any): Any = {
@@ -254,7 +274,8 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
 
       case MapKey(expr) =>
         val qual = varAccessOrTypeConstant(expr, record)
-        collectLeastProjectionNodes(qual, List())
+        val attr = QualedAttribute(qual, Nil)
+        collectLeastProjectionNodes(attr)
     }
     ""
   }
@@ -264,7 +285,8 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
     expr match {
       case MapValue(expr) =>
         val qual = varAccessOrTypeConstant(expr, record)
-        collectLeastProjectionNodes(qual, List())
+        val attr = QualedAttribute(qual, Nil)
+        collectLeastProjectionNodes(attr)
       case JPQLJsonValue(jsonNode) =>
       // do nothing?
     }
