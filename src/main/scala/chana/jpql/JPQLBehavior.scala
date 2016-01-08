@@ -16,7 +16,6 @@ object JPQLBehavior {
   val jpqlTopic = "chana_jpql_"
 
   private case class ReportingTick(key: String)
-  private val ReportingAllTick = ReportingTick("")
   private def reportingDelay(interval: Duration) = ThreadLocalRandom.current.nextLong(100, interval.toMillis).millis
 }
 
@@ -33,14 +32,12 @@ trait JPQLBehavior extends Entity {
 
   import context.dispatcher
   // TODO: 
-  // 1. report once when new-created/new-jpql - Done see onReady()
-  // 2. report once when deleted  // in case of deleted, should guarantee via ACK etc?
-  // 3. report only on updated 
-  context.system.scheduler.schedule(1.seconds, 1.seconds, self, ReportingAllTick)
+  // 1. report once when new-created - Done, see onReady()
+  // 2  report when new jpql is put - Done, see behavior when got PutJPQL
+  // 3. report only on updated  - Done, see onUpdated()
+  // 4. report once when deleted  // in case of deleted, should guarantee via ACK etc?
 
   def jpqlBehavior: Receive = {
-    case ReportingAllTick =>
-      scheduleJpqlReportAll(false)
 
     case ReportingTick(jpqlKey) =>
       DistributedJPQLBoard.keyToJPQL.get(jpqlKey) match {
@@ -57,7 +54,6 @@ trait JPQLBehavior extends Entity {
       jpql.parseJPQL(key, jpqlQuery) match {
 
         case Success(meta: jpql.JPQLSelect) =>
-          resetIdleTimeout()
           if (meta.entity == entityName) {
             scheduleJpqlReport(key, meta, interval, record)
           }
@@ -111,7 +107,7 @@ trait JPQLBehavior extends Entity {
   }
 
   /**
-   * Schedule periodic reporting if it's not scheduled
+   * Schedule periodic reporting if any jpql select is not scheduled
    */
   private def scheduleJpqlReportAll(force: Boolean) {
     var newScheduledJpqls = Set[String]()
