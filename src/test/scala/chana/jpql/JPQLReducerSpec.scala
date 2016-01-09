@@ -293,5 +293,22 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
           List(9, "k=b", 2)))
       }
     }
+
+    "query fields with alias" in {
+
+      val q = "SELECT a.registerTime as t FROM account a " +
+        "WHERE t >= 5 ORDER BY t"
+
+      val meta = parse(q)
+      val reducer = system.actorOf(JPQLReducer.props("test", meta))
+
+      records() foreach { case (id, record) => reducer ! gatherProjection(id, meta, record) }
+
+      reducer ! AskReducedResult
+      expectMsgPF(2.seconds) {
+        case result: Array[List[_]] => result should be(Array(List(5), List(6), List(7), List(8), List(9)))
+      }
+    }
+
   }
 }

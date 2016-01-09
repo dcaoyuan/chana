@@ -41,10 +41,12 @@ final class JPQLMapperSelect(val id: String, meta: JPQLSelect) extends JPQLEvalu
           while (flatRecs.hasNext) {
             val rec = flatRecs.next
             // aggregate function can not be applied in WhereClause, so we can decide here
+
+            // we should evaluate selectClause first to get all alias ready.
+            selectClause(select, rec, toGather = false)
             val whereCond = where.fold(true) { x => whereClause(x, rec) }
             if (whereCond) {
-              selectClause(select, rec)
-
+              selectClause(select, rec, toGather = true)
               groupby.fold(List[Any]()) { x => groupbyClause(x, rec) }
 
               // visit having and orderby to collect necessary dataset
@@ -63,10 +65,12 @@ final class JPQLMapperSelect(val id: String, meta: JPQLSelect) extends JPQLEvalu
         } else {
 
           // aggregate function can not be applied in WhereClause, so we can decide here
+
+          // we should evaluate selectClause first to get all alias ready.
+          selectClause(select, record, toGather = false)
           val whereCond = where.fold(true) { x => whereClause(x, record) }
           if (whereCond) {
-            selectClause(select, record)
-
+            selectClause(select, record, toGather = true)
             groupby.fold(List[Any]()) { x => groupbyClause(x, record) }
 
             // visit having and orderby to collect necessary dataset
@@ -84,7 +88,7 @@ final class JPQLMapperSelect(val id: String, meta: JPQLSelect) extends JPQLEvalu
   }
 
   override def valueOfRecord(attrs: List[String], record: IndexedRecord, toGather: Boolean): Any = {
-    if (isToGather && toGather && attrs.headOption != JPQLEvaluator.SOME_ID) {
+    if (enterGather && toGather && attrs.headOption != JPQLEvaluator.SOME_ID) {
       var paths = attrs
       var currValue: Any = record
       var valueSchema = record.getSchema

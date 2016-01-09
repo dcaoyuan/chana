@@ -38,7 +38,7 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
             }
         }
 
-        selectClause(select, record)
+        selectClause(select, record, toGather = true)
 
         // skip wherecluse which is not necessary to be considered.
 
@@ -103,7 +103,7 @@ final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends
    * TODO collect aliased value
    */
   private def collectLeastProjectionNodes(_attr: QualedAttribute) {
-    if (isToGather) {
+    if (enterGather) {
       val attr = normalizeAttribute(_attr)
 
       // Do not collect top level id, which is specified outside

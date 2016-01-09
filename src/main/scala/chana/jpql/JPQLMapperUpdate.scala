@@ -47,7 +47,7 @@ final class JPQLMapperUpdate(val id: String, meta: JPQLUpdate) extends JPQLEvalu
           case Left(path) =>
             val qual = qualIdentVar(path.qual, toUpdate)
             val attrPaths = path.attributes map (attribute(_, toUpdate))
-            normalizeEntityAttrs(qual, attrPaths, toUpdate.getSchema) match {
+            normalizeEntityAttrPaths(qual, attrPaths, toUpdate.getSchema) match {
               case Nil        => throw JPQLRuntimeException(qual, "is not an AS alias of entity: " + meta.entity)
               case attrPaths1 => opUpdate(attrPaths1, v, toUpdate)
             }

@@ -46,13 +46,20 @@ abstract class JPQLEvaluator {
   protected def addAsToEntity(as: String, entity: String): Unit = throw new UnsupportedOperationException()
   protected def addAsToJoin(as: String, joinPath: List[String]): Unit = throw new UnsupportedOperationException()
 
+  protected var asToItem = Map[String, Any]()
+  protected def addAsToItem(as: String, item: Any) = asToItem += (as -> item)
+
   protected def forceGather = false
 
-  protected var asToItem = Map[String, Any]()
   protected var asToCollectionMember = Map[String, Any]()
 
   protected var isSelectDistinct: Boolean = _
-  protected var isToGather: Boolean = _
+
+  private var _enterGather: Boolean = _
+  protected def enterGather: Boolean = _enterGather
+  private def enterGather_=(x: Boolean) {
+    _enterGather = x
+  }
   protected var enterJoin: Boolean = _
 
   /**
@@ -65,7 +72,7 @@ abstract class JPQLEvaluator {
 
         val whereCond = where.fold(true) { x => whereClause(x, record) }
         if (whereCond) {
-          val selectedItems = selectClause(select, record)
+          val selectedItems = selectClause(select, record, toGather = false)
 
           groupby.fold(List[Any]()) { x => groupbyClause(x, record) }
 
@@ -88,19 +95,18 @@ abstract class JPQLEvaluator {
   /**
    * Normalize entity attrs from alias and join
    */
-  def normalizeEntityAttrs(qual: String, attrs: List[String], schema: Schema): List[String] = {
+  def normalizeEntityAttrPaths(_qual: String, _attrs: List[String], schema: Schema): List[String] = {
     // TODO in case of record does not contain schema, get EntityNames from DistributedSchemaBoard?
-    val EntityName = schema.getName.toLowerCase
 
-    val (qual1, attrs1) = asToJoin.get(qual) match {
-      case Some(paths) => (paths.head.toLowerCase, paths.tail ::: attrs)
-      case None        => (qual.toLowerCase, attrs)
+    val (qual, attrPaths) = asToJoin.get(_qual) match {
+      case Some(paths) => (paths.head.toLowerCase, paths.tail ::: _attrs)
+      case None        => (_qual.toLowerCase, _attrs)
     }
 
-    asToEntity.get(qual1) match {
-      case Some(EntityName) => attrs1
+    val EntityName = schema.getName.toLowerCase
+    asToEntity.get(qual) match {
+      case Some(EntityName) => attrPaths
       case _                => List()
-
     }
   }
 
@@ -114,7 +120,7 @@ abstract class JPQLEvaluator {
 
   final def valueOfRecord(qual: String, attrs: List[String], record: IndexedRecord): Any = valueOfRecord(qual, attrs, record, forceGather)
   final def valueOfRecord(qual: String, attrs: List[String], record: IndexedRecord, toGather: Boolean): Any = {
-    normalizeEntityAttrs(qual, attrs, record.getSchema) match {
+    normalizeEntityAttrPaths(qual, attrs, record.getSchema) match {
       case Nil =>
         asToItem.get(qual) match {
           case Some(x) => x
@@ -199,17 +205,17 @@ abstract class JPQLEvaluator {
     entity
   }
 
-  def selectClause(select: SelectClause, record: Any): List[Any] = {
-    isToGather = true
+  def selectClause(select: SelectClause, record: Any, toGather: Boolean): List[Any] = {
+    enterGather = toGather
     isSelectDistinct = select.isDistinct
     val items = (select.item :: select.items) map { x => selectItem(x, record) }
-    isToGather = false
+    enterGather = false
     items
   }
 
   def selectItem(item: SelectItem, record: Any): Any = {
     val item0 = selectExpr(item.expr, record)
-    item.as foreach { x => asToItem += (x.ident -> item0) }
+    item.as foreach { x => addAsToItem(x.ident.toLowerCase, item0) }
     item0
   }
 
@@ -965,9 +971,9 @@ abstract class JPQLEvaluator {
   }
 
   def orderbyClause(orderbyClause: OrderbyClause, record: Any): List[Any] = {
-    isToGather = true
+    enterGather = true
     val items = orderbyItem(orderbyClause.orderby, record) :: (orderbyClause.orderbys map { x => orderbyItem(x, record) })
-    isToGather = false
+    enterGather = false
     items
   }
 
@@ -987,9 +993,9 @@ abstract class JPQLEvaluator {
   }
 
   def groupbyClause(groupbyClause: GroupbyClause, record: Any): List[Any] = {
-    isToGather = true
+    enterGather = true
     val groupbys = scalarExpr(groupbyClause.expr, record) :: (groupbyClause.exprs map { x => scalarExpr(x, record) })
-    isToGather = false
+    enterGather = false
     groupbys
   }
 

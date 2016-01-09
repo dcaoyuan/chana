@@ -51,14 +51,14 @@ final class JPQLReducerEvaluator(meta: JPQLMeta, log: LoggingAdapter) extends JP
 
           while (flatRecs.hasNext) {
             val rec = flatRecs.next
-            val selectedItems = selectClause(select, rec)
+            val selectedItems = selectClause(select, rec, toGather = false)
             val orderbys = orderby.fold(List[Any]()) { x => orderbyClause(x, rec) }
             val havingCond = having.fold(true) { x => havingClause(x, rec) }
             res ::= WorkSet(selectedItems, orderbys, havingCond)
           }
           res
         } else {
-          val selectedItems = selectClause(select, record)
+          val selectedItems = selectClause(select, record, toGather = false)
           val orderbys = orderby.fold(List[Any]()) { x => orderbyClause(x, record) }
           val havingCond = having.fold(true) { x => havingClause(x, record) }
           List(WorkSet(selectedItems, orderbys, havingCond))
