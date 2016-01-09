@@ -13,6 +13,7 @@ import akka.contrib.datareplication.DataReplication
 import akka.contrib.datareplication.LWWMap
 import akka.pattern.ask
 import akka.cluster.Cluster
+import chana.avro.ToJson
 import chana.jpql.nodes.JPQLParser
 import chana.schema.DistributedSchemaBoard
 import java.util.concurrent.ConcurrentHashMap
@@ -120,7 +121,7 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
       val commander = sender()
 
       JPQLReducer.reducerProxy(context.system, key).ask(JPQLReducer.AskReducedResult)(300.seconds).onComplete {
-        case Success(result: Array[_]) => commander ! Success(result.mkString("Array(", ",", ")")) // TODO
+        case Success(result: Array[_]) => commander ! Success(ToJson.toJsonString(result)) // TODO
         case failure                   => commander ! failure
       }
 

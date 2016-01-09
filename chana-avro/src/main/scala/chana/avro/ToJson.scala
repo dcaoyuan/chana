@@ -1,5 +1,7 @@
 package chana.avro
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.StringWriter
@@ -17,6 +19,14 @@ import org.codehaus.jackson.JsonNode
  * Encode an Avro value into JSON.
  */
 object ToJson {
+  /**
+   * It's thread safe
+   */
+  val mapper = {
+    val x = new ObjectMapper()
+    x.registerModule(DefaultScalaModule)
+    x
+  }
 
   /**
    * Serializes a Java Avro value into JSON.
@@ -238,4 +248,10 @@ object ToJson {
     }
   }
 
+  /**
+   * Convert any value to json string by reflecting, without schema.
+   */
+  def toJsonString(value: Any) = {
+    mapper.writeValueAsString(value)
+  }
 }

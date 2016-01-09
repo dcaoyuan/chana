@@ -30,7 +30,7 @@ object Build extends sbt.Build {
     .settings(Formatting.settings: _*)
     .settings(releaseSettings: _*)
     .settings(sbtrelease.ReleasePlugin.releaseSettings: _*)
-    .settings(libraryDependencies ++= Dependencies.avro ++ Dependencies.test ++ Dependencies.rats)
+    .settings(libraryDependencies ++= Dependencies.avro ++ Dependencies.jackson ++ Dependencies.test ++ Dependencies.rats)
     .settings(avroSettings: _*)
     .settings(instrumentSettings: _*)
     .settings(net.virtualvoid.sbt.graph.Plugin.graphSettings: _*)
@@ -140,14 +140,15 @@ object Dependencies {
   val akka_http = Seq(
     "com.typesafe.akka" %% "akka-stream-experimental" % AKKA_STREAM_VERSION,
     "com.typesafe.akka" %% "akka-http-core-experimental" % AKKA_STREAM_VERSION,
-    "com.typesafe.akka" %% "akka-http-experimental" % AKKA_STREAM_VERSION,
-    "com.typesafe.akka" %% "akka-http-spray-json-experimental" % AKKA_STREAM_VERSION)
+    "com.typesafe.akka" %% "akka-http-experimental" % AKKA_STREAM_VERSION)
 
   val akka_data_replication = Seq(
     "com.github.patriknw" %% "akka-data-replication" % "0.11")
 
   val avro = Seq(
     "org.apache.avro" % "avro" % "1.7.7")
+
+  val jackson = Seq("com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.6.3")
 
   val spray = Seq(
     "io.spray" %% "spray-can" % SPRAY_VERSION,
@@ -166,7 +167,7 @@ object Dependencies {
     "org.scalamock" %% "scalamock-scalatest-support" % "3.2.1" % Test,
     "org.scalatest" %% "scalatest" % "2.2.4" % "test")
 
-  val basic: Seq[sbt.ModuleID] = akka ++ akka_http ++ akka_data_replication ++ avro ++ spray ++ log ++ test
+  val basic: Seq[sbt.ModuleID] = akka ++ akka_http ++ akka_data_replication ++ avro ++ jackson ++ spray ++ log ++ test
 
   val all = basic
 }

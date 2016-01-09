@@ -7,6 +7,7 @@ import akka.contrib.pattern.DistributedPubSubMediator.Publish
 import akka.pattern.ask
 import akka.util.Timeout
 import chana.PutJPQL
+import chana.avro.ToJson
 import chana.jpql
 import chana.jpql.DistributedJPQLBoard
 import chana.schema.DistributedSchemaBoard
@@ -105,8 +106,8 @@ trait RestRoute extends Directives {
       get {
         complete {
           jpqlBoard.ask(chana.AskJPQL(key))(writeTimeout).collect {
-            case Success(x) => x.toString
-            case Failure(x) => x.toString
+            case Success(json: String) => json
+            case Failure(x)            => x.toString
           }
         }
       }

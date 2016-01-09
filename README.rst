@@ -122,7 +122,7 @@ JPQL example
     do
        sleep 1s
        curl 'http://127.0.0.1:8080/jpql/ask/JPQL_NO_1'
-       echo -e '\n'
+       printf '\n'
     done
     
     $ ./jpql.ask

@@ -476,7 +476,7 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
           // ask jpql
           IO(Http) ! Get(baseUrl1 + "/jpql/ask/JPQL_NO_1")
           val ret = expectMsgType[HttpResponse](10.seconds).entity.asString
-          ret should be("Array(List(494.0, 100),List(494.0, 888))")
+          ret should be("[[494.0,100],[494.0,888]]")
         }
 
         enterBarrier("ask-jpql-done")
