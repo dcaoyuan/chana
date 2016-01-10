@@ -2,11 +2,16 @@ package chana.jpql
 
 import akka.actor.Actor
 import akka.actor.ActorLogging
+import akka.actor.ActorRef
 import akka.actor.ActorSystem
 import akka.actor.PoisonPill
 import akka.actor.Props
 import akka.actor.Stash
-import akka.contrib.pattern.{ ClusterReceptionistExtension, ClusterSingletonManager, ClusterSingletonProxy }
+import akka.cluster.client.ClusterClientReceptionist
+import akka.cluster.singleton.ClusterSingletonManager
+import akka.cluster.singleton.ClusterSingletonManagerSettings
+import akka.cluster.singleton.ClusterSingletonProxy
+import akka.cluster.singleton.ClusterSingletonProxySettings
 import chana.jpql.nodes.SelectStatement
 import java.time.LocalDate
 import org.apache.avro.generic.IndexedRecord
@@ -46,29 +51,38 @@ object JPQLReducer {
 
   val role = Some("chana-jpql")
 
-  def singletonManagerName(key: String) = "jpqlSingleton-" + key
-  def reducerPath(key: String) = "/user/" + singletonManagerName(key) + "/" + key
-  def reducerProxyName(key: String) = "jpqlProxy-" + key
-  def reducerProxyPath(key: String) = "/user/" + reducerProxyName(key)
+  /**
+   * We use different singelton manager name for each key, since system.actorOf
+   * must create actor with different name.
+   */
+  def reducerManagerName(key: String) = "jpqlReducer-" + key
+  def reducerManagerPath(key: String) = "/user/" + reducerManagerName(key)
+  def reducerPath(key: String) = reducerManagerPath(key) + "/" + key
+  def reducerProxyName(key: String) = "jpqlReducerProxy-" + key
+  def reducerProxyPath(key: String) = "/user/" + reducerProxyName(key) + "/" + key
 
-  def startReducer(system: ActorSystem, role: Option[String], jpqlKey: String, meta: JPQLMeta) = {
+  def startReducer(system: ActorSystem, role: Option[String], key: String, meta: JPQLMeta) = {
+    val settings = ClusterSingletonManagerSettings(system).withRole(role).withSingletonName(key)
     system.actorOf(
       ClusterSingletonManager.props(
-        singletonProps = props(jpqlKey, meta),
-        singletonName = jpqlKey,
+        singletonProps = props(key, meta),
         terminationMessage = PoisonPill,
-        role = role),
-      name = singletonManagerName(jpqlKey))
+        settings = settings),
+      name = reducerManagerName(key))
   }
 
-  def startReducerProxy(system: ActorSystem, role: Option[String], jpqlKey: String) {
+  def startReducerProxy(system: ActorSystem, role: Option[String], key: String): ActorRef = {
+    val settings = ClusterSingletonProxySettings(system).withRole(role).withSingletonName(key)
     val proxy = system.actorOf(
-      ClusterSingletonProxy.props(singletonPath = reducerPath(jpqlKey), role = role),
-      reducerProxyName(jpqlKey))
-    ClusterReceptionistExtension(system).registerService(proxy)
+      ClusterSingletonProxy.props(
+        singletonManagerPath = reducerManagerPath(key),
+        settings = settings),
+      name = reducerProxyName(key))
+    ClusterClientReceptionist(system).registerService(proxy)
+    proxy
   }
 
-  def reducerProxy(system: ActorSystem, jpqlKey: String) = system.actorSelection(reducerProxyPath(jpqlKey))
+  def reducerProxy(system: ActorSystem, key: String) = system.actorSelection(reducerProxyPath(key))
 }
 
 class JPQLReducer(jqplKey: String, meta: JPQLSelect) extends Actor with Stash with ActorLogging {
@@ -77,7 +91,7 @@ class JPQLReducer(jqplKey: String, meta: JPQLSelect) extends Actor with Stash wi
   import context.dispatcher
 
   log.info("JPQLReducer {} started", jqplKey)
-  ClusterReceptionistExtension(context.system).registerService(self)
+  ClusterClientReceptionist(context.system).registerService(self)
 
   private var idToProjection = Map[String, RecordProjection]()
   private var prevUpdateTime: LocalDate = _

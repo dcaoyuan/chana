@@ -1,7 +1,11 @@
 package chana
 
 import akka.actor.{ Actor, ActorRef, ActorSystem, Cancellable, PoisonPill, Props, Stash }
-import akka.contrib.pattern.{ ClusterSharding, ShardRegion, DistributedPubSubExtension }
+import akka.cluster.pubsub.DistributedPubSub
+import akka.cluster.sharding.ClusterSharding
+import akka.cluster.sharding.ClusterShardingSettings
+import akka.cluster.sharding.ShardRegion
+
 import akka.event.LoggingAdapter
 import akka.persistence._
 import chana.avro.Binlog
@@ -19,20 +23,21 @@ import scala.concurrent.duration._
 import scala.util.{ Failure, Success }
 
 object Entity {
-  val idExtractor: ShardRegion.IdExtractor = {
+  val extractEntityId: ShardRegion.ExtractEntityId = {
     case cmd: Command => (cmd.id, cmd)
   }
 
-  val shardResolver: ShardRegion.ShardResolver = {
+  val extractShardId: ShardRegion.ExtractShardId = {
     case cmd: Command => (cmd.id.hashCode % 100).toString
   }
 
-  def startSharding(system: ActorSystem, shardName: String, entryProps: Option[Props]) =
+  def startSharding(system: ActorSystem, shardName: String, entityProps: Props) =
     ClusterSharding(system).start(
       typeName = shardName,
-      entryProps = entryProps,
-      idExtractor = idExtractor,
-      shardResolver = shardResolver)
+      entityProps = entityProps,
+      settings = ClusterShardingSettings(system),
+      extractEntityId = extractEntityId,
+      extractShardId = extractShardId)
 
   private final val emptyCancellable: Cancellable = new Cancellable {
     def isCancelled: Boolean = false
@@ -61,7 +66,7 @@ trait Entity extends Actor with Stash with PersistentActor {
   def onDeleted() {}
   def onUpdated(event: UpdateEvent) {}
 
-  def mediator = DistributedPubSubExtension(context.system).mediator
+  def mediator = DistributedPubSub(context.system).mediator
 
   protected val id = self.path.name
   val persistenceId: String = entityName + "_" + id
@@ -69,8 +74,9 @@ trait Entity extends Actor with Stash with PersistentActor {
   override def preStart {
     super[Actor].preStart
     log.debug("Starting: {} ", id)
-    self ! Recover()
   }
+
+  override def recovery = Recovery()
 
   override def receiveRecover: Receive = {
     case SnapshotOffer(metadata, offeredSnapshot: Array[Byte]) =>
@@ -85,9 +91,9 @@ trait Entity extends Actor with Stash with PersistentActor {
       }
       onReady()
 
-    case x: SnapshotOffer       => log.warning("Recovery received unknown: {}", x)
-    case RecoveryFailure(cause) => log.error("Recovery failure: {}", cause)
-    case e: Event               =>
+    case x: SnapshotOffer => log.warning("Recovery received unknown: {}", x)
+    case e: Event         =>
+    //case RecoveryFailure(cause) => log.error("Recovery failure: {}", cause)
   }
 
   override def receiveCommand: Receive = accessBehavior orElse persistBehavior
@@ -131,8 +137,9 @@ trait Entity extends Actor with Stash with PersistentActor {
   }
 
   def persistBehavior: Receive = {
-    case f: PersistenceFailure  => log.error("persist failed: {}", f.cause)
-    case f: SaveSnapshotFailure => log.error("saving snapshot failed: {}", f.cause)
+    //case f: PersistenceFailure  => log.error("persist failed: {}", f.cause)
+    case SaveSnapshotSuccess(metadata)         => //
+    case SaveSnapshotFailure(metadata, reason) => log.error("saving snapshot failed: {}", reason)
   }
 
   def accessBehavior: Receive = {

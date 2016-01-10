@@ -1,13 +1,12 @@
 package chana.rest
 
 import akka.actor.ActorSystem
-import akka.contrib.pattern.ClusterSharding
-import akka.contrib.pattern.DistributedPubSubExtension
-import akka.contrib.pattern.DistributedPubSubMediator.Publish
+import akka.cluster.pubsub.DistributedPubSub
+import akka.cluster.pubsub.DistributedPubSubMediator.Publish
+import akka.cluster.sharding.ClusterSharding
 import akka.pattern.ask
 import akka.util.Timeout
 import chana.PutJPQL
-import chana.avro.ToJson
 import chana.jpql
 import chana.jpql.DistributedJPQLBoard
 import chana.schema.DistributedSchemaBoard
@@ -30,8 +29,8 @@ trait RestRoute extends Directives {
   def scriptBoard = DistributedScriptBoard(system).board
   def jpqlBoard = DistributedJPQLBoard(system).board
 
-  final def mediator = DistributedPubSubExtension(system).mediator
-  final def resolver(entityName: String) = ClusterSharding(system).shardRegion(entityName)
+  final def mediator = DistributedPubSub(system).mediator
+  final def region(entityName: String) = ClusterSharding(system).shardRegion(entityName)
 
   final def restApi = schemaApi ~ jpqlApi ~ accessApi
 
@@ -121,7 +120,7 @@ trait RestRoute extends Directives {
           get {
             complete {
               withJson {
-                resolver(entityName).ask(chana.GetFieldJson(id, fieldName))(readTimeout)
+                region(entityName).ask(chana.GetFieldJson(id, fieldName))(readTimeout)
               }
             }
           }
@@ -133,13 +132,13 @@ trait RestRoute extends Directives {
                 val shiftedId = nextRandomId(1, benchmark_num).toString
                 complete {
                   withJson {
-                    resolver(entityName).ask(chana.GetRecordJson(shiftedId))(readTimeout)
+                    region(entityName).ask(chana.GetRecordJson(shiftedId))(readTimeout)
                   }
                 }
               case _ =>
                 complete {
                   withJson {
-                    resolver(entityName).ask(chana.GetRecordJson(id))(readTimeout)
+                    region(entityName).ask(chana.GetRecordJson(id))(readTimeout)
                   }
                 }
             }
@@ -151,7 +150,7 @@ trait RestRoute extends Directives {
             entity(as[String]) { json =>
               complete {
                 withStatusCode {
-                  resolver(entityName).ask(chana.PutFieldJson(id, fieldName, json))(writeTimeout)
+                  region(entityName).ask(chana.PutFieldJson(id, fieldName, json))(writeTimeout)
                 }
               }
             }
@@ -165,13 +164,13 @@ trait RestRoute extends Directives {
                   val shiftedId = nextRandomId(1, benchmark_num).toString
                   complete {
                     withStatusCode {
-                      resolver(entityName).ask(chana.PutRecordJson(shiftedId, json))(writeTimeout)
+                      region(entityName).ask(chana.PutRecordJson(shiftedId, json))(writeTimeout)
                     }
                   }
                 case _ =>
                   complete {
                     withStatusCode {
-                      resolver(entityName).ask(chana.PutRecordJson(id, json))(writeTimeout)
+                      region(entityName).ask(chana.PutRecordJson(id, json))(writeTimeout)
                     }
                   }
               }
@@ -184,7 +183,7 @@ trait RestRoute extends Directives {
             splitPathAndValue(body) match {
               case List(xpathExpr, _*) =>
                 complete {
-                  resolver(entityName).ask(chana.SelectJson(id, xpathExpr))(readTimeout).collect {
+                  region(entityName).ask(chana.SelectJson(id, xpathExpr))(readTimeout).collect {
                     case Success(jsons: List[Array[Byte]] @unchecked) => jsons.map(new String(_)).mkString("[", ",", "]")
                     case Failure(ex)                                  => "[]"
                   }
@@ -201,7 +200,7 @@ trait RestRoute extends Directives {
               case List(xpathExpr, valueJson) =>
                 complete {
                   withStatusCode {
-                    resolver(entityName).ask(chana.UpdateJson(id, xpathExpr, valueJson))(writeTimeout)
+                    region(entityName).ask(chana.UpdateJson(id, xpathExpr, valueJson))(writeTimeout)
                   }
                 }
               case _ =>
@@ -216,7 +215,7 @@ trait RestRoute extends Directives {
               case List(xpathExpr, json) =>
                 complete {
                   withStatusCode {
-                    resolver(entityName).ask(chana.InsertJson(id, xpathExpr, json))(writeTimeout)
+                    region(entityName).ask(chana.InsertJson(id, xpathExpr, json))(writeTimeout)
                   }
                 }
               case _ =>
@@ -231,7 +230,7 @@ trait RestRoute extends Directives {
               case List(xpathExpr, json) =>
                 complete {
                   withStatusCode {
-                    resolver(entityName).ask(chana.InsertAllJson(id, xpathExpr, json))(writeTimeout)
+                    region(entityName).ask(chana.InsertAllJson(id, xpathExpr, json))(writeTimeout)
                   }
                 }
               case _ =>
@@ -246,7 +245,7 @@ trait RestRoute extends Directives {
               case List(xpathExpr, _*) =>
                 complete {
                   withStatusCode {
-                    resolver(entityName).ask(chana.Delete(id, xpathExpr))(writeTimeout)
+                    region(entityName).ask(chana.Delete(id, xpathExpr))(writeTimeout)
                   }
                 }
               case _ =>
@@ -261,7 +260,7 @@ trait RestRoute extends Directives {
               case List(xpathExpr, _*) =>
                 complete {
                   withStatusCode {
-                    resolver(entityName).ask(chana.Clear(id, xpathExpr))(writeTimeout)
+                    region(entityName).ask(chana.Clear(id, xpathExpr))(writeTimeout)
                   }
                 }
               case _ =>
@@ -337,7 +336,7 @@ trait RestRoute extends Directives {
       case Success(meta: jpql.JPQLSelect) =>
         val ids = meta.specifiedIds
         if (ids.nonEmpty) {
-          ids foreach { id => resolver(meta.entity) ! PutJPQL(id, key, jpqlQuery, interval) }
+          ids foreach { id => region(meta.entity) ! PutJPQL(id, key, jpqlQuery, interval) }
           Success(key)
         } else {
           mediator ! Publish(jpql.JPQLBehavior.jpqlTopic + meta.entity, PutJPQL(chana.NON_ID, key, jpqlQuery, interval))
@@ -347,7 +346,7 @@ trait RestRoute extends Directives {
       case Success(meta: jpql.JPQLUpdate) =>
         val ids = meta.specifiedIds
         if (ids.nonEmpty) {
-          ids foreach { id => resolver(meta.entity) ! PutJPQL(id, key, jpqlQuery, interval) }
+          ids foreach { id => region(meta.entity) ! PutJPQL(id, key, jpqlQuery, interval) }
           Success(key)
         } else {
           mediator ! Publish(jpql.JPQLBehavior.jpqlTopic + meta.entity, PutJPQL(chana.NON_ID, key, jpqlQuery, Duration.Zero))
@@ -357,7 +356,7 @@ trait RestRoute extends Directives {
       case Success(meta: jpql.JPQLInsert) =>
         val ids = meta.specifiedIds
         if (ids.nonEmpty) {
-          ids foreach { id => resolver(meta.entity) ! PutJPQL(id, key, jpqlQuery, interval) }
+          ids foreach { id => region(meta.entity) ! PutJPQL(id, key, jpqlQuery, interval) }
           Success(key)
         } else {
           mediator ! Publish(jpql.JPQLBehavior.jpqlTopic + meta.entity, PutJPQL(chana.NON_ID, key, jpqlQuery, Duration.Zero))
@@ -367,7 +366,7 @@ trait RestRoute extends Directives {
       case Success(meta: jpql.JPQLDelete) =>
         val ids = meta.specifiedIds
         if (ids.nonEmpty) {
-          ids foreach { id => resolver(meta.entity) ! PutJPQL(id, key, jpqlQuery, interval) }
+          ids foreach { id => region(meta.entity) ! PutJPQL(id, key, jpqlQuery, interval) }
           Success(key)
         } else {
           mediator ! Publish(jpql.JPQLBehavior.jpqlTopic + meta.entity, PutJPQL(chana.NON_ID, key, jpqlQuery, Duration.Zero))

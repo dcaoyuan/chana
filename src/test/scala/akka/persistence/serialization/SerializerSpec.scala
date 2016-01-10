@@ -3,6 +3,7 @@ package akka.persistence.serialization
 import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpecLike }
 import akka.actor.ActorSystem
 import akka.testkit.{ ImplicitSender, TestKit }
+import akka.persistence.AtomicWrite
 import akka.persistence.PersistentRepr
 import akka.persistence.journal.AsyncWriteTarget.WriteMessages
 import akka.serialization.SerializationExtension
@@ -11,13 +12,13 @@ import scala.collection.immutable
 object SerializerSpec {
   val schema = chana.serializer.SerializerSpec.schema
   val record = chana.serializer.SerializerSpec.record
-  val repr = PersistentRepr(record)
-  val writeMessages = WriteMessages(List(repr))
+  val atom = AtomicWrite(PersistentRepr(record))
+  val writeMessages = WriteMessages(List(atom))
 }
 
 class SerializerSpec(_system: ActorSystem) extends TestKit(_system) with ImplicitSender with WordSpecLike with Matchers with BeforeAndAfterAll {
 
-  def this() = this(ActorSystem("MySpec", chana.serializer.SerializerSpec.config))
+  def this() = this(ActorSystem("SerializerSpec", chana.serializer.SerializerSpec.config))
 
   override def afterAll {
     TestKit.shutdownActorSystem(system)

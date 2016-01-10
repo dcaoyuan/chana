@@ -2,8 +2,8 @@ package chana.schema
 
 import akka.actor._
 import akka.cluster.Cluster
+import akka.cluster.sharding.ClusterSharding
 import akka.contrib.datareplication.{ DataReplication, LWWMap }
-import akka.contrib.pattern.ClusterSharding
 import akka.pattern.ask
 import akka.persistence._
 import chana.{ Entity, Event, PutSchema, RemoveSchema, AEntity }
@@ -45,7 +45,7 @@ object DistributedSchemaBoard extends ExtensionId[DistributedSchemaBoardExtensio
     entityToSchema.putIfAbsent(entityname, (schema, idleTimeout)) match {
       case null =>
         // TODO developer can use custom Entity
-        Entity.startSharding(system, entityname, Some(AEntity.props(entityname, schema, DefaultRecordBuilder(schema), idleTimeout)))
+        Entity.startSharding(system, entityname, AEntity.props(entityname, schema, DefaultRecordBuilder(schema), idleTimeout))
       case old => // If existed, do nothing, or upgrade to new schema ? TODO
     }
   }
@@ -58,12 +58,12 @@ object DistributedSchemaBoard extends ExtensionId[DistributedSchemaBoardExtensio
 
   private def removeClusterShardActor(system: ActorSystem, entityName: String): Unit = {
     try {
-      val regionRef = ClusterSharding(system).shardRegion(entityName)
-      regionRef ! Kill
+      val region = ClusterSharding(system).shardRegion(entityName)
+      region ! Kill
 
       val encName = URLEncoder.encode(entityName, "utf-8")
       val coordinatorSingletonManagerName = encName + "Coordinator"
-      val coordinatorPath = (regionRef.path.parent / coordinatorSingletonManagerName / "singleton" / "coordinator").toStringWithoutAddress
+      val coordinatorPath = (region.path.parent / coordinatorSingletonManagerName / "singleton" / "coordinator").toStringWithoutAddress
       val coordRef = system.actorSelection(coordinatorPath)
       coordRef ! Kill
     } finally {
@@ -102,11 +102,11 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
             case Failure(ex)     => log.error("Snapshot offer failed to parse: {}", ex)
           }
       }
-    case event: Event           => updateSchema(event)
+    case event: Event      => updateSchema(event)
 
-    case x: SnapshotOffer       => log.warning("Got unknown SnapshotOffer: {}", x)
-    case RecoveryFailure(cause) => log.error("Recovery failure: {}", cause)
-    case RecoveryCompleted      => log.debug("Recovery completed: {}", persistenceId)
+    case x: SnapshotOffer  => log.warning("Got unknown SnapshotOffer: {}", x)
+    //case RecoveryFailure(cause) => log.error("Recovery failure: {}", cause)
+    case RecoveryCompleted => log.debug("Recovery completed: {}", persistenceId)
   }
 
   override def receiveCommand = {
@@ -163,7 +163,7 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
         toRemove.foreach(DistributedSchemaBoard.removeSchema(context.system, _))
       }
 
-    case f: PersistenceFailure                 => log.error("{}", f)
+    //case f: PersistenceFailure                 => log.error("{}", f)
     case SaveSnapshotSuccess(metadata)         => log.debug("success saved {}", metadata)
     case SaveSnapshotFailure(metadata, reason) => log.error("Failed to save snapshot {}: {}", metadata, reason)
   }

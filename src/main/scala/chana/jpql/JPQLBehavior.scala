@@ -1,6 +1,6 @@
 package chana.jpql
 
-import akka.contrib.pattern.DistributedPubSubMediator.{ Subscribe, SubscribeAck }
+import akka.cluster.pubsub.DistributedPubSubMediator.{ Subscribe, SubscribeAck }
 import chana.Entity
 import chana.PutJPQL
 import chana.avro.UpdateAction
@@ -130,15 +130,20 @@ trait JPQLBehavior extends Entity {
   private def scheduleJpqlReport(jpqlKey: String, meta: JPQLSelect, interval: FiniteDuration, record: Record) {
     if (meta.entity == entityName) {
       try {
-        if (isDeleted) {
-          val deleted = DeletedRecord(id)
-          JPQLReducer.reducerProxy(context.system, jpqlKey) ! deleted
-        } else {
-          val projection = new JPQLMapperSelect(id, meta).gatherProjection(record)
-          JPQLReducer.reducerProxy(context.system, jpqlKey) ! projection
+        val reducerProxy = DistributedJPQLBoard.keyToReducerProxy.get(jpqlKey)
+        if (reducerProxy != null) {
+          if (isDeleted) {
+            val deleted = DeletedRecord(id)
+            reducerProxy ! deleted
+            //JPQLReducer.reducerProxy(context.system, jpqlKey) ! deleted
+          } else {
+            val projection = new JPQLMapperSelect(id, meta).gatherProjection(record)
+            reducerProxy ! projection
+            //JPQLReducer.reducerProxy(context.system, jpqlKey) ! projection
+          }
         }
-        context.system.scheduler.scheduleOnce(interval, self, ReportingTick(jpqlKey))
 
+        context.system.scheduler.scheduleOnce(interval, self, ReportingTick(jpqlKey))
       } catch {
         case ex: Throwable => log.error(ex, ex.getMessage)
       }

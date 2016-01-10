@@ -52,6 +52,8 @@ akka.actor {
   provider = "akka.cluster.ClusterActorRefProvider"
 }
 
+akka.persistence.journal.plugin = "akka.persistence.journal.leveldb"
+
 akka.remote.netty.tcp.hostname = "127.0.0.1"
 akka.remote.netty.tcp.port = 0 
 
@@ -78,7 +80,7 @@ akka.remote.netty.tcp.port = 0
 class SerializerSpec(_system: ActorSystem) extends TestKit(_system) with ImplicitSender with WordSpecLike with Matchers with BeforeAndAfterAll {
   import SerializerSpec._
 
-  def this() = this(ActorSystem("MySpec", SerializerSpec.config))
+  def this() = this(ActorSystem("SerializerSpec", SerializerSpec.config))
 
   override def afterAll {
     TestKit.shutdownActorSystem(system)

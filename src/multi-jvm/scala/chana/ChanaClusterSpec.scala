@@ -76,7 +76,7 @@ object ChanaClusterSpecConfig extends MultiNodeConfig {
         }
       }
       akka.actor.provider = "akka.cluster.ClusterActorRefProvider"
-      akka.extensions = ["akka.contrib.pattern.ClusterReceptionistExtension"]
+      akka.extensions = ["akka.cluster.client.ClusterClientReceptionist"]
       akka.persistence.journal.plugin = "akka.persistence.journal.leveldb-shared"
       akka.persistence.journal.leveldb-shared.store.native = off
       akka.persistence.journal.leveldb-shared.store.dir = "target/test-shared-journal"

@@ -25,6 +25,7 @@ class JPQLReducerSpec(_system: ActorSystem) extends TestKit(_system) with Implic
   akka.actor {
       provider = "akka.cluster.ClusterActorRefProvider"                                                                      
   }
+  akka.persistence.journal.plugin = "akka.persistence.journal.leveldb"
   akka.remote.netty.tcp.hostname = "localhost"
   # set port to random to by pass the ports that will be occupied by ChanaClusterSpec test
   akka.remote.netty.tcp.port = 0

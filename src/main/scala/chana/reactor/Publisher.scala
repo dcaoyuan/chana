@@ -3,7 +3,7 @@ package chana.reactor
 import akka.actor.Actor
 import akka.actor.ActorRef
 import akka.actor.Terminated
-import akka.contrib.pattern.DistributedPubSubMediator.{ Publish, Subscribe, SubscribeAck, Unsubscribe, UnsubscribeAck }
+import akka.cluster.pubsub.DistributedPubSubMediator.{ Publish, Subscribe, SubscribeAck, Unsubscribe, UnsubscribeAck }
 import akka.event.LoggingAdapter
 import akka.pattern.ask
 import akka.routing.ActorRefRoutee

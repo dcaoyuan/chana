@@ -24,6 +24,7 @@ class TSerSpec(_system: ActorSystem) extends TestKit(_system) with ImplicitSende
   akka.actor {
       provider = "akka.cluster.ClusterActorRefProvider"                                                                      
   }
+  akka.persistence.journal.plugin = "akka.persistence.journal.leveldb"
   akka.remote.netty.tcp.hostname = "localhost"
   # To avoid:
   #   Logger specified in config can't be loaded [akka.event.slf4j.Slf4jLogger] 

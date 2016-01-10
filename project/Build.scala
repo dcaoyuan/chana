@@ -123,18 +123,20 @@ object Build extends sbt.Build {
 
 object Dependencies {
   val SLF4J_VERSION = "1.7.7"
-  val AKKA_VERSION = "2.3.14"
+  val AKKA_VERSION = "2.4.1"
   val AKKA_STREAM_VERSION = "2.0.1"
   val SPRAY_VERSION = "1.3.3"
 
   val akka = Seq(
     "com.typesafe.akka" %% "akka-actor" % AKKA_VERSION,
+    "com.typesafe.akka" %% "akka-cluster-sharding" % AKKA_VERSION,
     "com.typesafe.akka" %% "akka-contrib" % AKKA_VERSION,
-    "com.typesafe.akka" %% "akka-persistence-experimental" % AKKA_VERSION exclude ("org.iq80.leveldb", "leveldb"),
+    "com.typesafe.akka" %% "akka-persistence" % AKKA_VERSION exclude ("org.iq80.leveldb", "leveldb"),
     "com.typesafe.akka" %% "akka-slf4j" % AKKA_VERSION,
     "com.typesafe.akka" %% "akka-testkit" % AKKA_VERSION % Test,
     "com.typesafe.akka" %% "akka-multi-node-testkit" % AKKA_VERSION % Test,
     "org.iq80.leveldb" % "leveldb" % "0.7" % Runtime,
+    "org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8" % Runtime,
     "com.github.krasserm" %% "akka-persistence-cassandra" % "0.3.6" % Runtime)
 
   val akka_http = Seq(

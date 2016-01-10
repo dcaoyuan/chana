@@ -41,25 +41,26 @@ object DistributedJPQLBoard extends ExtensionId[DistributedJPQLBoardExtension] w
   def props(): Props = Props(classOf[DistributedJPQLBoard])
 
   val keyToJPQL = new ConcurrentHashMap[String, (JPQLMeta, FiniteDuration)]()
+  val keyToReducerProxy = new ConcurrentHashMap[String, ActorRef]()
   private val jpqlsLock = new ReentrantReadWriteLock()
-  private def keyOf(entity: String, field: String, id: String) = entity + "/" + field + "/" + id
 
-  private def putJPQL(system: ActorSystem, key: String, meta: JPQLMeta, interval: FiniteDuration = 1.seconds): Unit = {
+  private def putJPQL(system: ActorSystem, key: String, meta: JPQLMeta, interval: FiniteDuration = 1.seconds) {
     keyToJPQL.putIfAbsent(key, (meta, interval)) match {
       case null =>
         JPQLReducer.startReducer(system, JPQLReducer.role, key, meta)
-        JPQLReducer.startReducerProxy(system, JPQLReducer.role, key)
+        val proxy = JPQLReducer.startReducerProxy(system, JPQLReducer.role, key)
+        keyToReducerProxy.put(key, proxy)
       case old => // TODO if existed
     }
   }
 
-  private def removeJPQL(key: String): Unit = {
+  private def removeJPQL(key: String) {
     keyToJPQL.remove(key)
+    keyToReducerProxy.remove(key)
     // TODO remove aggregator
   }
 
   val DataKey = "chana-jpqls"
-
 }
 
 class DistributedJPQLBoard extends Actor with ActorLogging {
@@ -120,10 +121,19 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
     case chana.AskJPQL(key) =>
       val commander = sender()
 
-      JPQLReducer.reducerProxy(context.system, key).ask(JPQLReducer.AskReducedResult)(300.seconds).onComplete {
-        case Success(result: Array[_]) => commander ! Success(ToJson.toJsonString(result)) // TODO
-        case failure                   => commander ! failure
+      val proxy = DistributedJPQLBoard.keyToReducerProxy.get(key)
+      if (proxy eq null) {
+        commander ! Failure(new RuntimeException("There is no reducer for " + key))
+      } else {
+        proxy.ask(JPQLReducer.AskReducedResult)(300.seconds).onComplete {
+          case Success(result: Array[_]) => commander ! Success(ToJson.toJsonString(result)) // TODO
+          case failure                   => commander ! failure
+        }
       }
+    //      JPQLReducer.reducerProxy(context.system, key).ask(JPQLReducer.AskReducedResult)(300.seconds).onComplete {
+    //        case Success(result: Array[_]) => commander ! Success(ToJson.toJsonString(result)) // TODO
+    //        case failure                   => commander ! failure
+    //      }
 
     // --- commands of akka-data-replication
 

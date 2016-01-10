@@ -28,7 +28,7 @@ package object nodes {
       } else {
         factor.expr match {
           case Left(SimpleCondExpr(Left(
-            ArithExpr(Left(SimpleArithExpr(ArithTerm(NOOP, ArithFactor(NOOP, PlusOrMinusPrimary(PLUS,
+            ArithExpr(Left(SimpleArithExpr(ArithTerm(NOP, ArithFactor(NOP, PlusOrMinusPrimary(PLUS,
               PathExprOrVarAccess(Left(QualIdentVar(VarAccessOrTypeConstant(Ident(alias)))), List(Attribute(attr))))),
               Nil), Nil)))),
             ComparisonExpr(EQ, LiteralString(id)))) if attr.toLowerCase == JPQLEvaluator.ID => Some((alias, id))
@@ -200,25 +200,25 @@ package object nodes {
   case object MINUS extends ArithOp
   case object MULTIPLY extends ArithOp
   case object DIVIDE extends ArithOp
-  case object NOOP extends ArithOp
+  case object NOP extends ArithOp
 
   final case class ArithExpr(expr: Either[SimpleArithExpr, Subquery]) extends ComparsionExprRightOperand with ScalarOrSubselectExpr
 
   /**
-   * @param ArithTerm without prefixOp (NOOP)
+   * @param ArithTerm without prefixOp (NOP)
    * @param List of ArithTerm with PLUS or MINUS prefixOp
    */
   final case class SimpleArithExpr(term: ArithTerm, rightTerms: List[ArithTerm]) extends ArithPrimary with ScalarExpr
 
   /**
-   * @param prefixOp: PLUS / MINUS, or NOOP
-   * @param ArithFactor without prefixOp (NOOP)
+   * @param prefixOp: PLUS / MINUS, or NOP
+   * @param ArithFactor without prefixOp (NOP)
    * @param List of ArithFactor with MULTIPLY or DIVIDE prefixOp
    */
   final case class ArithTerm(prefixOp: ArithOp, factor: ArithFactor, rightFactors: List[ArithFactor])
 
   /**
-   * @param prefixOp: MULTIPLY / DIVIDE, or NOOP
+   * @param prefixOp: MULTIPLY / DIVIDE, or NOP
    */
   final case class ArithFactor(prefixOp: ArithOp, primary: PlusOrMinusPrimary)
 

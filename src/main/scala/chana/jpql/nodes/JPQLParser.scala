@@ -737,7 +737,7 @@ final class JPQLParser() {
      ArithTerm ( ArithTermPlus / ArithTermMinus )* 
    */
   def simpleArithExpr(node: Node) = {
-    val term0 = visit(node.getNode(0))(arithTerm(NOOP))
+    val term0 = visit(node.getNode(0))(arithTerm(NOP))
     val terms = visitList(node.getList(1)) { n =>
       n.getName match {
         case "ArithTermPlus"  => visit(n.getNode(0))(arithTerm(PLUS))
@@ -751,7 +751,7 @@ final class JPQLParser() {
      ArithFactor ( ArithFactorMultiply / ArithFactorDivide )* 
    */
   def arithTerm(prefixOp: ArithOp)(node: Node): ArithTerm = {
-    val factor0 = visit(node.getNode(0))(arithFactor(NOOP))
+    val factor0 = visit(node.getNode(0))(arithFactor(NOP))
     val factors = visitList(node.getList(1)) { n =>
       n.getName match {
         case "ArithFactorMultiply" => visit(n.getNode(0))(arithFactor(MULTIPLY))

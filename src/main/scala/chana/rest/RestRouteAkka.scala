@@ -1,7 +1,7 @@
 package chana.rest
 
 import akka.actor.ActorSystem
-import akka.contrib.pattern.ClusterSharding
+import akka.cluster.sharding.ClusterSharding
 import akka.http.scaladsl.model.StatusCode
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives
@@ -30,7 +30,7 @@ trait RestRouteAkka extends Directives {
   def scriptBoard = DistributedScriptBoard(system).board
   def jpqlBoard = DistributedJPQLBoard(system).board
 
-  final def resolver(entityName: String) = ClusterSharding(system).shardRegion(entityName)
+  final def region(entityName: String) = ClusterSharding(system).shardRegion(entityName)
 
   final def restApi = schemaApi ~ jpqlApi ~ accessApi
 
@@ -106,7 +106,7 @@ trait RestRouteAkka extends Directives {
           get {
             complete {
               withJson {
-                resolver(entityName).ask(chana.GetFieldJson(id, fieldName))(readTimeout)
+                region(entityName).ask(chana.GetFieldJson(id, fieldName))(readTimeout)
               }
             }
           }
@@ -118,13 +118,13 @@ trait RestRouteAkka extends Directives {
                 val shiftedId = nextRandomId(1, benchmark_num).toString
                 complete {
                   withJson {
-                    resolver(entityName).ask(chana.GetRecordJson(shiftedId))(readTimeout)
+                    region(entityName).ask(chana.GetRecordJson(shiftedId))(readTimeout)
                   }
                 }
               case _ =>
                 complete {
                   withJson {
-                    resolver(entityName).ask(chana.GetRecordJson(id))(readTimeout)
+                    region(entityName).ask(chana.GetRecordJson(id))(readTimeout)
                   }
                 }
             }
@@ -136,7 +136,7 @@ trait RestRouteAkka extends Directives {
             entity(as[String]) { json =>
               complete {
                 withStatusCode {
-                  resolver(entityName).ask(chana.PutFieldJson(id, fieldName, json))(writeTimeout)
+                  region(entityName).ask(chana.PutFieldJson(id, fieldName, json))(writeTimeout)
                 }
               }
             }
@@ -150,13 +150,13 @@ trait RestRouteAkka extends Directives {
                   val shiftedId = nextRandomId(1, benchmark_num).toString
                   complete {
                     withStatusCode {
-                      resolver(entityName).ask(chana.PutRecordJson(shiftedId, json))(writeTimeout)
+                      region(entityName).ask(chana.PutRecordJson(shiftedId, json))(writeTimeout)
                     }
                   }
                 case _ =>
                   complete {
                     withStatusCode {
-                      resolver(entityName).ask(chana.PutRecordJson(id, json))(writeTimeout)
+                      region(entityName).ask(chana.PutRecordJson(id, json))(writeTimeout)
                     }
                   }
               }
@@ -169,7 +169,7 @@ trait RestRouteAkka extends Directives {
             splitPathAndValue(body) match {
               case List(xpathExpr, _*) =>
                 complete {
-                  resolver(entityName).ask(chana.SelectJson(id, xpathExpr))(readTimeout).collect {
+                  region(entityName).ask(chana.SelectJson(id, xpathExpr))(readTimeout).collect {
                     case Success(jsons: List[Array[Byte]] @unchecked) => jsons.map(new String(_)).mkString("[", ",", "]")
                     case Failure(ex)                                  => "[]"
                   }
@@ -185,7 +185,7 @@ trait RestRouteAkka extends Directives {
             splitPathAndValue(body) match {
               case List(xpathExpr, valueJson) =>
                 complete {
-                  resolver(entityName).ask(chana.UpdateJson(id, xpathExpr, valueJson))(writeTimeout).collect {
+                  region(entityName).ask(chana.UpdateJson(id, xpathExpr, valueJson))(writeTimeout).collect {
                     case Success(_)  => StatusCodes.OK
                     case Failure(ex) => StatusCodes.InternalServerError
                   }
@@ -201,7 +201,7 @@ trait RestRouteAkka extends Directives {
             splitPathAndValue(body) match {
               case List(xpathExpr, json) =>
                 complete {
-                  resolver(entityName).ask(chana.InsertJson(id, xpathExpr, json))(writeTimeout).collect {
+                  region(entityName).ask(chana.InsertJson(id, xpathExpr, json))(writeTimeout).collect {
                     case Success(_)  => StatusCodes.OK
                     case Failure(ex) => StatusCodes.InternalServerError
                   }
@@ -217,7 +217,7 @@ trait RestRouteAkka extends Directives {
             splitPathAndValue(body) match {
               case List(xpathExpr, json) =>
                 complete {
-                  resolver(entityName).ask(chana.InsertAllJson(id, xpathExpr, json))(writeTimeout).collect {
+                  region(entityName).ask(chana.InsertAllJson(id, xpathExpr, json))(writeTimeout).collect {
                     case Success(_)  => StatusCodes.OK
                     case Failure(ex) => StatusCodes.InternalServerError
                   }
@@ -233,7 +233,7 @@ trait RestRouteAkka extends Directives {
             splitPathAndValue(body) match {
               case List(xpathExpr, _*) =>
                 complete {
-                  resolver(entityName).ask(chana.Delete(id, xpathExpr))(writeTimeout).collect {
+                  region(entityName).ask(chana.Delete(id, xpathExpr))(writeTimeout).collect {
                     case Success(_)  => StatusCodes.OK
                     case Failure(ex) => StatusCodes.InternalServerError
                   }
@@ -249,7 +249,7 @@ trait RestRouteAkka extends Directives {
             splitPathAndValue(body) match {
               case List(xpathExpr, _*) =>
                 complete {
-                  resolver(entityName).ask(chana.Clear(id, xpathExpr))(writeTimeout).collect {
+                  region(entityName).ask(chana.Clear(id, xpathExpr))(writeTimeout).collect {
                     case Success(_)  => StatusCodes.OK
                     case Failure(ex) => StatusCodes.InternalServerError
                   }
