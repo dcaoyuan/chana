@@ -130,6 +130,7 @@ object Dependencies {
   val akka = Seq(
     "com.typesafe.akka" %% "akka-actor" % AKKA_VERSION,
     "com.typesafe.akka" %% "akka-cluster-sharding" % AKKA_VERSION,
+    "com.typesafe.akka" %% "akka-distributed-data-experimental" % AKKA_VERSION,
     "com.typesafe.akka" %% "akka-contrib" % AKKA_VERSION,
     "com.typesafe.akka" %% "akka-persistence" % AKKA_VERSION exclude ("org.iq80.leveldb", "leveldb"),
     "com.typesafe.akka" %% "akka-slf4j" % AKKA_VERSION,
@@ -143,9 +144,6 @@ object Dependencies {
     "com.typesafe.akka" %% "akka-stream-experimental" % AKKA_STREAM_VERSION,
     "com.typesafe.akka" %% "akka-http-core-experimental" % AKKA_STREAM_VERSION,
     "com.typesafe.akka" %% "akka-http-experimental" % AKKA_STREAM_VERSION)
-
-  val akka_data_replication = Seq(
-    "com.github.patriknw" %% "akka-data-replication" % "0.11")
 
   val avro = Seq(
     "org.apache.avro" % "avro" % "1.7.7")
@@ -169,7 +167,7 @@ object Dependencies {
     "org.scalamock" %% "scalamock-scalatest-support" % "3.2.1" % Test,
     "org.scalatest" %% "scalatest" % "2.2.4" % "test")
 
-  val basic: Seq[sbt.ModuleID] = akka ++ akka_http ++ akka_data_replication ++ avro ++ jackson ++ spray ++ log ++ test
+  val basic: Seq[sbt.ModuleID] = akka ++ akka_http ++ avro ++ jackson ++ spray ++ log ++ test
 
   val all = basic
 }

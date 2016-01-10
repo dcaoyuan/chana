@@ -9,10 +9,11 @@ import akka.actor.Extension
 import akka.actor.ExtensionId
 import akka.actor.ExtensionIdProvider
 import akka.actor.Props
-import akka.contrib.datareplication.DataReplication
-import akka.contrib.datareplication.LWWMap
-import akka.pattern.ask
 import akka.cluster.Cluster
+import akka.cluster.ddata.DistributedData
+import akka.cluster.ddata.LWWMap
+import akka.cluster.ddata.LWWMapKey
+import akka.pattern.ask
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import javax.script.Compilable
 import javax.script.CompiledScript
@@ -105,16 +106,16 @@ object DistributedScriptBoard extends ExtensionId[DistributedScriptBoardExtensio
     }
   }
 
-  val DataKey = "chana-scripts"
+  val DataKey = LWWMapKey[String]("chana-scripts")
 }
 
 class DistributedScriptBoard extends Actor with ActorLogging {
-  import akka.contrib.datareplication.Replicator._
+  import akka.cluster.ddata.Replicator._
 
   implicit val cluster = Cluster(context.system)
   import context.dispatcher
 
-  val replicator = DataReplication(context.system).replicator
+  val replicator = DistributedData(context.system).replicator
   replicator ! Subscribe(DistributedScriptBoard.DataKey, self)
 
   def receive = {
@@ -125,15 +126,14 @@ class DistributedScriptBoard extends Actor with ActorLogging {
           val key = DistributedScriptBoard.keyOf(entity, field, id)
 
           replicator.ask(Update(DistributedScriptBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ + (key -> script)))(60.seconds).onComplete {
-            case Success(_: UpdateSuccess) =>
+            case Success(_: UpdateSuccess[_]) =>
               DistributedScriptBoard.putScript(key, compiledScript)
               log.info("put script (Update) [{}]:\n{} ", key, script)
               commander ! Success(key)
-            case Success(_: UpdateTimeout) => commander ! Failure(chana.UpdateTimeoutException)
-            case Success(x: InvalidUsage)  => commander ! Failure(x)
-            case Success(x: ModifyFailure) => commander ! Failure(x)
-            case Success(x)                => log.warning("Got {}", x)
-            case ex: Failure[_]            => commander ! ex
+            case Success(_: UpdateTimeout[_]) => commander ! Failure(chana.UpdateTimeoutException)
+            case Success(x: ModifyFailure[_]) => commander ! Failure(x.cause)
+            case Success(x)                   => log.warning("Got {}", x)
+            case ex: Failure[_]               => commander ! ex
           }
 
         case Failure(ex) =>
@@ -144,19 +144,19 @@ class DistributedScriptBoard extends Actor with ActorLogging {
       val key = DistributedScriptBoard.keyOf(entity, field, id)
 
       replicator.ask(Update(DistributedScriptBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ - key))(60.seconds).onComplete {
-        case Success(_: UpdateSuccess) =>
+        case Success(_: UpdateSuccess[_]) =>
           log.info("remove script (Update): {}", key)
           DistributedScriptBoard.removeScript(key)
           commander ! Success(key)
-        case Success(_: UpdateTimeout) => commander ! Failure(chana.UpdateTimeoutException)
-        case Success(x: InvalidUsage)  => commander ! Failure(x)
-        case Success(x: ModifyFailure) => commander ! Failure(x)
-        case Success(x)                => log.warning("Got {}", x)
-        case ex: Failure[_]            => commander ! ex
+        case Success(_: UpdateTimeout[_]) => commander ! Failure(chana.UpdateTimeoutException)
+        case Success(x: ModifyFailure[_]) => commander ! Failure(x.cause)
+        case Success(x)                   => log.warning("Got {}", x)
+        case ex: Failure[_]               => commander ! ex
       }
 
-    case Changed(DistributedScriptBoard.DataKey, LWWMap(entries: Map[String, String] @unchecked)) =>
+    case c @ Changed(DistributedScriptBoard.DataKey) =>
       // check if there were newly added
+      val entries = c.get(DistributedScriptBoard.DataKey).entries
       entries.foreach {
         case (key, script) =>
           DistributedScriptBoard.keyToScript.get(key) match {

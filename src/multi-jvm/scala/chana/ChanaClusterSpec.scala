@@ -3,7 +3,7 @@ package chana
 
 import akka.actor.{ActorIdentity, Identify, _}
 import akka.cluster.{Cluster, MemberStatus}
-import akka.contrib.datareplication.{DataReplication, LWWMap}
+import akka.cluster.ddata.{DistributedData, LWWMap}
 import akka.io.{IO, Tcp}
 import akka.persistence.Persistence
 import akka.persistence.journal.leveldb.{SharedLeveldbJournal, SharedLeveldbStore}
@@ -411,12 +411,13 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
       runOn(entity1, entity2) {
         enterBarrier("script-done")
 
-        import akka.contrib.datareplication.Replicator._
-        val replicator = DataReplication(system).replicator
+        import akka.cluster.ddata.Replicator._
+        val replicator = DistributedData(system).replicator
         awaitAssert {
-          replicator ! Get(DistributedScriptBoard.DataKey, ReadQuorum(3.seconds), None)
+          replicator ! Get(DistributedScriptBoard.DataKey, ReadMajority(3.seconds), None)
           expectMsgPF(5.seconds) {
-            case GetSuccess(DistributedScriptBoard.DataKey, data: LWWMap[String] @unchecked, _) =>
+            case g @ GetSuccess(DistributedScriptBoard.DataKey, _) =>
+              val data = g.get(DistributedScriptBoard.DataKey)
               data.entries.values.toSet should be(Set())
           }
         }
@@ -444,13 +445,14 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
       runOn(entity1, entity2) {
         enterBarrier("put-jpql")
 
-        val replicator = DataReplication(system).replicator
+        val replicator = DistributedData(system).replicator
         awaitAssert {
-          import akka.contrib.datareplication.Replicator._
+          import akka.cluster.ddata.Replicator._
 
-          replicator ! Get(DistributedJPQLBoard.DataKey, ReadQuorum(3.seconds), None)
+          replicator ! Get(DistributedJPQLBoard.DataKey, ReadMajority(3.seconds), None)
           expectMsgPF(5.seconds) {
-            case GetSuccess(DistributedJPQLBoard.DataKey, data: LWWMap[String] @unchecked, _) =>
+            case g@GetSuccess(DistributedJPQLBoard.DataKey, _) =>
+              val data = g.get(DistributedJPQLBoard.DataKey)
               data.entries.values.toSet.size should be(1)
           }
         }

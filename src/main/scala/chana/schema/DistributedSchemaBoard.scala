@@ -2,8 +2,10 @@ package chana.schema
 
 import akka.actor._
 import akka.cluster.Cluster
+import akka.cluster.ddata.DistributedData
+import akka.cluster.ddata.LWWMap
+import akka.cluster.ddata.LWWMapKey
 import akka.cluster.sharding.ClusterSharding
-import akka.contrib.datareplication.{ DataReplication, LWWMap }
 import akka.pattern.ask
 import akka.persistence._
 import chana.{ Entity, Event, PutSchema, RemoveSchema, AEntity }
@@ -74,20 +76,22 @@ object DistributedSchemaBoard extends ExtensionId[DistributedSchemaBoardExtensio
     Option(entityToSchema.get(entityName.toLowerCase)).map(_._1)
   }
 
-  val DataKey = "chana--schemas"
-
+  val DataKey = LWWMapKey[(String, Duration)]("chana--schemas")
 }
 
 class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActor {
-  import akka.contrib.datareplication.Replicator._
+  import akka.cluster.ddata.Replicator._
 
   override def persistenceId: String = "distributed_schema_board"
 
   implicit val cluster = Cluster(context.system)
   import context.dispatcher
 
-  val replicator = DataReplication(context.system).replicator
-  replicator ! Subscribe(DistributedSchemaBoard.DataKey, self)
+  val replicator = {
+    val x = DistributedData(context.system).replicator
+    x ! Subscribe(DistributedSchemaBoard.DataKey, self)
+    x
+  }
 
   val persistent = context.system.settings.config.getBoolean("chana.persistence.persistent")
 
@@ -139,8 +143,9 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
       val commander = sender()
       removeSchema(entityName, Some(commander), alsoSave = true)
 
-    case Changed(DistributedSchemaBoard.DataKey, LWWMap(entries: Map[String, (String, Duration)] @unchecked)) =>
+    case c @ Changed(DistributedSchemaBoard.DataKey) =>
       // check if there were newly added
+      val entries = c.get(DistributedSchemaBoard.DataKey).entries
       entries.foreach {
         case (entityName, (schemaStr, idleTimeout)) =>
           DistributedSchemaBoard.entityToSchema.get(entityName) match {
@@ -179,7 +184,7 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
   private def putSchema(entityName: String, schema: Schema, idleTimeout: Duration, commander: Option[ActorRef], alsoSave: Boolean): Unit = {
     val key = entityName
     replicator.ask(Update(DistributedSchemaBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ + (key -> (schema.toString, idleTimeout))))(60.seconds).onComplete {
-      case Success(_: UpdateSuccess) =>
+      case Success(_: UpdateSuccess[_]) =>
         log.info("put schema (Update) [{}]:\n{} ", key, schema)
         DistributedSchemaBoard.putSchema(context.system, entityName, schema, idleTimeout)
         // for schema, just save snapshot
@@ -190,18 +195,17 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
         // TODO wait for sharding ready
         commander.foreach(_ ! Success(key))
 
-      case Success(_: UpdateTimeout) => commander.foreach(_ ! Failure(chana.UpdateTimeoutException))
-      case Success(x: InvalidUsage)  => commander.foreach(_ ! Failure(x))
-      case Success(x: ModifyFailure) => commander.foreach(_ ! Failure(x))
-      case Success(x)                => log.warning("Got {}", x)
-      case ex: Failure[_]            => commander.foreach(_ ! ex)
+      case Success(_: UpdateTimeout[_]) => commander.foreach(_ ! Failure(chana.UpdateTimeoutException))
+      case Success(x: ModifyFailure[_]) => commander.foreach(_ ! Failure(x.cause))
+      case Success(x)                   => log.warning("Got {}", x)
+      case ex: Failure[_]               => commander.foreach(_ ! ex)
     }
   }
 
   private def removeSchema(entityName: String, commander: Option[ActorRef], alsoSave: Boolean): Unit = {
     val key = entityName
     replicator.ask(Update(DistributedSchemaBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ - key))(60.seconds).onComplete {
-      case Success(_: UpdateSuccess) =>
+      case Success(_: UpdateSuccess[_]) =>
         log.info("remove schemas (Update): {}", key)
         DistributedSchemaBoard.removeSchema(context.system, entityName)
         // for schema, just save snapshot
@@ -212,11 +216,10 @@ class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActo
         // TODO wait for sharding stopped?
         commander.foreach(_ ! Success(key))
 
-      case Success(_: UpdateTimeout) => commander.foreach(_ ! Failure(chana.UpdateTimeoutException))
-      case Success(x: InvalidUsage)  => commander.foreach(_ ! Failure(x))
-      case Success(x: ModifyFailure) => commander.foreach(_ ! Failure(x))
-      case Success(x)                => log.warning("Got {}", x)
-      case ex: Failure[_]            => commander.foreach(_ ! ex)
+      case Success(_: UpdateTimeout[_]) => commander.foreach(_ ! Failure(chana.UpdateTimeoutException))
+      case Success(x: ModifyFailure[_]) => commander.foreach(_ ! Failure(x.cause))
+      case Success(x)                   => log.warning("Got {}", x)
+      case ex: Failure[_]               => commander.foreach(_ ! ex)
     }
   }
 

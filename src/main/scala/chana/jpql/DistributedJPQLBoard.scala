@@ -9,10 +9,11 @@ import akka.actor.Extension
 import akka.actor.ExtensionId
 import akka.actor.ExtensionIdProvider
 import akka.actor.Props
-import akka.contrib.datareplication.DataReplication
-import akka.contrib.datareplication.LWWMap
-import akka.pattern.ask
 import akka.cluster.Cluster
+import akka.cluster.ddata.DistributedData
+import akka.cluster.ddata.LWWMap
+import akka.cluster.ddata.LWWMapKey
+import akka.pattern.ask
 import chana.avro.ToJson
 import chana.jpql.nodes.JPQLParser
 import chana.schema.DistributedSchemaBoard
@@ -60,17 +61,17 @@ object DistributedJPQLBoard extends ExtensionId[DistributedJPQLBoardExtension] w
     // TODO remove aggregator
   }
 
-  val DataKey = "chana-jpqls"
+  val DataKey = LWWMapKey[String]("chana-jpqls")
 }
 
 class DistributedJPQLBoard extends Actor with ActorLogging {
-  import akka.contrib.datareplication.Replicator._
+  import akka.cluster.ddata.Replicator._
 
   implicit val cluster = Cluster(context.system)
   import context.dispatcher
 
   val replicator = {
-    val x = DataReplication(context.system).replicator
+    val x = DistributedData(context.system).replicator
     x ! Subscribe(DistributedJPQLBoard.DataKey, self)
     x
   }
@@ -82,16 +83,15 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
       parseJPQL(key, jpql) match {
         case Success(meta: JPQLSelect) =>
           replicator.ask(Update(DistributedJPQLBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ + (key -> jpql)))(60.seconds).onComplete {
-            case Success(_: UpdateSuccess) =>
+            case Success(_: UpdateSuccess[_]) =>
               DistributedJPQLBoard.putJPQL(context.system, key, meta, interval)
               log.info("put jpql (Update) [{}]:\n{} ", key, jpql)
               commander ! Success(key)
 
-            case Success(_: UpdateTimeout) => commander ! Failure(chana.UpdateTimeoutException)
-            case Success(x: InvalidUsage)  => commander ! Failure(x)
-            case Success(x: ModifyFailure) => commander ! Failure(x)
-            case Success(x)                => log.warning("Got {}", x)
-            case failure: Failure[_]       => commander ! failure
+            case Success(_: UpdateTimeout[_]) => commander ! Failure(chana.UpdateTimeoutException)
+            case Success(x: ModifyFailure[_]) => commander ! Failure(x.cause)
+            case Success(x)                   => log.warning("Got {}", x)
+            case failure: Failure[_]          => commander ! failure
           }
 
         case Success(meta) =>
@@ -106,16 +106,15 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
       val commander = sender()
 
       replicator.ask(Update(DistributedJPQLBoard.DataKey, LWWMap(), WriteAll(60.seconds))(_ - key))(60.seconds).onComplete {
-        case Success(_: UpdateSuccess) =>
+        case Success(_: UpdateSuccess[_]) =>
           log.info("remove jpql (Update): {}", key)
           DistributedJPQLBoard.removeJPQL(key)
           commander ! Success(key)
 
-        case Success(_: UpdateTimeout) => commander ! Failure(chana.UpdateTimeoutException)
-        case Success(x: InvalidUsage)  => commander ! Failure(x)
-        case Success(x: ModifyFailure) => commander ! Failure(x)
-        case Success(x)                => log.warning("Got {}", x)
-        case ex: Failure[_]            => commander ! ex
+        case Success(_: UpdateTimeout[_]) => commander ! Failure(chana.UpdateTimeoutException)
+        case Success(x: ModifyFailure[_]) => commander ! Failure(x.cause)
+        case Success(x)                   => log.warning("Got {}", x)
+        case ex: Failure[_]               => commander ! ex
       }
 
     case chana.AskJPQL(key) =>
@@ -137,8 +136,9 @@ class DistributedJPQLBoard extends Actor with ActorLogging {
 
     // --- commands of akka-data-replication
 
-    case Changed(DistributedJPQLBoard.DataKey, LWWMap(entries: Map[String, String] @unchecked)) =>
+    case c @ Changed(DistributedJPQLBoard.DataKey) =>
       // check if there were newly added
+      val entries = c.get(DistributedJPQLBoard.DataKey).entries
       entries.foreach {
         case (key, jpql) =>
           DistributedJPQLBoard.keyToJPQL.get(key) match {
