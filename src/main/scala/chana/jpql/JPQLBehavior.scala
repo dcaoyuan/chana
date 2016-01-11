@@ -131,16 +131,13 @@ trait JPQLBehavior extends Entity {
     if (meta.entity == entityName) {
       try {
         val reducerProxy = DistributedJPQLBoard.keyToReducerProxy.get(jpqlKey)
-        if (reducerProxy != null) {
-          if (isDeleted) {
-            val deleted = DeletedRecord(id)
-            reducerProxy ! deleted
-            //JPQLReducer.reducerProxy(context.system, jpqlKey) ! deleted
+        if (reducerProxy ne null) {
+          val toSend = if (isDeleted) {
+            DeletedRecord(id)
           } else {
-            val projection = new JPQLMapperSelect(id, meta).gatherProjection(record)
-            reducerProxy ! projection
-            //JPQLReducer.reducerProxy(context.system, jpqlKey) ! projection
+            new JPQLMapperSelect(id, meta).gatherProjection(record)
           }
+          reducerProxy ! toSend
         }
 
         context.system.scheduler.scheduleOnce(interval, self, ReportingTick(jpqlKey))
