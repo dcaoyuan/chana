@@ -21,7 +21,7 @@ object AEntity {
  * A typical entity class.
  * You can choose which deatures that you want by defining your custom Entity.
  */
-class AEntity private (val entityName: String, val schema: Schema, val builder: DefaultRecordBuilder, idleTimeout: Duration)
+final class AEntity private (val entityName: String, val schema: Schema, val builder: DefaultRecordBuilder, idleTimeout: Duration)
     extends Entity
     with XPathBehavior
     with ScriptBehavior

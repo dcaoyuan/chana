@@ -5,8 +5,6 @@ import chana.jpql.rats.JPQLGrammar
 import java.io.StringReader
 import xtc.tree.Node
 
-object JPQLParser {
-}
 final class JPQLParser() {
 
   private var indentLevel = 0

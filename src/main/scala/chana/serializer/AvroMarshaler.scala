@@ -9,7 +9,7 @@ import org.apache.avro.Schema
 import scala.collection.JavaConversions._
 import scala.util.{ Failure, Success }
 
-class AvroMarshaler(val schema: Schema) {
+final class AvroMarshaler(val schema: Schema) {
 
   implicit val byteOrder = ByteOrder.BIG_ENDIAN
 

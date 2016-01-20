@@ -109,7 +109,7 @@ object DistributedScriptBoard extends ExtensionId[DistributedScriptBoardExtensio
   val DataKey = LWWMapKey[String]("chana-scripts")
 }
 
-class DistributedScriptBoard extends Actor with ActorLogging {
+final class DistributedScriptBoard extends Actor with ActorLogging {
   import akka.cluster.ddata.Replicator._
 
   implicit val cluster = Cluster(context.system)

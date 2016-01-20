@@ -9,6 +9,7 @@ import scala.collection.immutable
 object JPQLMetaEvaluator {
   final case class QualedAttribute(qual: String, paths: List[String])
 }
+
 final class JPQLMetaEvaluator(jpqlKey: String, schemaBoard: SchemaBoard) extends JPQLEvaluator {
   import JPQLMetaEvaluator.QualedAttribute
 

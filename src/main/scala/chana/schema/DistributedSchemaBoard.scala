@@ -79,7 +79,7 @@ object DistributedSchemaBoard extends ExtensionId[DistributedSchemaBoardExtensio
   val DataKey = LWWMapKey[(String, Duration)]("chana--schemas")
 }
 
-class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActor {
+final class DistributedSchemaBoard extends Actor with ActorLogging with PersistentActor {
   import akka.cluster.ddata.Replicator._
 
   override def persistenceId: String = "distributed_schema_board"

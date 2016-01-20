@@ -64,7 +64,7 @@ object DistributedJPQLBoard extends ExtensionId[DistributedJPQLBoardExtension] w
   val DataKey = LWWMapKey[String]("chana-jpqls")
 }
 
-class DistributedJPQLBoard extends Actor with ActorLogging {
+final class DistributedJPQLBoard extends Actor with ActorLogging {
   import akka.cluster.ddata.Replicator._
 
   implicit val cluster = Cluster(context.system)

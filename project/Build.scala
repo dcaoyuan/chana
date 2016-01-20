@@ -129,10 +129,10 @@ object Dependencies {
 
   val akka = Seq(
     "com.typesafe.akka" %% "akka-actor" % AKKA_VERSION,
-    "com.typesafe.akka" %% "akka-cluster-tools" % AKKA_VERSION,
     "com.typesafe.akka" %% "akka-cluster-sharding" % AKKA_VERSION,
-    "com.typesafe.akka" %% "akka-distributed-data-experimental" % AKKA_VERSION,
+    "com.typesafe.akka" %% "akka-cluster-tools" % AKKA_VERSION,
     "com.typesafe.akka" %% "akka-contrib" % AKKA_VERSION,
+    "com.typesafe.akka" %% "akka-distributed-data-experimental" % AKKA_VERSION,
     "com.typesafe.akka" %% "akka-persistence" % AKKA_VERSION exclude ("org.iq80.leveldb", "leveldb"),
     "com.typesafe.akka" %% "akka-slf4j" % AKKA_VERSION,
     "com.typesafe.akka" %% "akka-testkit" % AKKA_VERSION % Test,
@@ -154,7 +154,7 @@ object Dependencies {
   val spray = Seq(
     "io.spray" %% "spray-can" % SPRAY_VERSION,
     "io.spray" %% "spray-routing-shapeless2" % SPRAY_VERSION,
-    "io.spray" %% "spray-testkit" % SPRAY_VERSION % "test")
+    "io.spray" %% "spray-testkit" % SPRAY_VERSION % Test)
 
   val rats = Seq("xtc" % "rats-runtime" % "2.3.1")
 
@@ -166,7 +166,7 @@ object Dependencies {
 
   val test = Seq(
     "org.scalamock" %% "scalamock-scalatest-support" % "3.2.1" % Test,
-    "org.scalatest" %% "scalatest" % "2.2.4" % "test")
+    "org.scalatest" %% "scalatest" % "2.2.4" % Test)
 
   val basic: Seq[sbt.ModuleID] = akka ++ akka_http ++ avro ++ jackson ++ spray ++ log ++ test
 
