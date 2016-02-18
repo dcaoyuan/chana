@@ -22,7 +22,7 @@ object ChanaAkkaHttp extends scala.App {
   }
 
   val webConfig = system.settings.config.getConfig("chana.web")
-  val source = Http().bind(interface = webConfig.getString("interface"), port = webConfig.getInt("port"))
+  val source = Http().bind(webConfig.getString("interface"), webConfig.getInt("port"))
   source.runForeach { conn =>
     conn.handleWith(route)
   }

@@ -123,8 +123,7 @@ object Build extends sbt.Build {
 
 object Dependencies {
   val SLF4J_VERSION = "1.7.7"
-  val AKKA_VERSION = "2.4.1"
-  val AKKA_STREAM_VERSION = "2.0.2"
+  val AKKA_VERSION = "2.4.2"
   val SPRAY_VERSION = "1.3.3"
 
   val akka = Seq(
@@ -142,9 +141,9 @@ object Dependencies {
     "com.github.krasserm" %% "akka-persistence-cassandra" % "0.3.6" % Runtime)
 
   val akka_http = Seq(
-    "com.typesafe.akka" %% "akka-stream-experimental" % AKKA_STREAM_VERSION,
-    "com.typesafe.akka" %% "akka-http-core-experimental" % AKKA_STREAM_VERSION,
-    "com.typesafe.akka" %% "akka-http-experimental" % AKKA_STREAM_VERSION)
+    "com.typesafe.akka" %% "akka-stream" % AKKA_VERSION,
+    "com.typesafe.akka" %% "akka-http-core" % AKKA_VERSION,
+    "com.typesafe.akka" %% "akka-http-experimental" % AKKA_VERSION)
 
   val avro = Seq(
     "org.apache.avro" % "avro" % "1.7.7")
