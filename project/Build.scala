@@ -46,8 +46,7 @@ object Build extends sbt.Build {
       "Sonatype OSS Releases" at "https://oss.sonatype.org/content/repositories/releases",
       "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
       "Typesafe repo" at "http://repo.typesafe.com/typesafe/releases/",
-      "patriknw at bintray" at "http://dl.bintray.com/patriknw/maven",
-      "krasserm at bintray" at "http://dl.bintray.com/krasserm/maven"))
+      "patriknw at bintray" at "http://dl.bintray.com/patriknw/maven"))
 
   // Todo rewrite sbt-avro to compile in Test phase.
   lazy val avroSettings = sbtavro.SbtAvro.avroSettings ++ Seq(
@@ -136,9 +135,9 @@ object Dependencies {
     "com.typesafe.akka" %% "akka-slf4j" % AKKA_VERSION,
     "com.typesafe.akka" %% "akka-testkit" % AKKA_VERSION % Test,
     "com.typesafe.akka" %% "akka-multi-node-testkit" % AKKA_VERSION % Test,
+    "com.typesafe.akka" %% "akka-persistence-cassandra" % "0.11" % Runtime,
     "org.iq80.leveldb" % "leveldb" % "0.7" % Runtime,
-    "org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8" % Runtime,
-    "com.github.krasserm" %% "akka-persistence-cassandra" % "0.3.6" % Runtime)
+    "org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8" % Runtime)
 
   val akka_http = Seq(
     "com.typesafe.akka" %% "akka-stream" % AKKA_VERSION,
