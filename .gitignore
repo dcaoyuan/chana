@@ -18,3 +18,7 @@ project/plugins/project/
 .scala_dependencies
 .worksheet
 .classpath_nb
+
+# IntelliJ
+/.idea/
+
