@@ -53,7 +53,7 @@ object Build extends sbt.Build {
     sbtavro.SbtAvro.stringType in sbtavro.SbtAvro.avroConfig := "String",
     sourceDirectory in sbtavro.SbtAvro.avroConfig <<= (resourceDirectory in Test)(_ / "avsc"),
     javaSource in sbtavro.SbtAvro.avroConfig <<= (sourceManaged in Test)(_ / "java" / "compiled_avro"),
-    version in sbtavro.SbtAvro.avroConfig := "1.7.7",
+    version in sbtavro.SbtAvro.avroConfig := "1.8.0",
     sourceGenerators in Test <+= (sbtavro.SbtAvro.generate in sbtavro.SbtAvro.avroConfig),
     managedSourceDirectories in Test <+= (javaSource in sbtavro.SbtAvro.avroConfig))
 
@@ -145,7 +145,7 @@ object Dependencies {
     "com.typesafe.akka" %% "akka-http-experimental" % AKKA_VERSION)
 
   val avro = Seq(
-    "org.apache.avro" % "avro" % "1.7.7")
+    "org.apache.avro" % "avro" % "1.8.0")
 
   val jackson = Seq("com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.6.3")
 
