@@ -59,7 +59,7 @@ object JPQLReducer {
   def reducerManagerPath(key: String) = "/user/" + reducerManagerName(key)
   def reducerPath(key: String) = reducerManagerPath(key) + "/" + key
   def reducerProxyName(key: String) = "jpqlReducerProxy-" + key
-  def reducerProxyPath(key: String) = "/user/" + reducerProxyName(key) + "/" + key
+  def reducerProxyPath(key: String) = "/user/" + reducerProxyName(key)
 
   def startReducer(system: ActorSystem, role: Option[String], key: String, meta: JPQLMeta) = {
     val settings = ClusterSingletonManagerSettings(system).withRole(role).withSingletonName(key)
@@ -67,8 +67,7 @@ object JPQLReducer {
       ClusterSingletonManager.props(
         singletonProps = props(key, meta),
         terminationMessage = PoisonPill,
-        settings = settings),
-      name = reducerManagerName(key))
+        settings = settings), name = reducerManagerName(key))
   }
 
   def startReducerProxy(system: ActorSystem, role: Option[String], key: String): ActorRef = {
@@ -76,8 +75,7 @@ object JPQLReducer {
     val proxy = system.actorOf(
       ClusterSingletonProxy.props(
         singletonManagerPath = reducerManagerPath(key),
-        settings = settings),
-      name = reducerProxyName(key))
+        settings = settings), name = reducerProxyName(key))
     ClusterClientReceptionist(system).registerService(proxy)
     proxy
   }

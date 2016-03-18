@@ -93,7 +93,7 @@ object ChanaClusterSpecConfig extends MultiNodeConfig {
           "chana.jpql.DistributedJPQLBoard"
         ]
 
-        akka.contrib.cluster.sharding.role = "chana-entity"
+        akka.cluster.sharding.role = "chana-entity"
         akka.cluster.roles = ["chana-entity", "chana-jpql"]
 
         akka.remote.netty.tcp.port = 2551
@@ -110,7 +110,7 @@ object ChanaClusterSpecConfig extends MultiNodeConfig {
           "chana.jpql.DistributedJPQLBoard"
         ]
 
-        akka.contrib.cluster.sharding.role = "chana-entity"
+        akka.cluster.sharding.role = "chana-entity"
         akka.cluster.roles = ["chana-entity", "chana-jpql"]
 
         akka.remote.netty.tcp.port = 2552
