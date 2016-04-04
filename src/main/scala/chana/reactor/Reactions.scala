@@ -37,4 +37,4 @@ final class Reactions(log: () => LoggingAdapter) extends Receive {
 
 }
 
-case class ReactionsException(actorMessage: Any, originalException: Throwable) extends RuntimeException("Exception due to message")
+final case class ReactionsException(actorMessage: Any, originalException: Throwable) extends RuntimeException("Exception on message: " + actorMessage)
