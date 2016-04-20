@@ -299,6 +299,7 @@ trait Entity extends Actor with Stash with PersistentActor {
   private def doCommit(actions: List[UpdateAction], commander: ActorRef)(event: UpdateEvent) {
     actions foreach { _.commit() }
 
+    persistCount += 1
     if (persistCount >= persistParams) {
       if (isPersistent) {
         saveSnapshot(avro.avroEncode(record, schema).get)
@@ -306,8 +307,6 @@ trait Entity extends Actor with Stash with PersistentActor {
       // if saveSnapshot failed, we don't care about it, since we've got 
       // events persisted. Anyway, we'll try saveSnapshot at next round
       persistCount = 0
-    } else {
-      persistCount += 1
     }
 
     commander ! Success(id)
