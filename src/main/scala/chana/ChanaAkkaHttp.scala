@@ -28,7 +28,7 @@ object ChanaAkkaHttp extends scala.App {
   }
 }
 
-class ChanaRouteAkka(val system: ActorSystem) extends RestRouteAkka with Directives {
+final class ChanaRouteAkka(val system: ActorSystem) extends RestRouteAkka with Directives {
   val readTimeout: Timeout = 5.seconds
   val writeTimeout: Timeout = 5.seconds
 

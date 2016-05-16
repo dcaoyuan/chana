@@ -3,6 +3,7 @@ package chana
 import akka.actor.{ ActorLogging, Actor, Props, ActorSystem }
 import akka.io.IO
 import akka.persistence.Persistence
+import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import chana.rest.RestRoute
 import spray.can.Http
@@ -15,9 +16,10 @@ import scala.concurrent.duration._
  */
 object Chana extends scala.App {
   implicit val system = ActorSystem("ChanaSystem")
+  implicit val materializer = ActorMaterializer()
 
   val route = Directives.respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
-    new ChanaRoute(system).route
+    new ChanaRoute(system, materializer).route
   }
 
   val server = system.actorOf(RestServer.props(route), "chana-web")
@@ -26,7 +28,7 @@ object Chana extends scala.App {
   IO(Http) ! Http.Bind(server, webConfig.getString("interface"), webConfig.getInt("port"))
 }
 
-final class ChanaRoute(val system: ActorSystem) extends RestRoute with Directives {
+final class ChanaRoute(val system: ActorSystem, val materializer: ActorMaterializer) extends RestRoute {
   val readTimeout: Timeout = 5.seconds
   val writeTimeout: Timeout = 5.seconds
 

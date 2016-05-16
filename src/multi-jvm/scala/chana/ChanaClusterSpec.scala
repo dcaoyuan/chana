@@ -9,6 +9,7 @@ import akka.persistence.Persistence
 import akka.persistence.journal.leveldb.{SharedLeveldbJournal, SharedLeveldbStore}
 import akka.remote.testconductor.RoleName
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
+import akka.stream.ActorMaterializer
 import akka.testkit.ImplicitSender
 import chana.jpql.DistributedJPQLBoard
 import chana.script.DistributedScriptBoard
@@ -254,6 +255,7 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
     "start cluster" in within(30.seconds) {
 
       val cluster = Cluster(system)
+      implicit val materializer = ActorMaterializer()
 
       join(entity1, entity1)
       join(entity2, entity1)
@@ -262,7 +264,7 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
       runOn(entity1, entity2) { 
 
         val routes = Directives.respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
-          new ChanaRoute(system).route
+          new ChanaRoute(system, materializer).route
         }
 
         val server = system.actorOf(RestServer.props(routes), "chana-web")

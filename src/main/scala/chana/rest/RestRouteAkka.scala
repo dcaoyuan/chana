@@ -6,7 +6,6 @@ import akka.http.scaladsl.model.StatusCode
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives
 import akka.pattern.ask
-import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import chana.jpql.DistributedJPQLBoard
 import chana.schema.DistributedSchemaBoard
@@ -20,7 +19,6 @@ import scala.util.Try
 
 trait RestRouteAkka extends Directives {
   implicit val system: ActorSystem
-  implicit val materializer = ActorMaterializer()
   import system.dispatcher
 
   def readTimeout: Timeout
@@ -314,7 +312,7 @@ trait RestRouteAkka extends Directives {
   }
 
   private def withJson(f: => Future[Any]): Future[String] = f.mapTo[Try[Array[Byte]]].map {
-    case Success(json: Array[Byte]) => new String(json)
-    case Failure(_)                 => ""
+    case Success(json) => new String(json)
+    case Failure(_)    => ""
   }
 }
