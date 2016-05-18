@@ -1,9 +1,13 @@
 package chana
 
 import akka.actor.ActorSystem
+import akka.event.Logging
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.server.Directives
+import akka.http.scaladsl.server.RouteResult.Complete
+import akka.http.scaladsl.server.directives.LogEntry
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import chana.rest.RestRouteAkka
@@ -28,10 +32,27 @@ object ChanaAkkaHttp extends scala.App {
   }
 }
 
-final class ChanaRouteAkka(val system: ActorSystem) extends RestRouteAkka with Directives {
+final class ChanaRouteAkka(val system: ActorSystem)(implicit val m: ActorMaterializer) extends RestRouteAkka with Directives {
   val readTimeout: Timeout = 5.seconds
   val writeTimeout: Timeout = 5.seconds
+  import system.dispatcher
 
-  val route = ping ~ restApi
+  def route = ping ~ restApi
+
+  def routeWithLogging = logAccess(route)
+
+  private def logAccess = logRequestResult(accessLogFunc)
+  private def accessLogFunc: HttpRequest => (Any => Option[LogEntry]) = { req =>
+    // we should remember request first, at here
+    val requestTime = System.currentTimeMillis
+    val func: Any => Option[LogEntry] = {
+      case Complete(resp) =>
+        Some(LogEntry(
+          s"Access log: ${req.method} ${req.uri} ${resp.status} " +
+            s"${System.currentTimeMillis - requestTime} ${resp.entity.contentLengthOption.getOrElse(-1)}", Logging.InfoLevel))
+      case _ => None
+    }
+    func
+  }
 }
 
