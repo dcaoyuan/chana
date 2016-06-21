@@ -63,7 +63,7 @@ final class JPQLMapperUpdate(val id: String, meta: JPQLUpdate) extends JPQLEvalu
   private def opUpdate(attr: String, v: Any, record: IndexedRecord, xpath: String): UpdateAction = {
     val field = record.getSchema.getField(attr)
     val value = v match {
-      case x: JsonNode => avro.FromJson.fromJsonNode(x, field.schema)
+      case x: JsonNode => avro.FromJson.fromJson(x, field.schema)
       case x           => x
     }
 

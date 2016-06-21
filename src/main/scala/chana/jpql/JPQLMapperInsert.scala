@@ -88,7 +88,7 @@ final class JPQLMapperInsert(val id: String, meta: JPQLInsert) extends JPQLEvalu
         case Schema.Type.ARRAY =>
           val elemSchema = avro.getElementType(field.schema)
           val value = v match {
-            case x: JsonNode => avro.FromJson.fromJsonNode(x, elemSchema)
+            case x: JsonNode => avro.FromJson.fromJson(x, elemSchema)
             case x           => x
           }
 
@@ -114,7 +114,7 @@ final class JPQLMapperInsert(val id: String, meta: JPQLInsert) extends JPQLEvalu
               if (kvs.hasNext) {
                 val kv = kvs.next
                 val k = kv.getKey
-                (k, avro.FromJson.fromJsonNode(kv.getValue, valueSchema))
+                (k, avro.FromJson.fromJson(kv.getValue, valueSchema))
               } else {
                 throw JPQLRuntimeException(x, "does not contain anything")
               }
@@ -138,7 +138,7 @@ final class JPQLMapperInsert(val id: String, meta: JPQLInsert) extends JPQLEvalu
 
         case _ =>
           val value = v match {
-            case x: JsonNode => avro.FromJson.fromJsonNode(x, field.schema)
+            case x: JsonNode => avro.FromJson.fromJson(x, field.schema)
             case x           => x
           }
 

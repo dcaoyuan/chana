@@ -27,22 +27,22 @@ class AvroSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
     s"using GenericRecordBuilder to create new record:" should {
       val account = accountBuilder.build()
       info("Account: \n" + account)
-      val fromJsonAccountDefault = FromJson.fromJsonString(jsonAccountDefault, schema)
+      val fromJsonAccountDefault = FromJson.fromJson(jsonAccountDefault, schema)
       s"be filled with default value as:\n ${fromJsonAccountDefault}" in {
         account should be(fromJsonAccountDefault)
       }
     }
 
     s"an uncomplete json:\n ${jsonAccountUncomplete} \n its uncompleted fields" should {
-      val fromJsonAccount1 = FromJson.fromJsonString(jsonAccountUncomplete, schema).asInstanceOf[GenericData.Record]
-      val fromJsonAccountFilled1 = FromJson.fromJsonString(jsonAccountFilled, schema)
-      s"be filled with default value by FromJson.fromJsonString (generic) as:\n ${fromJsonAccountFilled1}" in {
+      val fromJsonAccount1 = FromJson.fromJson(jsonAccountUncomplete, schema).asInstanceOf[GenericData.Record]
+      val fromJsonAccountFilled1 = FromJson.fromJson(jsonAccountFilled, schema)
+      s"be filled with default value by FromJson.fromJson (generic) as:\n ${fromJsonAccountFilled1}" in {
         fromJsonAccount1 should be(fromJsonAccountFilled1)
       }
 
-      val fromJsonAccount2 = FromJson.fromJsonString(jsonAccountUncomplete, schema, true)
-      val fromJsonAccountFilled2 = FromJson.fromJsonString(jsonAccountFilled, schema, true)
-      s"be filled with default value by FromJson.fromJsonString (specified) as:\n ${fromJsonAccountFilled2}" in {
+      val fromJsonAccount2 = FromJson.fromJson(jsonAccountUncomplete, schema, true)
+      val fromJsonAccountFilled2 = FromJson.fromJson(jsonAccountFilled, schema, true)
+      s"be filled with default value by FromJson.fromJson (specified) as:\n ${fromJsonAccountFilled2}" in {
         fromJsonAccount2 should be(fromJsonAccountFilled2)
       }
 
@@ -53,15 +53,15 @@ class AvroSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
     }
 
     s"a real world json:\n ${jsonAccountReal} \n " should {
-      val fromJsonAccount1 = FromJson.fromJsonString(jsonAccountReal, schema)
-      val fromJsonAccountReal1 = FromJson.fromJsonString(ToJson.toJsonString(fromJsonAccount1, schema), schema)
-      s"be exactly the same as the one decoded from FromJson.fromJsonString (generic) as:\n ${fromJsonAccountReal1}" in {
+      val fromJsonAccount1 = FromJson.fromJson(jsonAccountReal, schema)
+      val fromJsonAccountReal1 = FromJson.fromJson(ToJson.toJsonString(fromJsonAccount1, schema), schema)
+      s"be exactly the same as the one decoded from FromJson.fromJson (generic) as:\n ${fromJsonAccountReal1}" in {
         fromJsonAccountReal1 should be(fromJsonAccount1)
       }
 
-      val fromJsonAccount2 = FromJson.fromJsonString(jsonAccountReal, schema, true)
-      val fromJspnAccountReal2 = FromJson.fromJsonString(ToJson.toJsonString(fromJsonAccount2, schema), schema, true)
-      s"be exactly the same as the one decoded from FromJson.fromJsonString (specified)as:\n ${fromJspnAccountReal2}" in {
+      val fromJsonAccount2 = FromJson.fromJson(jsonAccountReal, schema, true)
+      val fromJspnAccountReal2 = FromJson.fromJson(ToJson.toJsonString(fromJsonAccount2, schema), schema, true)
+      s"be exactly the same as the one decoded from FromJson.fromJson (specified)as:\n ${fromJspnAccountReal2}" in {
         fromJspnAccountReal2 should be(fromJsonAccount2)
       }
     }
@@ -102,7 +102,7 @@ class AvroSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
     val avroDecodedGeneric1 = avroDecode[GenericData.Array[GenericData.Record]](avroEncodedSpecified1, chargeRecordsSchema, false).get
 
     val jsonEncoded = ToJson.toJsonString(chargeRecords, chargeRecordsSchema)
-    val jsonDecoded = FromJson.fromJsonString(jsonEncoded, chargeRecordsSchema)
+    val jsonDecoded = FromJson.fromJson(jsonEncoded, chargeRecordsSchema)
 
     s"avroEncode GenericRecords in length: ${avroEncoded.length}" should {
       "avroDecode to GenericRecords" in {

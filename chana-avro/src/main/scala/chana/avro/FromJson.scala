@@ -2,6 +2,7 @@ package chana.avro
 
 import java.io.ByteArrayInputStream
 import java.io.IOException
+import java.io.InputStream
 import org.apache.avro.Schema
 import org.apache.avro.Schema.Type
 import org.apache.avro.generic.GenericData
@@ -30,7 +31,8 @@ object FromJson {
    * @throws IOException on error.
    */
   @throws(classOf[IOException])
-  def fromJsonNode(json: JsonNode, schema: Schema, specific: Boolean = false): Any = {
+  def fromJson(json: JsonNode, schema: Schema): Any = fromJson(json, schema, false)
+  def fromJson(json: JsonNode, schema: Schema, specific: Boolean): Any = {
     schema.getType match {
       case Type.INT =>
         if (json.isInt) {
@@ -84,7 +86,7 @@ object FromJson {
 
             while (itr.hasNext) {
               val element = itr.next
-              addGenericArray(arr, fromJsonNode(element, schema.getElementType, specific))
+              addGenericArray(arr, fromJson(element, schema.getElementType, specific))
             }
             arr
           } else {
@@ -103,7 +105,7 @@ object FromJson {
 
             while (itr.hasNext) {
               val entry = itr.next
-              map.put(entry.getKey, fromJsonNode(entry.getValue, schema.getValueType, specific))
+              map.put(entry.getKey, fromJson(entry.getValue, schema.getValueType, specific))
             }
             map
           } else {
@@ -126,7 +128,7 @@ object FromJson {
               val name = field.name
               val element = json.get(name)
               if (element != null) {
-                val value = fromJsonNode(element, field.schema, specific)
+                val value = fromJson(element, field.schema, specific)
                 record.put(field.pos, value)
               } else {
                 val defaultValue = if (field.defaultValue != null) {
@@ -134,7 +136,7 @@ object FromJson {
                 } else {
                   DefaultJsonNode.nodeOf(field)
                 }
-                record.put(field.pos, fromJsonNode(defaultValue, field.schema, specific))
+                record.put(field.pos, fromJson(defaultValue, field.schema, specific))
               }
               fields -= name
             }
@@ -148,7 +150,7 @@ object FromJson {
         }
 
       case Type.UNION =>
-        fromUnionJsonNode(json, schema, specific)
+        fromUnionJson(json, schema, specific)
 
       case Type.NULL =>
         if (json.isNull) {
@@ -187,7 +189,8 @@ object FromJson {
    * @throws IOException on error.
    */
   @throws(classOf[IOException])
-  private def fromUnionJsonNode(json: JsonNode, schema: Schema, specified: Boolean): Any = {
+  private def fromUnionJson(json: JsonNode, schema: Schema): Any = fromUnionJson(json, schema, false)
+  private def fromUnionJson(json: JsonNode, schema: Schema, specified: Boolean): Any = {
     if (schema.getType != Type.UNION) {
       throw new IOException("Avro schema specifies '%s' but got JSON value: '%s'.".format(schema, json))
     }
@@ -195,7 +198,7 @@ object FromJson {
     try {
       val optionalType = getFirstNonNullTypeOfUnion(schema)
       if (optionalType != null) {
-        return if (json.isNull) null else fromJsonNode(json, optionalType, specified)
+        return if (json.isNull) null else fromJson(json, optionalType, specified)
       }
     } catch {
       case ex: IOException => // Union value may be wrapped, ignore.
@@ -225,7 +228,7 @@ object FromJson {
       while (typesIter.hasNext) {
         val tpe = typesIter.next
         if (tpe.getFullName == typeName) {
-          return fromJsonNode(actualNode, tpe, specified)
+          return fromJson(actualNode, tpe, specified)
         }
       }
     }
@@ -235,7 +238,7 @@ object FromJson {
     while (typesIter1.hasNext) {
       val tpe = typesIter1.next
       try {
-        return fromJsonNode(json, tpe, specified)
+        return fromJson(json, tpe, specified)
       } catch {
         case ex: IOException => // Wrong union type case.
       }
@@ -253,11 +256,12 @@ object FromJson {
    * @throws IOException on error.
    */
   @throws(classOf[IOException])
-  def fromJsonString(json: String, schema: Schema, specific: Boolean = false): Any = {
+  def fromJson(json: String, schema: Schema): Any = fromJson(json, schema, false)
+  def fromJson(json: String, schema: Schema, specific: Boolean): Any = {
     val parser = JSON_FACTORY.createJsonParser(json)
     val root = JSON_MAPPER.readTree(parser)
     parser.close()
-    fromJsonNode(root, schema, specific)
+    fromJson(root, schema, specific)
   }
 
   /**
@@ -269,11 +273,21 @@ object FromJson {
    * @throws IOException on error.
    */
   @throws(classOf[IOException])
-  def fromJsonBytes(json: Array[Byte], schema: Schema, specific: Boolean = false): Any = {
+  def fromJson(json: Array[Byte], schema: Schema): Any = fromJson(json, schema, false)
+  def fromJson(json: Array[Byte], schema: Schema, specific: Boolean): Any = {
     val parser = JSON_FACTORY.createJsonParser(json)
     val root = JSON_MAPPER.readTree(parser)
     parser.close()
-    fromJsonNode(root, schema, specific)
+    fromJson(root, schema, specific)
+  }
+
+  @throws(classOf[IOException])
+  def fromJson(json: InputStream, schema: Schema): Any = fromJson(json, schema, false)
+  def fromJson(json: InputStream, schema: Schema, specific: Boolean): Any = {
+    val parser = JSON_FACTORY.createJsonParser(json)
+    val root = JSON_MAPPER.readTree(parser)
+    parser.close()
+    fromJson(root, schema, specific)
   }
 
   /**

@@ -146,14 +146,14 @@ package object avro {
   def jsonDecode(json: String, schema: Schema): Try[_] = jsonDecode(json, schema, false)
   def jsonDecode(json: String, schema: Schema, specific: Boolean): Try[_] = {
     Try {
-      FromJson.fromJsonString(json, schema, specific)
+      FromJson.fromJson(json, schema, specific)
     }
   }
 
   def jsonDecode(json: Array[Byte], schema: Schema): Try[_] = jsonDecode(json, schema, false)
   def jsonDecode(json: Array[Byte], schema: Schema, specific: Boolean): Try[_] =
     Try {
-      FromJson.fromJsonBytes(json, schema, specific)
+      FromJson.fromJson(json, schema, specific)
     }
 
   def newGenericArray(capacity: Int, schema: Schema): GenericData.Array[_] = {
