@@ -126,19 +126,29 @@ object FromJson {
             while (itr.hasNext) {
               val field = itr.next
               val name = field.name
-              val element = json.get(name)
-              if (element != null) {
-                val value = fromJson(element, field.schema, specific)
-                record.put(field.pos, value)
-              } else {
+              val deCamelCaseName = deCamelCase(name)
+              var node = json.get(name)
+              if (node == null) {
+                node = json.get(deCamelCaseName)
+              }
+
+              val value = if (node != null) {
+                fromJson(node, field.schema, specific)
+              } else { // assign default value
                 val defaultValue = if (field.defaultValue != null) {
                   field.defaultValue
                 } else {
-                  DefaultJsonNode.nodeOf(field)
+                  DefaultJsonNode.of(field)
                 }
-                record.put(field.pos, fromJson(defaultValue, field.schema, specific))
+                fromJson(defaultValue, field.schema, specific)
               }
-              fields -= name
+              record.put(field.pos, value)
+
+              if (fields.contains(name)) {
+                fields -= name
+              } else {
+                fields -= deCamelCaseName
+              }
             }
             if (!fields.isEmpty) {
               throw new IOException("Error parsing Avro record '%s' with unexpected fields: %s.".format(schema.getFullName, fields.mkString(",")))
@@ -399,5 +409,28 @@ object FromJson {
       }
     }
     if (firstNonNullType != null) firstNonNullType else schema.getTypes.get(0)
+  }
+
+  private def deCamelCase(s: String): String = {
+    val sb = new StringBuilder()
+    val l = s.length
+    var i = 1
+    if (l > 0) {
+      sb.append(s.charAt(0))
+    }
+    while (i < l) {
+      val c = s.charAt(i)
+      if (c.isUpper) {
+        sb.append("_").append(c.toLower)
+      } else {
+        sb.append(c)
+      }
+      i += 1
+    }
+    sb.toString
+  }
+
+  private def cap(s: String): String = {
+    s.substring(0, 1).toUpperCase + s.substring(1).toLowerCase
   }
 }

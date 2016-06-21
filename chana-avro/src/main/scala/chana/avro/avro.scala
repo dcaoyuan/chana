@@ -69,7 +69,7 @@ package object avro {
       Type.BOOLEAN -> JSON_NODE_FACTORY.booleanNode(false),
       Type.NULL -> JSON_NODE_FACTORY.nullNode)
 
-    def nodeOf(field: Schema.Field): JsonNode = typeToNode(field.schema.getType)
+    def of(field: Schema.Field): JsonNode = typeToNode(field.schema.getType)
   }
 
   /**
