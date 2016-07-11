@@ -38,7 +38,7 @@ object Build extends sbt.Build {
   lazy val basicSettings = Seq(
     organization := "com.wandoulabs.chana",
     version := "0.2.0-SNAPSHOT",
-    scalaVersion := "2.11.7",
+    scalaVersion := "2.11.8",
     scalacOptions ++= Seq("-unchecked", "-deprecation"),
     javacOptions ++= Seq("-source", "1.6", "-target", "1.6", "-g"),
     resolvers ++= Seq(
@@ -122,7 +122,7 @@ object Build extends sbt.Build {
 
 object Dependencies {
   val SLF4J_VERSION = "1.7.7"
-  val AKKA_VERSION = "2.4.7"
+  val AKKA_VERSION = "2.4.8"
   val SPRAY_VERSION = "1.3.3"
 
   val akka = Seq(
