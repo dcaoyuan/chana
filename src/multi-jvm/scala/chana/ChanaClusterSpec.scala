@@ -342,7 +342,7 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
       enterBarrier("rest-called")
     }
 
-    "do script on updated" in within(30.seconds) {
+    "do script on updated" in within(120.seconds) {
       enterBarrier("rest-called")
 
       runOn(client1) {
@@ -354,12 +354,12 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
         var a = record.get("age");
         print_me(a);
         print_me(http_get);
-        var http_get_result = http_get.apply("http://localhost:8081/ping", 5);
+        var http_get_result = http_get.apply("http://localhost:8081/ping", 10);
         print_me(http_get_result);
         java.lang.Thread.sleep(1000);
         print_me(http_get_result.value());
 
-        var http_post_result = http_post.apply("http://localhost:8081/personinfo/put/2/age", "888", 5);
+        var http_post_result = http_post.apply("http://localhost:8081/personinfo/put/2/age", "888", 10);
         print_me(http_post_result);
         java.lang.Thread.sleep(1000);
         print_me(http_post_result.value());
@@ -384,28 +384,28 @@ class ChanaClusterSpec extends MultiNodeSpec(ChanaClusterSpecConfig) with STMult
         expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
 
         IO(Http) ! Post(baseUrl1 + "/personinfo/update/1", ".\n{'name':'James Not Bond','age':60}")
-        expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
+        expectMsgType[HttpResponse](10.seconds).entity.asString should be("OK")
 
         awaitAssert {
           IO(Http) ! Get(baseUrl1 + "/personinfo/get/1/name")
-          expectMsgType[HttpResponse](5.seconds).entity.asString should be("\"James Not Bond\"")
+          expectMsgType[HttpResponse](10.seconds).entity.asString should be("\"James Not Bond\"")
         }
 
         // awaitAssert script's http_post.apply("http://localhost:8081/personinfo/put/2/age", "888"), which was triggered by name updated.
         awaitAssert {
           IO(Http) ! Get(baseUrl1 + "/personinfo/get/2/age")
-          expectMsgType[HttpResponse](5.seconds).entity.asString should be("888")
+          expectMsgType[HttpResponse](30.seconds).entity.asString should be("888")
         }
         awaitAssert {
           IO(Http) ! Get(baseUrl2 + "/personinfo/get/2/age")
-          expectMsgType[HttpResponse](5.seconds).entity.asString should be("888")
+          expectMsgType[HttpResponse](30.seconds).entity.asString should be("888")
         }
 
         IO(Http) ! Post(baseUrl2 + "/personinfo/put/1/age", "100")
-        expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
+        expectMsgType[HttpResponse](10.seconds).entity.asString should be("OK")
 
         IO(Http) ! Get(baseUrl1 + "/personinfo/script/del/name/SCRIPT_NO_1")
-        expectMsgType[HttpResponse](5.seconds).entity.asString should be("OK")
+        expectMsgType[HttpResponse](10.seconds).entity.asString should be("OK")
 
         enterBarrier("script-done")
       }
