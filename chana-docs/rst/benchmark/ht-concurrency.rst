@@ -88,8 +88,8 @@ Benchmark chart
 Observation
 -----------
 
-- The 2 threads of akka-io selectors kept < 60%
-- The default-dispatcher threads (from 1 to 22) kept about 90%
+- The CPU usages of 2 threads of akka-io selectors kept < 60%
+- The CPU usages of default-dispatcher threads (from 1 to 22) kept about 90%
 - There were other jvm threads kept about 10%
 - The throughput scaled almost linearly when parallelism-max <= 13
 - The throughput did not scale any more when parallelism-max >= 18, and the total CPU usage kept 100% therefrom
@@ -97,5 +97,5 @@ Observation
 Conclusion
 ----------
 - Akka scales very well under multiple-core machine
-- By enabling Intel© Hyper-Threading, you can acheive about 25% more throughput after total CPU usage reached 50%
+- By enabling Intel© Hyper-Threading, you can acheive about 25% more throughput after total CPU usage reached 50% (means all physiscal cores were engaged)
 
